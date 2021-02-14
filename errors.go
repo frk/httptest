@@ -45,7 +45,7 @@ func (e *testError) TestIndex() string {
 	return strconv.Itoa(e.s.i)
 }
 
-func (e *testError) TableEpt() string {
+func (e *testError) EndpointEpt() string {
 	return e.s.ept
 }
 
@@ -77,7 +77,7 @@ func (e *testError) GotStatus() string {
 }
 
 func (e *testError) WantStatus() string {
-	return strconv.Itoa(e.s.tt.Response.Status)
+	return strconv.Itoa(e.s.tt.Response.StatusCode)
 }
 
 func (e *testError) HeaderKey() string {
@@ -102,7 +102,7 @@ func (e errorCode) name() string { return fmt.Sprintf("error_template_%d", e) }
 
 const (
 	_ errorCode = iota
-	errTableEpt
+	errEndpointEpt
 	errTestSetup
 	errTestTeardown
 	errRequestBodyReader
@@ -114,8 +114,8 @@ const (
 )
 
 var output_template_string = `
-{{ define "` + errTableEpt.name() + `" -}}
-{{Wb "frk/httptest"}}: Bad Table.Ept string {{R}}"{{.TableEpt}}"{{off}}.
+{{ define "` + errEndpointEpt.name() + `" -}}
+{{Wb "frk/httptest"}}: Bad Endpoint.Ept string {{R}}"{{.EndpointEpt}}"{{off}}.
  - The Ept string must be of the format "METHOD PATTERN" where METHOD is the endpoint's HTTP method
    and PATTERN is the endpoint's URL path pattern, and they must be separated by a single space,
    for example: "GET /foo/{id}/bar".
@@ -132,22 +132,22 @@ var output_template_string = `
 {{ end }}
 
 {{ define "` + errRequestBodyReader.name() + `" -}}
-{{Wb "frk/httptest"}}: "{{.TableEpt}}" test #{{.TestIndex}} ({{.RequestBodyType}}).Reader() call returned an error.
+{{Wb "frk/httptest"}}: "{{.EndpointEpt}}" test #{{.TestIndex}} ({{.RequestBodyType}}).Reader() call returned an error.
  - {{R .Err}}
 {{ end }}
 
 {{ define "` + errRequestNew.name() + `" -}}
-{{Wb "frk/httptest"}}: "{{.TableEpt}}" test #{{.TestIndex}} http.NewRequest call returned an error.
+{{Wb "frk/httptest"}}: "{{.EndpointEpt}}" test #{{.TestIndex}} http.NewRequest call returned an error.
  - {{R .Err}}
 {{ end }}
 
 {{ define "` + errRequestSend.name() + `" -}}
-{{Wb "frk/httptest"}}: "{{.TableEpt}}" test #{{.TestIndex}} (*http.Client).Do call returned an error.
+{{Wb "frk/httptest"}}: "{{.EndpointEpt}}" test #{{.TestIndex}} (*http.Client).Do call returned an error.
  - {{R .Err}}
 {{ end }}
 
 {{ define "` + errResponseStatus.name() + `" -}}
-{{Wb "frk/httptest"}}: "{{.TableEpt}}" test #{{.TestIndex}} failed.
+{{Wb "frk/httptest"}}: "{{.EndpointEpt}}" test #{{.TestIndex}} failed.
 http.Response.StatusCode got={{R .GotStatus}}, want={{C .WantStatus}}
 {{- with .RequestHeader }}
  - Request.Header: {{Y .}}
@@ -158,7 +158,7 @@ http.Response.StatusCode got={{R .GotStatus}}, want={{C .WantStatus}}
 {{ end }}
 
 {{ define "` + errResponseHeader.name() + `" -}}
-{{Wb "frk/httptest"}}: "{{.TableEpt}}" test #{{.TestIndex}} failed.
+{{Wb "frk/httptest"}}: "{{.EndpointEpt}}" test #{{.TestIndex}} failed.
 http.Response.Header["{{.HeaderKey}}"] got={{R .GotHeader}}, want={{C .WantHeader}}
 {{- with .RequestHeader }}
  - Request.Header: {{Y .}}
@@ -169,7 +169,7 @@ http.Response.Header["{{.HeaderKey}}"] got={{R .GotHeader}}, want={{C .WantHeade
 {{ end }}
 
 {{ define "` + errResponseBody.name() + `" -}}
-{{Wb "frk/httptest"}}: "{{.TableEpt}}" test #{{.TestIndex}} failed.
+{{Wb "frk/httptest"}}: "{{.EndpointEpt}}" test #{{.TestIndex}} failed.
 http.Response.Body mismatch:
 {{.Err}}
 {{- with .RequestHeader }}

@@ -6,15 +6,19 @@ import (
 	"strings"
 )
 
-// A TestTable type holds a list of tests to be executed against an API endpoint.
-type TestTable struct {
-	// The Ept string is the endpoint to be tested, it must be of the format "METHOD PATTERN",
-	// where METHOD is the endpoint's HTTP method and PATTERN is the endpoint's URL path pattern,
-	// and they must be separated by a single space, for example: "GET /foo/{id}/bar".
+// The Endpoint type describes an API endpoint and the tests to be executed against it.
+type Endpoint struct {
+	// The Ept string is the endpoint to be tested, it must be of the
+	// format "METHOD PATTERN", where METHOD is the endpoint's HTTP method
+	// and PATTERN is the endpoint's URL path pattern, and they must be
+	// separated by a single space, for example: "GET /foo/{id}/bar".
 	Ept string
 	// Doc holds an arbitrary value used by the httpdoc tool to generate
 	// the endpoint's documentation.
 	Doc interface{}
+	// If set, the httpdoc tool will use the value's AST information
+	// to produce documentation and metadata for the endpoint's handler.
+	Handler interface{}
 	// The list of tests that will be executed against the endpoint.
 	Tests []*Test
 	// Indicates that the Endpoint should be skipped by the test runner.
@@ -54,7 +58,7 @@ type Request struct {
 // Response is used to describe the expected HTTP response to a request.
 type Response struct {
 	// The expected HTTP status code.
-	Status int
+	StatusCode int
 	// The expected HTTP response headers.
 	Header Header
 	// The expected response body.

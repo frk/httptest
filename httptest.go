@@ -47,15 +47,15 @@ type Config struct {
 	skipped int
 }
 
-func (c *Config) Run(t testing.TB, tables []*TestTable) {
+func (c *Config) Run(t testing.TB, epts []*Endpoint) {
 	var passed, failed, skipped int
-	for _, tab := range tables {
-		if tab.Skip {
-			skipped += len(tab.Tests)
+	for _, e := range epts {
+		if e.Skip {
+			skipped += len(e.Tests)
 			continue
 		}
 
-		for i, tt := range tab.Tests {
+		for i, tt := range e.Tests {
 			if tt.Skip {
 				skipped += 1
 				continue
@@ -68,7 +68,7 @@ func (c *Config) Run(t testing.TB, tables []*TestTable) {
 
 			ts := &tstate{
 				host: c.HostURL,
-				ept:  tab.Ept,
+				ept:  e.Ept,
 				sat:  sat,
 				i:    i,
 				tt:   tt,
@@ -207,7 +207,7 @@ func initrequest(s *tstate) error {
 func checkresponse(s *tstate) error {
 	var errs errorList
 
-	if s.tt.Response.Status != s.res.StatusCode {
+	if s.tt.Response.StatusCode != s.res.StatusCode {
 		return &testError{code: errResponseStatus, s: s}
 	}
 	if s.tt.Response.Header != nil {
@@ -242,14 +242,14 @@ func checkresponse(s *tstate) error {
 	return nil
 }
 
-// splitept splits the given Table's endnpoint into its parts (method and pattern).
+// splitept splits the given Endpoint's Ept string into its parts (method and pattern).
 func splitept(s *tstate) (method, pattern string, err error) {
 	slice := strings.Split(s.ept, " ")
 	if len(slice) == 2 {
 		method, pattern = slice[0], slice[1]
 	}
 	if len(method) == 0 || len(pattern) == 0 {
-		return "", "", &testError{code: errTableEpt, s: s}
+		return "", "", &testError{code: errEndpointEpt, s: s}
 	}
 	return method, pattern, nil
 }

@@ -37,6 +37,7 @@ type Config struct {
 	p   page.Page
 	ng  *page.SidebarNavGroup
 	buf bytes.Buffer
+	src *types.Source
 }
 
 func (c *Config) Bytes() []byte {
@@ -46,12 +47,12 @@ func (c *Config) Bytes() []byte {
 func (c *Config) Build(toc []*TopicGroup) {
 	_, f, _, _ := runtime.Caller(1)
 	dir := filepath.Dir(f)
-	info, err := types.Load(dir)
+	src, err := types.Load(dir)
 	if err != nil {
 		// ... TODO
 	}
+	c.src = src
 
-	_ = info
 	////////////////////////////////////////////////////////////////////////
 	// TODO write a main.go (package main) program that imports a package
 	// that executes the code below and confirm that the result then is as
@@ -175,11 +176,11 @@ func (c *Config) buildContentSectionsFromEpts(epts []*httptest.Endpoint, parent 
 func (c *Config) buildExamplesFromEpt(e *httptest.Endpoint, parent *page.ContentSection) {
 	for _, t := range e.Tests {
 		if t.Request.Body != nil {
-			typ := types.TypeOf(t.Request.Body.Value())
+			typ := c.src.TypeOf(t.Request.Body.Value())
 			_ = typ
 		}
 		if t.Response.Body != nil {
-			typ := types.TypeOf(t.Response.Body.Value())
+			typ := c.src.TypeOf(t.Response.Body.Value())
 			_ = typ
 		}
 	}

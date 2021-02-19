@@ -90,15 +90,30 @@ func (s *Source) position(pos token.Pos) Position {
 	return Position{Filename: p.Filename, Line: p.Line}
 }
 
-func (s *Source) getTypeSyntaxByName(name, path string) *TypeSyntax {
+// source info of a type
+type typeSource struct {
+	// the type expression: *ast.Ident, *ast.ParenExpr, *ast.SelectorExpr,
+	// *ast.StarExpr, or any of the *ast.XxxTypes
+	Expr ast.Expr
+	// documentation associated with the type declaration; or nil
+	DeclDoc *ast.CommentGroup
+	// documentation associated with the type spec; or nil
+	SpecDoc *ast.CommentGroup
+	// line comments from spec; or nil
+	Comment *ast.CommentGroup
+	// the type spec's position
+	SpecPos token.Pos
+}
+
+func (s *Source) getTypeSourceByName(name, path string) *typeSource {
 	pkg, ok := s.pkgs[path]
 	if !ok {
 		return nil
 	}
 
 	for _, syn := range pkg.Syntax {
-		for _, dec := range syn.Decls {
-			gd, ok := dec.(*ast.GenDecl)
+		for _, d := range syn.Decls {
+			gd, ok := d.(*ast.GenDecl)
 			if !ok || gd.Tok != token.TYPE {
 				continue
 			}
@@ -109,7 +124,7 @@ func (s *Source) getTypeSyntaxByName(name, path string) *TypeSyntax {
 					continue
 				}
 
-				return &TypeSyntax{
+				return &typeSource{
 					Expr:    s.Type,
 					DeclDoc: gd.Doc,
 					SpecDoc: s.Doc,
@@ -122,7 +137,7 @@ func (s *Source) getTypeSyntaxByName(name, path string) *TypeSyntax {
 	return nil
 }
 
-func (s *Source) getTypeSyntaxById(id *ast.Ident) *TypeSyntax {
+func (s *Source) getTypeSourceById(id *ast.Ident) *typeSource {
 	obj, ok := s.info.Defs[id]
 	if !ok {
 		return nil
@@ -133,7 +148,84 @@ func (s *Source) getTypeSyntaxById(id *ast.Ident) *TypeSyntax {
 	}
 
 	name, path := tn.Name(), tn.Pkg().Path()
-	return s.getTypeSyntaxByName(name, path)
+	return s.getTypeSourceByName(name, path)
+}
+
+// source info of a const value
+type constSource struct {
+	Const *types.Const
+	// documentation associated with the const declaration; or nil
+	DeclDoc *ast.CommentGroup
+	// documentation associated with the const spec; or nil
+	SpecDoc *ast.CommentGroup
+	// line comments from spec; or nil
+	Comment *ast.CommentGroup
+	// the const spec's position
+	SpecPos token.Pos
+}
+
+// getConstSourceByTypeName scans the given Source.pkgs looking for all declared constants
+// of the type identified by name and path (package path). On success the result will
+// be a slice of go/types.Const instances that represent those constants.
+func (s *Source) getConstSourceByTypeName(name, path string) (consts []*constSource) {
+	for _, pkg := range s.pkgs {
+		if pkg.PkgPath != path {
+			if _, ok := pkg.Imports[path]; !ok {
+				// If pkg is not the target package, and it also
+				// does not import the target package, go to next
+				continue
+			}
+		}
+
+		for _, syn := range pkg.Syntax {
+			for _, d := range syn.Decls {
+				gd, ok := d.(*ast.GenDecl)
+				if !ok || gd.Tok != token.CONST {
+					continue
+				}
+
+				for _, spec := range gd.Specs {
+					vs, ok := spec.(*ast.ValueSpec)
+					if !ok {
+						continue
+					}
+
+					for _, id := range vs.Names {
+						if id.Name == "_" {
+							continue
+						}
+
+						obj, ok := pkg.TypesInfo.Defs[id]
+						if !ok {
+							continue
+						}
+
+						if c, ok := obj.(*types.Const); ok {
+							named, ok := c.Type().(*types.Named)
+							if !ok {
+								continue
+							}
+
+							tn := named.Obj()
+							if tn.Name() != name || tn.Pkg().Path() != path {
+								continue
+							}
+
+							consts = append(consts, &constSource{
+								Const:   c,
+								DeclDoc: gd.Doc,
+								SpecDoc: vs.Doc,
+								Comment: vs.Comment,
+								SpecPos: vs.Pos(),
+							})
+						}
+					}
+				}
+			}
+
+		}
+	}
+	return consts
 }
 
 var cache struct {

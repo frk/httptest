@@ -21,7 +21,7 @@ func (s *Source) TypeOf(v interface{}) *Type {
 	}
 
 	typ := typeInfo(a, rt, rv, nil)
-	s.typeSource(typ, nil, nil)
+	s.analyzeTypeSource(typ, nil, nil)
 
 	// TODO cache any *Type in typ's hierarchy that does not have an interface
 
@@ -147,46 +147,46 @@ func typeInfo(a *analysis, rt reflect.Type, rv reflect.Value, rts []reflect.Type
 	return typ
 }
 
-func (s *Source) typeSource(t *Type, syn *TypeSyntax, visited map[*Type]bool) {
+func (s *Source) analyzeTypeSource(t *Type, src *typeSource, visited map[*Type]bool) {
 	if visited == nil {
 		visited = make(map[*Type]bool)
 	}
 
 	if t == nil || visited[t] || t.isBuiltin() { // nothing to do?
 		return
-	} else if syn == nil && t.PkgPath != "" && t.Name != "" {
-		syn = s.getTypeSyntaxByName(t.Name, t.PkgPath)
+	} else if src == nil && t.PkgPath != "" && t.Name != "" {
+		src = s.getTypeSourceByName(t.Name, t.PkgPath)
 	}
 	visited[t] = true
 
-	if syn == nil {
+	if src == nil {
 		switch t.Kind {
 		case KindPtr, KindArray, KindSlice:
-			s.typeSource(t.Elem, nil, visited)
+			s.analyzeTypeSource(t.Elem, nil, visited)
 		case KindMap:
-			s.typeSource(t.Key, nil, visited)
-			s.typeSource(t.Elem, nil, visited)
+			s.analyzeTypeSource(t.Key, nil, visited)
+			s.analyzeTypeSource(t.Elem, nil, visited)
 		case KindInterface:
 			if t.Elem != nil {
-				s.typeSource(t.Elem, nil, visited)
+				s.analyzeTypeSource(t.Elem, nil, visited)
 			}
 		case KindStruct:
 			for _, f := range t.Fields {
-				s.typeSource(f.Type, nil, visited)
+				s.analyzeTypeSource(f.Type, nil, visited)
 			}
 		}
 		return
 	}
 
 	// source code position & documentation of the type
-	if syn.SpecPos != token.NoPos {
-		pos := s.position(syn.SpecPos)
-		cg, doc := syn.SpecDoc, []string(nil)
+	if src.SpecPos != token.NoPos {
+		pos := s.position(src.SpecPos)
+		cg, doc := src.SpecDoc, []string(nil)
 		if cg == nil || len(cg.List) == 0 {
-			cg = syn.DeclDoc
+			cg = src.DeclDoc
 		}
 		if cg == nil || len(cg.List) == 0 {
-			cg = syn.Comment
+			cg = src.Comment
 		}
 		if cg != nil {
 			for _, s := range cg.List {
@@ -197,46 +197,46 @@ func (s *Source) typeSource(t *Type, syn *TypeSyntax, visited map[*Type]bool) {
 		t.Doc = doc
 	}
 
-	switch x := syn.Expr.(type) {
+	switch x := src.Expr.(type) {
 	case *ast.ParenExpr:
-		s.typeSource(t, &TypeSyntax{Expr: x.X}, visited)
+		s.analyzeTypeSource(t, &typeSource{Expr: x.X}, visited)
 	case *ast.Ident:
-		if syn := s.getTypeSyntaxById(x); syn != nil {
-			s.typeSource(t, &TypeSyntax{Expr: syn.Expr}, visited)
+		if src := s.getTypeSourceById(x); src != nil {
+			s.analyzeTypeSource(t, &typeSource{Expr: src.Expr}, visited)
 		}
 	case *ast.SelectorExpr:
-		if syn := s.getTypeSyntaxById(x.Sel); syn != nil {
-			s.typeSource(t, &TypeSyntax{Expr: syn.Expr}, visited)
+		if src := s.getTypeSourceById(x.Sel); src != nil {
+			s.analyzeTypeSource(t, &typeSource{Expr: src.Expr}, visited)
 		}
 	case *ast.StarExpr:
 		if t.Kind != KindPtr {
 			panic("shouldn't happen")
 		}
 		if t.Elem.isDefined() {
-			s.typeSource(t.Elem, nil, visited)
+			s.analyzeTypeSource(t.Elem, nil, visited)
 		} else {
-			s.typeSource(t.Elem, &TypeSyntax{Expr: x.X}, visited)
+			s.analyzeTypeSource(t.Elem, &typeSource{Expr: x.X}, visited)
 		}
 	case *ast.InterfaceType:
 		if t.Elem != nil {
-			s.typeSource(t.Elem, nil, visited)
+			s.analyzeTypeSource(t.Elem, nil, visited)
 		}
 	case *ast.ArrayType:
 		if t.Elem.isDefined() {
-			s.typeSource(t.Elem, nil, visited)
+			s.analyzeTypeSource(t.Elem, nil, visited)
 		} else {
-			s.typeSource(t.Elem, &TypeSyntax{Expr: x.Elt}, visited)
+			s.analyzeTypeSource(t.Elem, &typeSource{Expr: x.Elt}, visited)
 		}
 	case *ast.MapType:
 		if t.Key.isDefined() {
-			s.typeSource(t.Key, nil, visited)
+			s.analyzeTypeSource(t.Key, nil, visited)
 		} else {
-			s.typeSource(t.Key, &TypeSyntax{Expr: x.Key}, visited)
+			s.analyzeTypeSource(t.Key, &typeSource{Expr: x.Key}, visited)
 		}
 		if t.Elem.isDefined() {
-			s.typeSource(t.Elem, nil, visited)
+			s.analyzeTypeSource(t.Elem, nil, visited)
 		} else {
-			s.typeSource(t.Elem, &TypeSyntax{Expr: x.Value}, visited)
+			s.analyzeTypeSource(t.Elem, &typeSource{Expr: x.Value}, visited)
 		}
 	case *ast.StructType:
 		i := 0
@@ -257,12 +257,47 @@ func (s *Source) typeSource(t *Type, syn *TypeSyntax, visited map[*Type]bool) {
 				t.Fields[i].Pos = pos
 				t.Fields[i].Doc = doc
 				if t.Fields[i].Type.isDefined() {
-					s.typeSource(t.Fields[i].Type, nil, visited)
+					s.analyzeTypeSource(t.Fields[i].Type, nil, visited)
 				} else {
-					s.typeSource(t.Fields[i].Type, &TypeSyntax{Expr: fi.Type}, visited)
+					s.analyzeTypeSource(t.Fields[i].Type, &typeSource{Expr: fi.Type}, visited)
 				}
 				i += 1
 			}
 		}
+	}
+
+	if t.isConstable() {
+		s.analyzeConstSource(t)
+	}
+}
+
+func (s *Source) analyzeConstSource(t *Type) {
+	consts := s.getConstSourceByTypeName(t.Name, t.PkgPath)
+	if len(consts) == 0 {
+		return
+	}
+
+	t.Values = make([]*ConstValue, len(consts))
+	for i, src := range consts {
+		t.Values[i] = new(ConstValue)
+		t.Values[i].Name = src.Const.Name()
+		t.Values[i].Value = src.Const.Val().ExactString()
+
+		// source code position & documentation of the constant
+		pos := s.position(src.SpecPos)
+		cg, doc := src.SpecDoc, []string(nil)
+		if cg == nil || len(cg.List) == 0 {
+			cg = src.Comment
+		}
+		if cg == nil || len(cg.List) == 0 {
+			cg = src.DeclDoc
+		}
+		if cg != nil {
+			for _, s := range cg.List {
+				doc = append(doc, s.Text)
+			}
+		}
+		t.Values[i].Pos = pos
+		t.Values[i].Doc = doc
 	}
 }

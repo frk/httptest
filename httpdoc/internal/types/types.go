@@ -1,8 +1,6 @@
 package types
 
 import (
-	"go/ast"
-	"go/token"
 	"path"
 	"reflect"
 	"strconv"
@@ -36,6 +34,9 @@ type Type struct {
 	Elem *Type
 	// If kind is struct, Fields will hold the list of the struct's fields.
 	Fields []*StructField
+	// If Type is a basic, defined type then Values will hold the list of
+	// declared constants of that type, if any.
+	Values []*ConstValue
 
 	hasiface bool `cmp:"-"`
 }
@@ -50,6 +51,10 @@ func (t *Type) isDefined() bool {
 
 func (t *Type) isUnnamed() bool {
 	return t.Name == ""
+}
+
+func (t *Type) isConstable() bool {
+	return t.isDefined() && t.Kind.IsBasic()
 }
 
 // used for debugging
@@ -90,10 +95,6 @@ func (t *Type) string() string {
 
 // StructField describes a single struct field.
 type StructField struct {
-	// The position of the field's declaration in the source code.
-	Pos Position
-	// The raw documentation of a struct field.
-	Doc []string
 	// Name of the field.
 	Name string
 	// The field's type.
@@ -104,6 +105,22 @@ type StructField struct {
 	IsEmbedded bool
 	// Indicates whether or not the field is exported.
 	IsExported bool
+	// The position of the field's declaration in the source code.
+	Pos Position
+	// The raw documentation of a struct field.
+	Doc []string
+}
+
+// ConstValue represents a typed constant.
+type ConstValue struct {
+	// The constant's identifier.
+	Name string
+	// The value of the constant.
+	Value string
+	// The position of the constant's declaration in the source code.
+	Pos Position
+	// The raw documentation of the constant.
+	Doc []string
 }
 
 // The position of a token in the source code.
@@ -112,20 +129,6 @@ type Position struct {
 	Filename string `cmp:"+"`
 	// The line at which the token is declared in the file.
 	Line int `cmp:"+"`
-}
-
-type TypeSyntax struct {
-	// the type expression: *ast.Ident, *ast.ParenExpr, *ast.SelectorExpr,
-	// *ast.StarExpr, or any of the *ast.XxxTypes
-	Expr ast.Expr
-	// documentation associated with the type declaration; or nil
-	DeclDoc *ast.CommentGroup
-	// documentation associated with the type spec; or nil
-	SpecDoc *ast.CommentGroup
-	// line comments from spec; or nil
-	Comment *ast.CommentGroup
-	// the type spec's position
-	SpecPos token.Pos
 }
 
 // Kind indicates the specific kind of a Go type.

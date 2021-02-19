@@ -17,21 +17,21 @@ func TestTypeOf(t *testing.T) {
 		v    interface{}
 		want *Type
 		flag bool
-	}{{
+	}{0: {
 		v:    "foobar",
 		want: &Type{Name: "string", Kind: KindString},
-	}, {
+	}, 1: {
 		v:    new(float64),
 		want: &Type{Kind: KindPtr, Elem: &Type{Name: "float64", Kind: KindFloat64}},
-	}, {
+	}, 2: {
 		v:    types.T1{},
 		want: &Type{Pos: pos, Name: "T1", Kind: KindStruct, PkgPath: pkg, Fields: []*StructField{}},
-	}, {
+	}, 3: {
 		v: types.T2{},
 		want: &Type{Pos: pos, Name: "T2", Kind: KindStruct, PkgPath: pkg, Fields: []*StructField{
 			{Name: "F", Pos: pos, Type: &Type{Name: "string", Kind: KindString}},
 		}},
-	}, {
+	}, 4: {
 		v: types.T3{},
 		want: &Type{Pos: pos, Name: "T3", Kind: KindStruct, PkgPath: pkg, Fields: []*StructField{
 			{Name: "F1", Pos: pos, Type: &Type{Name: "string", Kind: KindString}},
@@ -39,7 +39,7 @@ func TestTypeOf(t *testing.T) {
 			{Name: "F3", Pos: pos, Type: &Type{Name: "float64", Kind: KindFloat64}},
 			{Name: "F4", Pos: pos, Type: &Type{Name: "float64", Kind: KindFloat64}},
 		}},
-	}, {
+	}, 5: {
 		v: types.T4{},
 		want: &Type{Pos: pos, Name: "T4", Kind: KindStruct, PkgPath: pkg, Fields: []*StructField{
 			{Name: "F1", Pos: pos, Type: &Type{Name: "string", Kind: KindString}},
@@ -49,7 +49,7 @@ func TestTypeOf(t *testing.T) {
 				Fields: []*StructField{{Name: "F", Pos: pos, Type: &Type{Name: "string", Kind: KindString}}}}},
 			},
 		}},
-	}, {
+	}, 6: {
 		v: types.T5a{},
 		want: &Type{Name: "T5a", Pos: pos, Kind: KindStruct, PkgPath: pkg, Fields: []*StructField{
 			{Name: "F1", Pos: pos, Type: &Type{
@@ -61,7 +61,7 @@ func TestTypeOf(t *testing.T) {
 				Fields: []*StructField{{Name: "F", Pos: pos, Type: &Type{Name: "string", Kind: KindString}}}},
 			},
 		}},
-	}, {
+	}, 7: {
 		v: types.T5b{},
 		want: &Type{Pos: pos, Name: "T5b", Kind: KindStruct, PkgPath: pkg, Fields: []*StructField{
 			{Name: "F1", Pos: pos, Type: &Type{Kind: KindPtr, Elem: &Type{
@@ -73,7 +73,7 @@ func TestTypeOf(t *testing.T) {
 				Fields: []*StructField{{Name: "F", Pos: pos, Type: &Type{Name: "string", Kind: KindString}}}}},
 			},
 		}},
-	}, {
+	}, 8: {
 		v: types.T6{},
 		want: func() *Type {
 			t := &Type{Pos: pos, Name: "T6", Kind: KindStruct, PkgPath: pkg, Fields: []*StructField{
@@ -84,12 +84,12 @@ func TestTypeOf(t *testing.T) {
 			t.Fields[1].Type.Elem = t
 			return t
 		}(),
-	}, {
+	}, 9: {
 		v: types.T7{F: "foo bar"},
 		want: &Type{Pos: pos, Name: "T7", Kind: KindStruct, PkgPath: pkg, Fields: []*StructField{
 			{Name: "F", Pos: pos, Type: &Type{Kind: KindInterface, Elem: &Type{Name: "string", Kind: KindString}}},
 		}},
-	}, {
+	}, 10: {
 		v: types.T7{F: types.T7{}},
 		want: &Type{Pos: pos, Name: "T7", Kind: KindStruct, PkgPath: pkg, Fields: []*StructField{
 			{Name: "F", Pos: pos, Type: &Type{Kind: KindInterface, Elem: &Type{
@@ -98,14 +98,14 @@ func TestTypeOf(t *testing.T) {
 				},
 			}}},
 		}},
-	}, {
+	}, 11: {
 		v: &types.T7{F: &types.T7{}},
 		want: &Type{Kind: KindPtr, Elem: &Type{Pos: pos, Name: "T7", Kind: KindStruct, PkgPath: pkg, Fields: []*StructField{
 			{Name: "F", Pos: pos, Type: &Type{Kind: KindInterface, Elem: &Type{Kind: KindPtr, Elem: &Type{Pos: pos, Name: "T7", Kind: KindStruct, PkgPath: pkg, Fields: []*StructField{
 				{Name: "F", Pos: pos, Type: &Type{Kind: KindInterface}},
 			}}}}},
 		}}},
-	}, {
+	}, 12: {
 		v: types.T7{F: &types.T7{"foo bar"}},
 		want: &Type{Pos: pos, Name: "T7", Kind: KindStruct, PkgPath: pkg, Fields: []*StructField{
 			{Name: "F", Pos: pos, Type: &Type{Kind: KindInterface, Elem: &Type{Kind: KindPtr, Elem: &Type{
@@ -114,7 +114,7 @@ func TestTypeOf(t *testing.T) {
 				},
 			}}}},
 		}},
-	}, {
+	}, 13: {
 		v: types.T7{F: &types.T8{F1: "foo bar"}},
 		want: &Type{Pos: pos, Name: "T7", Kind: KindStruct, PkgPath: pkg, Fields: []*StructField{
 			{Name: "F", Pos: pos, Type: &Type{Kind: KindInterface, Elem: &Type{Kind: KindPtr, Elem: &Type{
@@ -124,7 +124,7 @@ func TestTypeOf(t *testing.T) {
 				},
 			}}}},
 		}},
-	}, {
+	}, 14: {
 		v: types.T9{},
 		want: func() *Type {
 			t := &Type{Name: "T9", Pos: pos, Kind: KindStruct, PkgPath: pkg, Fields: []*StructField{
@@ -134,7 +134,7 @@ func TestTypeOf(t *testing.T) {
 			t.Fields[0].Type.Elem = t
 			return t
 		}(),
-	}, {
+	}, 15: {
 		v: types.T9{F1: &types.T9{F2: "foo bar"}},
 		want: func() *Type {
 			t := &Type{Name: "T9", Pos: pos, Kind: KindStruct, PkgPath: pkg, Fields: []*StructField{
@@ -155,7 +155,7 @@ func TestTypeOf(t *testing.T) {
 				{Name: "F2", Pos: pos, Type: &Type{Kind: KindInterface}},
 			}}
 		}(),
-	}, {
+	}, 16: {
 		v: types.T9{
 			F1: &types.T9{F2: "foo bar"},
 			F2: &types.T9{F2: 123},
@@ -186,37 +186,37 @@ func TestTypeOf(t *testing.T) {
 				}}}},
 			}}
 		}(),
-	}, {
+	}, 17: {
 		v: types.S1(""),
 		want: &Type{Name: "S1", Pos: pos, Kind: KindString, PkgPath: pkg,
 			Doc: []string{"// S1 decl doc"},
 		},
-	}, {
+	}, 18: {
 		v: types.S2(""),
 		want: &Type{Name: "S2", Pos: pos, Kind: KindString, PkgPath: pkg,
 			Doc: []string{"// S2 comment"},
 		},
-	}, {
+	}, 19: {
 		v: types.S3(""),
 		want: &Type{Name: "S3", Pos: pos, Kind: KindString, PkgPath: pkg,
 			Doc: []string{"// S3,S4,S5 decl doc"},
 		},
-	}, {
+	}, 20: {
 		v: types.S4(""),
 		want: &Type{Name: "S4", Pos: pos, Kind: KindString, PkgPath: pkg,
 			Doc: []string{"// S4 spec doc"},
 		},
-	}, {
+	}, 21: {
 		v: types.S5(""),
 		want: &Type{Name: "S5", Pos: pos, Kind: KindString, PkgPath: pkg,
 			Doc: []string{"// S3,S4,S5 decl doc"},
 		},
-	}, {
+	}, 22: {
 		v: types.S6(""),
 		want: &Type{Name: "S6", Pos: pos, Kind: KindString, PkgPath: pkg,
 			Doc: []string{"/*\n\tS6 decl doc line 1\n\tS6 decl doc line 2\n*/"},
 		},
-	}, {
+	}, 23: {
 		v: types.S7(""),
 		want: &Type{Name: "S7", Pos: pos, Kind: KindString, PkgPath: pkg,
 			Doc: []string{
@@ -225,7 +225,7 @@ func TestTypeOf(t *testing.T) {
 				"// S7 decl doc line 4",
 			},
 		},
-	}, {
+	}, 24: {
 		v: types.S8{},
 		want: &Type{Name: "S8", Pos: pos, Kind: KindStruct, PkgPath: pkg,
 			Doc: []string{"// S8 decl doc"},
@@ -246,6 +246,24 @@ func TestTypeOf(t *testing.T) {
 						"/* S8.F3 comment line 1\n\tS8.F3 comment line 2\n\tS8.F3 comment line 3\n\t*/",
 					},
 				},
+			},
+		},
+	}, 25: {
+		v: types.C1(0),
+		want: &Type{Name: "C1", Pos: pos, Kind: KindInt, PkgPath: pkg,
+			Values: []*ConstValue{
+				{Name: "c1a", Pos: pos, Value: `-1`, Doc: []string{"// c1a spec doc line 1", "// c1a spec doc line 2"}},
+				{Name: "c1b", Pos: pos, Value: `1`, Doc: []string{"// C1 const decl doc"}},
+				{Name: "c1c", Pos: pos, Value: `13`, Doc: []string{"// c1c comment line"}},
+			},
+		},
+	}, 26: {
+		v: types.C2(""),
+		want: &Type{Name: "C2", Pos: pos, Kind: KindString, PkgPath: pkg,
+			Values: []*ConstValue{
+				{Name: "c2a", Pos: pos, Value: `"foo"`},
+				{Name: "c2b", Pos: pos, Value: `"bar"`},
+				{Name: "c2d", Pos: pos, Value: `"baz"`, Doc: []string{"// c2d comment line"}},
 			},
 		},
 	}}

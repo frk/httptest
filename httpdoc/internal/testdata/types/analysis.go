@@ -90,3 +90,27 @@ type S8 struct {
 	S8.F3 comment line 3
 	*/
 }
+
+////////////////////////////////////////////////////////////////////////////////
+
+type C1 int
+
+// C1 const decl doc
+const (
+	// c1a spec doc line 1
+	// c1a spec doc line 2
+	c1a C1 = 1<<iota*2 - 3
+	c1b
+	_
+	c1c // c1c comment line
+)
+
+type C2 string
+
+const (
+	c2a C2 = "foo"
+	c2b    = C2("bar")
+	c2c    = "ignored because untyped"
+)
+
+const c2d = C2("baz") // c2d comment line

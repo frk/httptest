@@ -1,6 +1,11 @@
 package page
 
+import (
+	"html/template"
+)
+
 type Page struct {
+	Title   string
 	Sidebar Sidebar
 	Content Content
 }
@@ -17,6 +22,7 @@ type Sidebar struct {
 
 type SidebarHeader struct {
 	Logo   string
+	Title  string
 	Search interface{} // TODO
 }
 
@@ -54,40 +60,60 @@ type ContentFooter struct {
 }
 
 type ContentSection struct {
-	Heading     string
-	Href        string
-	Body        ContentBody
-	Tables      []*InfoTable
-	Examples    []*ExampleEndpoint
+	Id          string
+	Article     Article
+	Example     Example
 	SubSections []*ContentSection
 }
 
-type ContentBody struct {
-	Text string
-	Type []*ContentField
+////////////////////////////////////////////////////////////////////////////////
+// Article
+////////////////////////////////////////////////////////////////////////////////
+
+type Article struct {
+	Heading    string
+	Href       string
+	Text       template.HTML
+	FieldLists []*FieldList
 }
 
-type ContentField struct {
+type FieldList struct {
+	Title string
+	Items []*FieldListItem
+}
+
+type FieldListItem struct {
+	// The name of the field.
 	Name string
+	// The path to the field's name if nested, otherwise empty.
 	Path string
+	// The name of the field's type.
+	Type string
 	Href string
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Info Table
-////////////////////////////////////////////////////////////////////////////////
-
-type InfoTable struct {
-	// ...
+	// The field's documentation.
+	Text      template.HTML
+	SubFields []*FieldListItem
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // Example
 ////////////////////////////////////////////////////////////////////////////////
 
-type ExampleEndpoint struct {
-	Request  ExampleRequest
-	Response ExampleResponse
+type Example struct {
+	EndpointOverview []EndpointOverviewItem
+	Code             []ExampleCode
+}
+
+type EndpointOverviewItem struct {
+	Href    string
+	Method  string
+	Pattern string
+	Tooltip string
+}
+
+type ExampleCode struct {
+	Request  *ExampleRequest
+	Response *ExampleResponse
 }
 
 type ExampleRequest struct {

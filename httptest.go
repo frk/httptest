@@ -5,7 +5,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"strings"
 	"sync"
 	"testing"
 )
@@ -36,7 +35,7 @@ type Config struct {
 	//
 	// If a Test instance has its own SetupAndTeardown, then that will be
 	// used instead of this one.
-	SetupAndTeardown func(ept string, t *Test) (teardown func() error, err error)
+	SetupAndTeardown func(ep Endpoint, t *Test) (teardown func() error, err error)
 
 	mu sync.RWMutex
 	// The number of passed tests.
@@ -47,40 +46,47 @@ type Config struct {
 	skipped int
 }
 
-func (c *Config) Run(t testing.TB, epts []*Endpoint) {
+func (c *Config) Run(t *testing.T, tgs []*TestGroup) {
+	c.run(testing_t{t}, tgs)
+}
+
+func (c *Config) run(t testing_T, tgs []*TestGroup) {
 	var passed, failed, skipped int
-	for _, e := range epts {
-		if e.Skip {
-			skipped += len(e.Tests)
+	for _, tg := range tgs {
+		if tg.Skip {
+			skipped += len(tg.Tests)
 			continue
 		}
 
-		for i, tt := range e.Tests {
-			if tt.Skip {
-				skipped += 1
-				continue
-			}
+		t.Run(tg.Desc, func(t testing_T) {
+			for i, tt := range tg.Tests {
+				if tt.Skip {
+					skipped += 1
+					continue
+				}
 
-			sat := tt.SetupAndTeardown
-			if sat == nil {
-				sat = c.SetupAndTeardown
-			}
+				t.Run(tt.Desc, func(t testing_T) {
+					sat := tt.SetupAndTeardown
+					if sat == nil {
+						sat = c.SetupAndTeardown
+					}
 
-			ts := &tstate{
-				host: c.HostURL,
-				ept:  e.Ept,
-				sat:  sat,
-				i:    i,
-				tt:   tt,
+					ts := &tstate{
+						host: c.HostURL,
+						ep:   tg.Endpoint,
+						sat:  sat,
+						i:    i,
+						tt:   tt,
+					}
+					if err := runtest(ts, c.client()); err != nil {
+						t.Error(err)
+						failed += 1
+					} else {
+						passed += 1
+					}
+				})
 			}
-			if err := runtest(ts, c.client()); err != nil {
-				t.Error(err)
-				failed += 1
-				continue
-			}
-
-			passed += 1
-		}
+		})
 	}
 
 	c.mu.Lock()
@@ -117,8 +123,8 @@ func (c *Config) LogReport() {
 // The tstate type holds the state of a test.
 type tstate struct {
 	host string
-	ept  string
-	sat  func(ept string, t *Test) (teardown func() error, err error) `cmp:"-"`
+	ep   Endpoint
+	sat  func(ep Endpoint, t *Test) (teardown func() error, err error) `cmp:"-"`
 	i    int
 	tt   *Test          `cmp:"+"`
 	req  *http.Request  `cmp:"+"`
@@ -127,7 +133,7 @@ type tstate struct {
 
 func runtest(s *tstate, c *http.Client) (e error) {
 	if s.sat != nil {
-		teardown, err := s.sat(s.ept, s.tt)
+		teardown, err := s.sat(s.ep, s.tt)
 		if err != nil {
 			return &testError{code: errTestSetup, s: s, err: err}
 		}
@@ -161,11 +167,8 @@ func runtest(s *tstate, c *http.Client) (e error) {
 
 // initrequest initializes an http request from the test's Request value.
 func initrequest(s *tstate) error {
-	// build the url
-	method, path, err := splitept(s)
-	if err != nil {
-		return err
-	}
+	method, path := s.ep.Method, s.ep.Pattern
+
 	if s.tt.Request.Params != nil {
 		path = s.tt.Request.Params.SetParams(path)
 	}
@@ -242,14 +245,22 @@ func checkresponse(s *tstate) error {
 	return nil
 }
 
-// splitept splits the given Endpoint's Ept string into its parts (method and pattern).
-func splitept(s *tstate) (method, pattern string, err error) {
-	slice := strings.Split(s.ept, " ")
-	if len(slice) == 2 {
-		method, pattern = slice[0], slice[1]
-	}
-	if len(method) == 0 || len(pattern) == 0 {
-		return "", "", &testError{code: errEndpointEpt, s: s}
-	}
-	return method, pattern, nil
+// The testing_T interface represents a tiny portion of the *testing.T functionality which
+// is being used by the Config.run method. It's raison d'etre is to make Config.run testable.
+type testing_T interface {
+	Error(args ...interface{})
+	Run(name string, f func(testing_T)) bool
+}
+
+// testing_t is a wrapper around *testing.T that satisfies the testing_T interface.
+type testing_t struct {
+	t *testing.T
+}
+
+func (tt testing_t) Error(args ...interface{}) {
+	tt.t.Error(args...)
+}
+
+func (tt testing_t) Run(name string, f func(testing_T)) bool {
+	return tt.t.Run(name, func(t *testing.T) { f(testing_t{t}) })
 }

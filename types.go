@@ -6,27 +6,35 @@ import (
 	"strings"
 )
 
-// The Endpoint type describes an API endpoint and the tests to be executed against it.
+// The Endpoint type describes an API endpoint to be tested.
 type Endpoint struct {
-	// The Ept string is the endpoint to be tested, it must be of the
-	// format "METHOD PATTERN", where METHOD is the endpoint's HTTP method
-	// and PATTERN is the endpoint's URL path pattern, and they must be
-	// separated by a single space, for example: "GET /foo/{id}/bar".
-	Ept string
-	// Doc holds an arbitrary value used by the httpdoc tool to generate
-	// the endpoint's documentation.
-	Doc interface{}
-	// If set, the httpdoc tool will use the value's AST information
-	// to produce documentation and metadata for the endpoint's handler.
-	Handler interface{}
+	// The endpoint's HTTP method (or verb).
+	Method string
+	// The endpoint's URL path pattern.
+	Pattern string
+}
+
+// String returns the result of concatenating the Endpoint's fields.
+func (e Endpoint) String() string {
+	return e.Method + " " + e.Pattern
+}
+
+// A TestGroup represents a set of tests to be executed against a specific endpoint.
+type TestGroup struct {
+	// A short description of what the endpoint-under-test is for. The httpdoc
+	// package uses the description to generate the link text of the corresponding
+	// sidebar item and the heading text for the associated documentation.
+	Desc string
+	// The endpoint to be tested.
+	Endpoint Endpoint
 	// The list of tests that will be executed against the endpoint.
 	Tests []*Test
-	// Indicates that the Endpoint should be skipped by the test runner.
+	// Indicates that the TestGroup should be skipped by the test runner.
 	Skip bool
 }
 
 // The Test type describes the HTTP request to be sent to an endpoint and the
-// HTTP response that is expected to be received for that request.
+// corresponding HTTP response that is expected to be received for that request.
 type Test struct {
 	// The request to be sent to the endpoint under test.
 	Request Request
@@ -38,13 +46,18 @@ type Test struct {
 	// The setup function is the first one in the chain and it is invoked
 	// before a test is executed. The teardown, returned by the setup, is
 	// the second one in the chain and it is invoked after the test is executed.
-	SetupAndTeardown func(ept string, t *Test) (teardown func() error, err error)
+	SetupAndTeardown func(ep Endpoint, t *Test) (teardown func() error, err error)
 	// Indicates that the Test should be skipped by the test runner.
 	Skip bool
+	// A short description of the test.
+	Desc string
 }
 
 // The Request type describes the data to be sent in a single HTTP request.
 type Request struct {
+	// TODO
+	Auth interface{}
+
 	// The path parameters to be substituted in an endpoint pattern.
 	Params ParamSetter
 	// The URL query parameters to be appended to an endpoint's path.

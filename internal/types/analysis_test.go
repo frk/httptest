@@ -6,13 +6,13 @@ import (
 	"testing"
 
 	"github.com/frk/compare"
-	"github.com/frk/httptest/httpdoc/internal/testdata/types"
+	"github.com/frk/httptest/internal/testdata/types"
 )
 
 func TestTypeOf(t *testing.T) {
 	//pos := Position{}
 	pos := Position{Filename: "/some/file", Line: 1234}
-	pkg := "github.com/frk/httptest/httpdoc/internal/testdata/types"
+	pkg := "github.com/frk/httptest/internal/testdata/types"
 	tests := []struct {
 		v    interface{}
 		want *Type

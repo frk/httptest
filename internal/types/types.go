@@ -41,6 +41,10 @@ type Type struct {
 	hasiface bool `cmp:"-"`
 }
 
+func (t *Type) GetName() string {
+	return t.string()
+}
+
 func (t *Type) isBuiltin() bool {
 	return t.Kind.IsBasic() && (t.PkgPath == "" || t.Kind == KindUnsafePointer)
 }

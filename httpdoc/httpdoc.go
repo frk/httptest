@@ -259,13 +259,21 @@ func (c *Config) buildFieldListFromType(title string, typ *types.Type) (*page.Fi
 	list := new(page.FieldList)
 	list.Title = title
 
-	fmt.Printf("%+v\n", typ)
 	for _, f := range typ.Fields {
+		var text string
+		if len(f.Doc) > 0 {
+			html, err := comment.ToHTML(f.Doc)
+			if err != nil {
+				return nil, err
+			}
+			text = html
+		}
+
 		item := new(page.FieldListItem)
 		item.Name = f.Name
 		item.Path = ""
 		item.Type = f.Type.GetName()
-		item.Text = template.HTML(comment.ToText(f.Doc))
+		item.Text = template.HTML(text)
 		list.Items = append(list.Items, item)
 	}
 

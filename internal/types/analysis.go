@@ -180,7 +180,7 @@ func (s *Source) analyzeTypeSource(t *Type, src *typeSource, visited map[*Type]b
 
 	// source code position & documentation of the type
 	if src.SpecPos != token.NoPos {
-		pos := s.position(src.SpecPos)
+		pos := src.position()
 		cg, doc := src.SpecDoc, []string(nil)
 		if cg == nil || len(cg.List) == 0 {
 			cg = src.DeclDoc
@@ -199,14 +199,14 @@ func (s *Source) analyzeTypeSource(t *Type, src *typeSource, visited map[*Type]b
 
 	switch x := src.Expr.(type) {
 	case *ast.ParenExpr:
-		s.analyzeTypeSource(t, &typeSource{Expr: x.X}, visited)
+		s.analyzeTypeSource(t, &typeSource{Expr: x.X, pkg: src.pkg}, visited)
 	case *ast.Ident:
-		if src := s.getTypeSourceById(x); src != nil {
-			s.analyzeTypeSource(t, &typeSource{Expr: src.Expr}, visited)
+		if src := s.getTypeSourceById(x, src.pkg); src != nil {
+			s.analyzeTypeSource(t, &typeSource{Expr: src.Expr, pkg: src.pkg}, visited)
 		}
 	case *ast.SelectorExpr:
-		if src := s.getTypeSourceById(x.Sel); src != nil {
-			s.analyzeTypeSource(t, &typeSource{Expr: src.Expr}, visited)
+		if src := s.getTypeSourceById(x.Sel, src.pkg); src != nil {
+			s.analyzeTypeSource(t, &typeSource{Expr: src.Expr, pkg: src.pkg}, visited)
 		}
 	case *ast.StarExpr:
 		if t.Kind != KindPtr {
@@ -215,7 +215,7 @@ func (s *Source) analyzeTypeSource(t *Type, src *typeSource, visited map[*Type]b
 		if t.Elem.isDefined() {
 			s.analyzeTypeSource(t.Elem, nil, visited)
 		} else {
-			s.analyzeTypeSource(t.Elem, &typeSource{Expr: x.X}, visited)
+			s.analyzeTypeSource(t.Elem, &typeSource{Expr: x.X, pkg: src.pkg}, visited)
 		}
 	case *ast.InterfaceType:
 		if t.Elem != nil {
@@ -225,24 +225,24 @@ func (s *Source) analyzeTypeSource(t *Type, src *typeSource, visited map[*Type]b
 		if t.Elem.isDefined() {
 			s.analyzeTypeSource(t.Elem, nil, visited)
 		} else {
-			s.analyzeTypeSource(t.Elem, &typeSource{Expr: x.Elt}, visited)
+			s.analyzeTypeSource(t.Elem, &typeSource{Expr: x.Elt, pkg: src.pkg}, visited)
 		}
 	case *ast.MapType:
 		if t.Key.isDefined() {
 			s.analyzeTypeSource(t.Key, nil, visited)
 		} else {
-			s.analyzeTypeSource(t.Key, &typeSource{Expr: x.Key}, visited)
+			s.analyzeTypeSource(t.Key, &typeSource{Expr: x.Key, pkg: src.pkg}, visited)
 		}
 		if t.Elem.isDefined() {
 			s.analyzeTypeSource(t.Elem, nil, visited)
 		} else {
-			s.analyzeTypeSource(t.Elem, &typeSource{Expr: x.Value}, visited)
+			s.analyzeTypeSource(t.Elem, &typeSource{Expr: x.Value, pkg: src.pkg}, visited)
 		}
 	case *ast.StructType:
 		i := 0
 		for _, fi := range x.Fields.List {
 			// source code position & documentation of the field
-			pos := s.position(fi.Pos())
+			pos := src.positionForNode(fi)
 			cg, doc := fi.Doc, []string(nil)
 			if cg == nil || len(cg.List) == 0 {
 				cg = fi.Comment
@@ -259,7 +259,7 @@ func (s *Source) analyzeTypeSource(t *Type, src *typeSource, visited map[*Type]b
 				if t.Fields[i].Type.isDefined() {
 					s.analyzeTypeSource(t.Fields[i].Type, nil, visited)
 				} else {
-					s.analyzeTypeSource(t.Fields[i].Type, &typeSource{Expr: fi.Type}, visited)
+					s.analyzeTypeSource(t.Fields[i].Type, &typeSource{Expr: fi.Type, pkg: src.pkg}, visited)
 				}
 				i += 1
 			}
@@ -284,7 +284,7 @@ func (s *Source) analyzeConstSource(t *Type) {
 		t.Values[i].Value = src.Const.Val().ExactString()
 
 		// source code position & documentation of the constant
-		pos := s.position(src.SpecPos)
+		pos := src.position()
 		cg, doc := src.SpecDoc, []string(nil)
 		if cg == nil || len(cg.List) == 0 {
 			cg = src.Comment

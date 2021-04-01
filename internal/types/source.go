@@ -6,7 +6,6 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
-	"reflect"
 	"sync"
 
 	"golang.org/x/tools/go/packages"
@@ -21,14 +20,11 @@ const loadMode = packages.NeedName |
 	packages.NeedSyntax |
 	packages.NeedTypesInfo
 
+// not safe for concurrency
 type Source struct {
-	fset *token.FileSet
-	info *types.Info
 	pkgs map[string]*packages.Package
-	done map[reflect.Type]*Type
 }
 
-// not safe for concurrency
 func Load(dir string) (*Source, error) {
 	cache.Lock()
 	defer cache.Unlock()
@@ -51,48 +47,24 @@ func Load(dir string) (*Source, error) {
 	} else if len(pkgs) == 0 {
 		return nil, errors.New("no package found in dir: " + dir)
 	}
-	s = &Source{
-		fset: conf.Fset,
-		info: pkgs[0].TypesInfo,
-		pkgs: make(map[string]*packages.Package),
-	}
+	s = &Source{pkgs: make(map[string]*packages.Package)}
 
-	// save stores the given packages into cache. If the given packages
-	// contain other imported packages then those will be stored as well,
-	// and the imports of those packages will be stored too, and so on.
-	var save func(pkgs ...*packages.Package)
-	save = func(pkgs ...*packages.Package) {
-		for _, pkg := range pkgs {
-			if _, ok := s.pkgs[pkg.PkgPath]; ok {
-				// skip if already present
-				continue
-
-			}
-
-			s.pkgs[pkg.PkgPath] = pkg
-
-			if len(pkg.Imports) > 0 {
-				imports := make([]*packages.Package, 0, len(pkg.Imports))
-				for _, pkg := range pkg.Imports {
-					imports = append(imports, pkg)
-				}
-				save(imports...)
-			}
-		}
-	}
-	save(pkgs...)
+	s.savepkgs(pkgs...)
 
 	cache.source[dir] = s
 	return s, nil
 }
 
+// findpkg searches for a *packages.Package by the given pkgpath and returns it if a match is found.
 func (s *Source) findpkg(pkgpath string) (*packages.Package, error) {
-	cache.Lock()
-	defer cache.Unlock()
+	pkg, ok := s.pkgs[pkgpath]
+	if ok {
+		return pkg, nil
+	}
 
 	conf := new(packages.Config)
 	conf.Mode = loadMode
-	conf.Fset = s.fset
+	conf.Fset = token.NewFileSet()
 	pkgs, err := packages.Load(conf, pkgpath)
 	if err != nil {
 		return nil, err
@@ -100,37 +72,32 @@ func (s *Source) findpkg(pkgpath string) (*packages.Package, error) {
 		return nil, errors.New("no package found with path: " + pkgpath)
 	}
 
-	// save stores the given packages into cache. If the given packages
-	// contain other imported packages then those will be stored as well,
-	// and the imports of those packages will be stored too, and so on.
-	var save func(pkgs ...*packages.Package)
-	save = func(pkgs ...*packages.Package) {
-		for _, pkg := range pkgs {
-			if _, ok := s.pkgs[pkg.PkgPath]; ok {
-				// skip if already present
-				continue
-
-			}
-
-			s.pkgs[pkg.PkgPath] = pkg
-
-			if len(pkg.Imports) > 0 {
-				imports := make([]*packages.Package, 0, len(pkg.Imports))
-				for _, pkg := range pkg.Imports {
-					imports = append(imports, pkg)
-				}
-				save(imports...)
-			}
-		}
-	}
-	save(pkgs...)
+	s.savepkgs(pkgs...)
 
 	return pkgs[0], nil
 }
 
-func (s *Source) position(pos token.Pos) Position {
-	p := s.fset.Position(pos)
-	return Position{Filename: p.Filename, Line: p.Line}
+// savepkgs stores the given packages into cache. If the given packages
+// contain other imported packages then those will be stored as well,
+// and the imports of those packages will be stored too, and so on.
+func (s *Source) savepkgs(pkgs ...*packages.Package) {
+	for _, pkg := range pkgs {
+		if _, ok := s.pkgs[pkg.PkgPath]; ok {
+			// skip if already present
+			continue
+
+		}
+
+		s.pkgs[pkg.PkgPath] = pkg
+
+		if len(pkg.Imports) > 0 {
+			imports := make([]*packages.Package, 0, len(pkg.Imports))
+			for _, pkg := range pkg.Imports {
+				imports = append(imports, pkg)
+			}
+			s.savepkgs(imports...)
+		}
+	}
 }
 
 // source info of a type
@@ -146,17 +113,25 @@ type typeSource struct {
 	Comment *ast.CommentGroup
 	// the type spec's position
 	SpecPos token.Pos
+	// The package in which the type is declared.
+	pkg *packages.Package
+}
+
+func (s *typeSource) position() Position {
+	p := s.pkg.Fset.Position(s.SpecPos)
+	return Position{Filename: p.Filename, Line: p.Line}
+}
+
+func (s *typeSource) positionForNode(node ast.Node) Position {
+	p := s.pkg.Fset.Position(node.Pos())
+	return Position{Filename: p.Filename, Line: p.Line}
 }
 
 func (s *Source) getTypeSourceByName(name, path string) *typeSource {
-	pkg, ok := s.pkgs[path]
-	if !ok {
-		var err error
-		pkg, err = s.findpkg(path)
-		if err != nil {
-			fmt.Printf("findpkg:%v\n", err)
-			return nil
-		}
+	pkg, err := s.findpkg(path)
+	if err != nil {
+		fmt.Printf("findpkg: %v\n", err)
+		return nil
 	}
 
 	for _, syn := range pkg.Syntax {
@@ -178,15 +153,17 @@ func (s *Source) getTypeSourceByName(name, path string) *typeSource {
 					SpecDoc: s.Doc,
 					Comment: s.Comment,
 					SpecPos: s.Pos(),
+					pkg:     pkg,
 				}
 			}
 		}
 	}
+
 	return nil
 }
 
-func (s *Source) getTypeSourceById(id *ast.Ident) *typeSource {
-	obj, ok := s.info.Defs[id]
+func (s *Source) getTypeSourceById(id *ast.Ident, pkg *packages.Package) *typeSource {
+	obj, ok := pkg.TypesInfo.Defs[id]
 	if !ok {
 		return nil
 	}
@@ -210,6 +187,13 @@ type constSource struct {
 	Comment *ast.CommentGroup
 	// the const spec's position
 	SpecPos token.Pos
+	// The package in which the constant is declared.
+	pkg *packages.Package
+}
+
+func (s *constSource) position() Position {
+	p := s.pkg.Fset.Position(s.SpecPos)
+	return Position{Filename: p.Filename, Line: p.Line}
 }
 
 // getConstSourceByTypeName scans the given Source.pkgs looking for all declared constants
@@ -265,6 +249,7 @@ func (s *Source) getConstSourceByTypeName(name, path string) (consts []*constSou
 								SpecDoc: vs.Doc,
 								Comment: vs.Comment,
 								SpecPos: vs.Pos(),
+								pkg:     pkg,
 							})
 						}
 					}

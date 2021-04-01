@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strconv"
 	"strings"
@@ -15,9 +16,24 @@ import (
 	"github.com/frk/httptest/internal/comment"
 	"github.com/frk/httptest/internal/page"
 	"github.com/frk/httptest/internal/types"
+	"github.com/frk/tagutil"
 )
 
+const DefaultFieldNameTagKey = "json"
+
 type Config struct {
+	// The tag key to be used to retrieve a field's name, defaults to "json".
+	//
+	// If no name is present in the tag value associated with the key,
+	// the field's name will be used as fallback.
+	FieldNameTagKey string
+	// FieldTypeName returns the name for a specific field's type based on
+	// given reflect.StructField value.
+	//
+	// If FieldTypeName is nil or it returns false as the second return
+	// value (ok) it will fall back to the default behaviour.
+	FieldTypeName func(reflect.StructField) (typeName string, ok bool)
+
 	//
 	buf bytes.Buffer
 	// source code info
@@ -26,28 +42,44 @@ type Config struct {
 	page page.Page
 	// the nav group currently being built, or nil
 	ng *page.SidebarNavGroup
+
+	// set of already generated ids
+	ids map[string]int
+	// cache of Topic ids
+	tIds map[*Topic]string
+	// cache of TestGroup ids
+	tgIds map[*httptest.TestGroup]string
 	// set of already generated hrefs
 	hrefs map[string]int
-	// map of endpoints to their respective hrefs
-	ep2href map[httptest.Endpoint]string
-	// set of already generated ids for html elements
-	ids map[string]int
+	// cache of Topic hrefs
+	tHrefs map[*Topic]string
+	// cache of TestGroup hrefs
+	tgHrefs map[*httptest.TestGroup]string
+
 	// utilized by tests
 	mode page.TestMode
 }
 
 func (c *Config) Build(toc []*TopicGroup) error {
-	c.hrefs = make(map[string]int)
-	c.ep2href = make(map[httptest.Endpoint]string)
-	c.ids = make(map[string]int)
-
 	_, f, _, _ := runtime.Caller(1)
 	dir := filepath.Dir(f)
 	src, err := types.Load(dir)
 	if err != nil {
 		return err
 	}
+
+	// initialize config
 	c.src = src
+	c.ids = make(map[string]int)
+	c.tIds = make(map[*Topic]string)
+	c.tgIds = make(map[*httptest.TestGroup]string)
+	c.hrefs = make(map[string]int)
+	c.tHrefs = make(map[*Topic]string)
+	c.tgHrefs = make(map[*httptest.TestGroup]string)
+
+	if len(c.FieldNameTagKey) == 0 {
+		c.FieldNameTagKey = DefaultFieldNameTagKey
+	}
 
 	////////////////////////////////////////////////////////////////////////
 	// TODO write a main.go (package main) program that imports a package
@@ -92,36 +124,40 @@ func (c *Config) buildSidebar(toc []*TopicGroup) error {
 	return nil
 }
 
-func (c *Config) buildSidebarNavFromTopics(topics []*Topic, parent *page.SidebarNavItem) error {
+func (c *Config) buildSidebarNavFromTopics(topics []*Topic, parent *Topic) error {
 	for _, t := range topics {
-		item := new(page.SidebarNavItem)
-		item.Text = t.Name
-		item.Href = c.hrefFromTopic(t, parent)
+		c.idForTopic(t, parent)
 
-		if err := c.buildSidebarNavFromTestGroups(t.TestGroups, item); err != nil {
+		t.navItem = new(page.SidebarNavItem)
+		t.navItem.Text = t.Name
+		t.navItem.Href = c.hrefForTopic(t, parent)
+
+		if err := c.buildSidebarNavFromTestGroups(t.TestGroups, t); err != nil {
 			return err
 		}
-		if err := c.buildSidebarNavFromTopics(t.SubTopics, item); err != nil {
+		if err := c.buildSidebarNavFromTopics(t.SubTopics, t); err != nil {
 			return err
 		}
 
 		if parent != nil {
-			parent.SubItems = append(parent.SubItems, item)
+			parent.navItem.SubItems = append(parent.navItem.SubItems, t.navItem)
 		} else {
-			c.ng.Items = append(c.ng.Items, item)
+			c.ng.Items = append(c.ng.Items, t.navItem)
 		}
 	}
 	return nil
 }
 
-func (c *Config) buildSidebarNavFromTestGroups(tgs []*httptest.TestGroup, parent *page.SidebarNavItem) error {
+func (c *Config) buildSidebarNavFromTestGroups(tgs []*httptest.TestGroup, parent *Topic) error {
 	for _, tg := range tgs {
+		c.idForTestGroup(tg, parent)
+
 		item := new(page.SidebarNavItem)
 		item.Text = tg.Desc
-		item.Href = c.hrefFromEndpoint(tg.Endpoint)
+		item.Href = c.hrefForTestGroup(tg, parent)
 
 		if parent != nil {
-			parent.SubItems = append(parent.SubItems, item)
+			parent.navItem.SubItems = append(parent.navItem.SubItems, item)
 		} else {
 			c.ng.Items = append(c.ng.Items, item)
 		}
@@ -142,37 +178,37 @@ func (c *Config) buildContent(toc []*TopicGroup) error {
 	return nil
 }
 
-func (c *Config) buildContentSectionsFromTopics(topics []*Topic, parent *page.ContentSection) error {
+func (c *Config) buildContentSectionsFromTopics(topics []*Topic, parent *Topic) error {
 	for _, t := range topics {
-		section := new(page.ContentSection)
-		section.Id = c.idFromTopic(t, parent)
+		t.contentSection = new(page.ContentSection)
+		t.contentSection.Id = c.idForTopic(t, parent)
 
-		if err := c.buildArticleFromTopic(t, &section.Article); err != nil {
+		if err := c.buildArticleFromTopic(t, &t.contentSection.Article); err != nil {
 			return err
 		}
-		if err := c.buildContentSectionsFromTopics(t.SubTopics, section); err != nil {
+		if err := c.buildContentSectionsFromTopics(t.SubTopics, t); err != nil {
 			return err
 		}
-		if err := c.buildEndpointOverview(t.TestGroups, section); err != nil {
+		if err := c.buildEndpointOverview(t.TestGroups, t.contentSection); err != nil {
 			return err
 		}
-		if err := c.buildContentSectionsFromTestGroups(t.TestGroups, section); err != nil {
+		if err := c.buildContentSectionsFromTestGroups(t.TestGroups, t); err != nil {
 			return err
 		}
 
 		if parent != nil {
-			parent.SubSections = append(parent.SubSections, section)
+			parent.contentSection.SubSections = append(parent.contentSection.SubSections, t.contentSection)
 		} else {
-			c.page.Content.Sections = append(c.page.Content.Sections, section)
+			c.page.Content.Sections = append(c.page.Content.Sections, t.contentSection)
 		}
 	}
 	return nil
 }
 
-func (c *Config) buildContentSectionsFromTestGroups(tgs []*httptest.TestGroup, parent *page.ContentSection) error {
+func (c *Config) buildContentSectionsFromTestGroups(tgs []*httptest.TestGroup, parent *Topic) error {
 	for _, tg := range tgs {
 		section := new(page.ContentSection)
-		section.Id = c.idFromTestGroup(tg, parent)
+		section.Id = c.idForTestGroup(tg, parent)
 
 		if err := c.buildArticleFromTestGroup(tg, &section.Article); err != nil {
 			return err
@@ -182,7 +218,7 @@ func (c *Config) buildContentSectionsFromTestGroups(tgs []*httptest.TestGroup, p
 		}
 
 		if parent != nil {
-			parent.SubSections = append(parent.SubSections, section)
+			parent.contentSection.SubSections = append(parent.contentSection.SubSections, section)
 		} else {
 			c.page.Content.Sections = append(c.page.Content.Sections, section)
 		}
@@ -192,6 +228,8 @@ func (c *Config) buildContentSectionsFromTestGroups(tgs []*httptest.TestGroup, p
 
 func (c *Config) buildArticleFromTopic(t *Topic, a *page.Article) error {
 	a.Heading = t.Name
+
+	// TODO href
 
 	if t.Text != nil {
 		// NOTE(mkopriva): it may be useful to add support for the
@@ -231,10 +269,11 @@ func (c *Config) buildArticleFromTopic(t *Topic, a *page.Article) error {
 			return fmt.Errorf("httpdoc: Topic.Attributes:(%T) unsupported type kind", t.Attributes)
 		}
 
-		list, err := c.buildFieldListFromType("Attributes", typ)
+		list, err := c.buildFieldListFromType(typ, t, nil)
 		if err != nil {
 			return err
 		}
+		list.Title = "Attributes"
 		a.FieldLists = append(a.FieldLists, list)
 	}
 
@@ -255,25 +294,80 @@ func (c *Config) buildArticleFromTestGroup(tg *httptest.TestGroup, a *page.Artic
 	return nil
 }
 
-func (c *Config) buildFieldListFromType(title string, typ *types.Type) (*page.FieldList, error) {
+func (c *Config) buildFieldListFromType(typ *types.Type, t *Topic, path []string) (*page.FieldList, error) {
 	list := new(page.FieldList)
-	list.Title = title
 
+	tId := c.idForTopic(t, nil)
+	tHref := c.hrefForTopic(t, nil)
+	tagKey := c.FieldNameTagKey
 	for _, f := range typ.Fields {
-		var text string
+		tag := tagutil.New(f.Tag)
+
+		// skip field?
+		if tag.Contains(tagKey, "-") || tag.Contains("doc", "-") {
+			continue
+		}
+
+		var fieldName = f.Name
+		if name := tag.First(tagKey); name != "" {
+			fieldName = name
+		}
+
+		var fieldType = f.Type.String()
+		if c.FieldTypeName != nil {
+			sf, ok := typ.ReflectType.FieldByName(f.Name)
+			if !ok {
+				// this should not happen
+				panic(fmt.Sprintf("httpdoc: reflect.Type.FieldByName(%q) failed.", f.Name))
+			}
+			if name, ok := c.FieldTypeName(sf); len(name) > 0 || ok {
+				fieldType = name
+			}
+		}
+
+		var fieldDoc string
 		if len(f.Doc) > 0 {
 			html, err := comment.ToHTML(f.Doc)
 			if err != nil {
 				return nil, err
 			}
-			text = html
+			fieldDoc = html
+		}
+
+		var fieldPath string
+		if len(path) > 0 {
+			fieldPath = strings.Join(path, ".") + "."
+		}
+
+		var fieldId = tId + "_" + fieldPath + fieldName
+		var fieldHref = tHref
+		if i := strings.IndexByte(fieldHref, '#'); i > -1 {
+			fieldHref = fieldHref[:i]
+		}
+		fieldHref = fieldHref + "#" + fieldId
+
+		var subFields []*page.FieldListItem
+		if f.Type.Kind == types.KindStruct {
+			list, err := c.buildFieldListFromType(f.Type, t, append(path, fieldName))
+			if err != nil {
+				return nil, err
+			}
+			subFields = list.Items
+		}
+
+		if false { // Parameters?
+			// TODO required directive
+			// TODO validation directive
 		}
 
 		item := new(page.FieldListItem)
-		item.Name = f.Name
-		item.Path = ""
-		item.Type = f.Type.GetName()
-		item.Text = template.HTML(text)
+		item.Id = fieldId
+		item.Href = fieldHref
+		item.Name = fieldName
+		item.Type = fieldType
+		item.Text = template.HTML(fieldDoc)
+		item.Path = fieldPath
+		item.SubFields = subFields
 		list.Items = append(list.Items, item)
 	}
 
@@ -285,7 +379,7 @@ func (c *Config) buildEndpointOverview(tgs []*httptest.TestGroup, section *page.
 
 	for _, tg := range tgs {
 		item := page.EndpointOverviewItem{}
-		item.Href = c.hrefFromEndpoint(tg.Endpoint)
+		item.Href = c.hrefForTestGroup(tg, nil)
 		item.Method = tg.Endpoint.Method
 		item.Pattern = tg.Endpoint.Pattern
 		item.Tooltip = tg.Desc
@@ -310,111 +404,131 @@ func (c *Config) buildExamplesFromTestGroup(tg *httptest.TestGroup, parent *page
 	return nil
 }
 
-// idFromTopic returns an "id" tag attribute for the given topic.
-func (c *Config) idFromTopic(t *Topic, parent *page.ContentSection) string {
-	prefix := ""
-	if parent != nil {
-		prefix = parent.Id
+// idForTopic returns a unique id value for the given Topic.
+func (c *Config) idForTopic(t *Topic, parent *Topic) string {
+	if id, ok := c.tIds[t]; ok {
+		return id
 	}
 
 	id := strings.Map(func(r rune) rune {
-		// TODO(mkopriva): handle non ascii characters, e.g. japanese chinese, arabic, etc.
+		// TODO(mkopriva): handle non ascii characters, e.g. japanese, chinese, arabic, etc.
 		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
 			return r
 		}
 		return '-'
 	}, strings.ToLower(t.Name))
 
-	if len(prefix) > 0 {
-		id = prefix + "-" + id
+	if parent != nil {
+		id = c.idForTopic(parent, nil) + "_" + id
 	}
 
-	// make sure the returned id is unique
+	// make sure the id is unique
 	count := c.ids[id]
 	c.ids[id] = count + 1
 	if count > 0 {
 		id += "-" + strconv.Itoa(count+1)
 	}
+
+	// cache the id
+	c.tIds[t] = id
 	return id
 }
 
-// idFromTestGroup returns an "id" tag attribute for the given topic.
-func (c *Config) idFromTestGroup(tg *httptest.TestGroup, parent *page.ContentSection) string {
-	prefix := ""
-	if parent != nil {
-		prefix = parent.Id
+// idForTestGroup returns a unique id for the given TestGroup.
+func (c *Config) idForTestGroup(tg *httptest.TestGroup, parent *Topic) string {
+	if id, ok := c.tgIds[tg]; ok {
+		return id
 	}
 
-	id := strings.Map(func(r rune) rune {
-		// TODO(mkopriva): handle non ascii characters, e.g. japanese chinese, arabic, etc.
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+	var id string
+	if len(tg.Desc) > 0 {
+		id = strings.Map(func(r rune) rune {
+			// TODO(mkopriva): handle non ascii characters, e.g. japanese, chinese, arabic, etc.
+			if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+				return r
+			}
+			return '-'
+		}, strings.ToLower(tg.Desc))
+	} else {
+		// default to tg.Endpoint if no tg.Desc was set
+		pattern := strings.Map(func(r rune) rune {
+			// TODO(mkopriva): allow for handling of more complex endpoint
+			// patterns, i.e. some routers allow specifying regular expressions,
+			// or they use delimiters different from "{" and "}".
+			//
+			// Consider providing a Config.<Field> so that the user can supply
+			// their own "hrefForTestGroup" implementation based on their own need.
+			if r == '{' || r == '}' {
+				return -1
+			}
+			if r == '/' {
+				return '-'
+			}
 			return r
-		}
-		return '-'
-	}, strings.ToLower(tg.Desc))
+		}, tg.Endpoint.Pattern)
 
-	if len(prefix) > 0 {
-		id = prefix + "-" + id
+		id = strings.ToLower(pattern + "-" + tg.Endpoint.Method)
 	}
 
-	// make sure the returned id is unique
+	if parent != nil {
+		id = c.idForTopic(parent, nil) + "_" + id
+	}
+
+	// make sure the id is unique
 	count := c.ids[id]
 	c.ids[id] = count + 1
 	if count > 0 {
 		id += "-" + strconv.Itoa(count+1)
 	}
+
+	// cache the id
+	c.tgIds[tg] = id
 	return id
 }
 
-// hrefFromTopic returns an href string for the given topic.
-func (c *Config) hrefFromTopic(t *Topic, parent *page.SidebarNavItem) string {
-	prefix := ""
-	if parent != nil {
-		prefix = parent.Href
-	}
-
-	href := strings.Map(func(r rune) rune {
-		// TODO(mkopriva): handle non ascii characters, e.g. japanese chinese, arabic, etc.
-		//
-		// Whatever is valid in path (without the need of encoding it)
-		// should be left unchanged, the rest should be replaced by a hyphen.
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
-			return r
-		}
-		return '-'
-	}, strings.ToLower(t.Name))
-	href = prefix + "/" + href
-
-	// make sure the returned href is unique
-	count := c.hrefs[href]
-	c.hrefs[href] = count + 1
-	if count > 0 {
-		href += "-" + strconv.Itoa(count+1)
-	}
-	return href
-}
-
-// hrefFromEndpoint returns an href string for the given test group.
-func (c *Config) hrefFromEndpoint(ep httptest.Endpoint) string {
-	if href, ok := c.ep2href[ep]; ok {
+// hrefForTopic returns an href string for the given Topic.
+func (c *Config) hrefForTopic(t *Topic, parent *Topic) string {
+	if href, ok := c.tHrefs[t]; ok {
 		return href
 	}
 
-	method, pattern := ep.Method, ep.Pattern
-	pattern = strings.Map(func(r rune) rune {
-		// TODO(mkopriva): allow for handling of more complex endpoint
-		// patterns, i.e. some routers allow specifying regular expressions,
-		// or they use delimiters different from "{" and "}".
-		//
-		// Consider providing a Config.<Field> so that the user can supply
-		// their own "hrefFromEndpoint" implementation based on their own need.
-		if r == '{' || r == '}' {
-			return -1
+	id := c.idForTopic(t, parent)
+	href := "/" + id
+	if parent != nil {
+		href = c.hrefForTopic(parent, nil)
+		if i := strings.IndexByte(href, '#'); i > -1 {
+			href = href[:i]
 		}
-		return r
-	}, pattern)
+		href += "#" + id
+	}
 
-	href := strings.ToLower(pattern + "/" + method)
+	// make sure the href is unique
+	count := c.hrefs[href]
+	c.hrefs[href] = count + 1
+	if count > 0 {
+		href += "-" + strconv.Itoa(count+1)
+	}
+
+	// cache the href
+	c.tHrefs[t] = href
+	return href
+}
+
+// hrefForTestGroup returns an href string for the given TestGroup.
+func (c *Config) hrefForTestGroup(tg *httptest.TestGroup, parent *Topic) string {
+	if href, ok := c.tgHrefs[tg]; ok {
+		return href
+	}
+
+	id := c.idForTestGroup(tg, parent)
+	href := "/" + id
+	if parent != nil {
+		href = c.hrefForTopic(parent, nil)
+		if i := strings.IndexByte(href, '#'); i > -1 {
+			href = href[:i]
+		}
+		href += "#" + id
+	}
 
 	// make sure the returned href is unique
 	count := c.hrefs[href]
@@ -423,6 +537,7 @@ func (c *Config) hrefFromEndpoint(ep httptest.Endpoint) string {
 		href += "-" + strconv.Itoa(count+1)
 	}
 
-	c.ep2href[ep] = href
+	// cache the href
+	c.tgHrefs[tg] = href
 	return href
 }

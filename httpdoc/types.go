@@ -4,6 +4,7 @@ import (
 	"html/template"
 
 	"github.com/frk/httptest"
+	"github.com/frk/httptest/internal/page"
 )
 
 type TopicGroup struct {
@@ -12,6 +13,18 @@ type TopicGroup struct {
 	// The list of topics that belong to the group.
 	Topics []*Topic
 }
+
+// - the resulting documentation will have paths for each direct Topic in each TopicGroup
+// []TopicGroup{{Topics: []Topic{{}, ... }}, ... }
+//
+// - SubTopics will be linked to using fragments <- need to know the parent Topic's href
+// - TestGroups will be linked to using fragments <- need to know the parent Topic's href
+//
+// - each *httpdoc.Topic & *httptest.TestGroup represent an article in the documentation
+// that needs to be referenced accurately
+//
+// - root topics, i.e. those that are the direct children of an *httpdoc.TopicGroup,
+// must will have an id but that will not be referenced
 
 type Topic struct {
 	// The name of the topic. Used to generate the nav-item link-text in the
@@ -37,6 +50,11 @@ type Topic struct {
 	Attributes interface{}
 	Parameters interface{}
 	Returns    interface{}
+
+	// A reference to the associated SidebarNavItem.
+	navItem *page.SidebarNavItem
+	// A reference to the associated ContentSection.
+	contentSection *page.ContentSection
 }
 
 type HTML interface {

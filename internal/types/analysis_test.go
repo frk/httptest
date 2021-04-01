@@ -2,6 +2,7 @@ package types
 
 import (
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"testing"
 
@@ -25,15 +26,15 @@ func TestTypeOf(t *testing.T) {
 		want: &Type{Kind: KindPtr, Elem: &Type{Name: "float64", Kind: KindFloat64}},
 	}, 2: {
 		v:    types.T1{},
-		want: &Type{Pos: pos, Name: "T1", Kind: KindStruct, PkgPath: pkg, Fields: []*StructField{}},
+		want: &Type{Pos: pos, Name: "T1", Kind: KindStruct, ReflectType: reflect.TypeOf(types.T1{}), PkgPath: pkg, Fields: []*StructField{}},
 	}, 3: {
 		v: types.T2{},
-		want: &Type{Pos: pos, Name: "T2", Kind: KindStruct, PkgPath: pkg, Fields: []*StructField{
+		want: &Type{Pos: pos, Name: "T2", Kind: KindStruct, ReflectType: reflect.TypeOf(types.T2{}), PkgPath: pkg, Fields: []*StructField{
 			{Name: "F", Pos: pos, Type: &Type{Name: "string", Kind: KindString}},
 		}},
 	}, 4: {
 		v: types.T3{},
-		want: &Type{Pos: pos, Name: "T3", Kind: KindStruct, PkgPath: pkg, Fields: []*StructField{
+		want: &Type{Pos: pos, Name: "T3", Kind: KindStruct, ReflectType: reflect.TypeOf(types.T3{}), PkgPath: pkg, Fields: []*StructField{
 			{Name: "F1", Pos: pos, Type: &Type{Name: "string", Kind: KindString}},
 			{Name: "F2", Pos: pos, Type: &Type{Name: "string", Kind: KindString}},
 			{Name: "F3", Pos: pos, Type: &Type{Name: "float64", Kind: KindFloat64}},
@@ -41,42 +42,42 @@ func TestTypeOf(t *testing.T) {
 		}},
 	}, 5: {
 		v: types.T4{},
-		want: &Type{Pos: pos, Name: "T4", Kind: KindStruct, PkgPath: pkg, Fields: []*StructField{
+		want: &Type{Pos: pos, Name: "T4", Kind: KindStruct, ReflectType: reflect.TypeOf(types.T4{}), PkgPath: pkg, Fields: []*StructField{
 			{Name: "F1", Pos: pos, Type: &Type{Name: "string", Kind: KindString}},
 			{Name: "F2", Pos: pos, Type: &Type{Name: "int", Kind: KindInt}},
 			{Name: "F3", Pos: pos, Type: &Type{Kind: KindPtr, Elem: &Type{
-				Name: "T2", Pos: pos, Kind: KindStruct, PkgPath: pkg,
+				Name: "T2", Pos: pos, Kind: KindStruct, ReflectType: reflect.TypeOf(types.T2{}), PkgPath: pkg,
 				Fields: []*StructField{{Name: "F", Pos: pos, Type: &Type{Name: "string", Kind: KindString}}}}},
 			},
 		}},
 	}, 6: {
 		v: types.T5a{},
-		want: &Type{Name: "T5a", Pos: pos, Kind: KindStruct, PkgPath: pkg, Fields: []*StructField{
+		want: &Type{Name: "T5a", Pos: pos, Kind: KindStruct, ReflectType: reflect.TypeOf(types.T5a{}), PkgPath: pkg, Fields: []*StructField{
 			{Name: "F1", Pos: pos, Type: &Type{
-				Name: "T2", Pos: pos, Kind: KindStruct, PkgPath: pkg,
+				Name: "T2", Pos: pos, Kind: KindStruct, ReflectType: reflect.TypeOf(types.T2{}), PkgPath: pkg,
 				Fields: []*StructField{{Name: "F", Pos: pos, Type: &Type{Name: "string", Kind: KindString}}}},
 			},
 			{Name: "F2", Pos: pos, Type: &Type{
-				Name: "T2", Pos: pos, Kind: KindStruct, PkgPath: pkg,
+				Name: "T2", Pos: pos, Kind: KindStruct, ReflectType: reflect.TypeOf(types.T2{}), PkgPath: pkg,
 				Fields: []*StructField{{Name: "F", Pos: pos, Type: &Type{Name: "string", Kind: KindString}}}},
 			},
 		}},
 	}, 7: {
 		v: types.T5b{},
-		want: &Type{Pos: pos, Name: "T5b", Kind: KindStruct, PkgPath: pkg, Fields: []*StructField{
+		want: &Type{Pos: pos, Name: "T5b", Kind: KindStruct, ReflectType: reflect.TypeOf(types.T5b{}), PkgPath: pkg, Fields: []*StructField{
 			{Name: "F1", Pos: pos, Type: &Type{Kind: KindPtr, Elem: &Type{
-				Name: "T2", Pos: pos, Kind: KindStruct, PkgPath: pkg,
+				Name: "T2", Pos: pos, Kind: KindStruct, ReflectType: reflect.TypeOf(types.T2{}), PkgPath: pkg,
 				Fields: []*StructField{{Name: "F", Pos: pos, Type: &Type{Name: "string", Kind: KindString}}}}},
 			},
 			{Name: "F2", Pos: pos, Type: &Type{Kind: KindPtr, Elem: &Type{
-				Name: "T2", Pos: pos, Kind: KindStruct, PkgPath: pkg,
+				Name: "T2", Pos: pos, Kind: KindStruct, ReflectType: reflect.TypeOf(types.T2{}), PkgPath: pkg,
 				Fields: []*StructField{{Name: "F", Pos: pos, Type: &Type{Name: "string", Kind: KindString}}}}},
 			},
 		}},
 	}, 8: {
 		v: types.T6{},
 		want: func() *Type {
-			t := &Type{Pos: pos, Name: "T6", Kind: KindStruct, PkgPath: pkg, Fields: []*StructField{
+			t := &Type{Pos: pos, Name: "T6", Kind: KindStruct, ReflectType: reflect.TypeOf(types.T6{}), PkgPath: pkg, Fields: []*StructField{
 				{Name: "F1", Pos: pos, Type: &Type{Kind: KindPtr}},
 				{Name: "F2", Pos: pos, Type: &Type{Kind: KindPtr}},
 			}}
@@ -86,39 +87,39 @@ func TestTypeOf(t *testing.T) {
 		}(),
 	}, 9: {
 		v: types.T7{F: "foo bar"},
-		want: &Type{Pos: pos, Name: "T7", Kind: KindStruct, PkgPath: pkg, Fields: []*StructField{
+		want: &Type{Pos: pos, Name: "T7", Kind: KindStruct, ReflectType: reflect.TypeOf(types.T7{}), PkgPath: pkg, Fields: []*StructField{
 			{Name: "F", Pos: pos, Type: &Type{Kind: KindInterface, Elem: &Type{Name: "string", Kind: KindString}}},
 		}},
 	}, 10: {
 		v: types.T7{F: types.T7{}},
-		want: &Type{Pos: pos, Name: "T7", Kind: KindStruct, PkgPath: pkg, Fields: []*StructField{
+		want: &Type{Pos: pos, Name: "T7", Kind: KindStruct, ReflectType: reflect.TypeOf(types.T7{}), PkgPath: pkg, Fields: []*StructField{
 			{Name: "F", Pos: pos, Type: &Type{Kind: KindInterface, Elem: &Type{
-				Pos: pos, Name: "T7", Kind: KindStruct, PkgPath: pkg, Fields: []*StructField{
+				Pos: pos, Name: "T7", Kind: KindStruct, ReflectType: reflect.TypeOf(types.T7{}), PkgPath: pkg, Fields: []*StructField{
 					{Name: "F", Pos: pos, Type: &Type{Kind: KindInterface}},
 				},
 			}}},
 		}},
 	}, 11: {
 		v: &types.T7{F: &types.T7{}},
-		want: &Type{Kind: KindPtr, Elem: &Type{Pos: pos, Name: "T7", Kind: KindStruct, PkgPath: pkg, Fields: []*StructField{
-			{Name: "F", Pos: pos, Type: &Type{Kind: KindInterface, Elem: &Type{Kind: KindPtr, Elem: &Type{Pos: pos, Name: "T7", Kind: KindStruct, PkgPath: pkg, Fields: []*StructField{
+		want: &Type{Kind: KindPtr, Elem: &Type{Pos: pos, Name: "T7", Kind: KindStruct, ReflectType: reflect.TypeOf(types.T7{}), PkgPath: pkg, Fields: []*StructField{
+			{Name: "F", Pos: pos, Type: &Type{Kind: KindInterface, Elem: &Type{Kind: KindPtr, Elem: &Type{Pos: pos, Name: "T7", Kind: KindStruct, ReflectType: reflect.TypeOf(types.T7{}), PkgPath: pkg, Fields: []*StructField{
 				{Name: "F", Pos: pos, Type: &Type{Kind: KindInterface}},
 			}}}}},
 		}}},
 	}, 12: {
 		v: types.T7{F: &types.T7{"foo bar"}},
-		want: &Type{Pos: pos, Name: "T7", Kind: KindStruct, PkgPath: pkg, Fields: []*StructField{
+		want: &Type{Pos: pos, Name: "T7", Kind: KindStruct, ReflectType: reflect.TypeOf(types.T7{}), PkgPath: pkg, Fields: []*StructField{
 			{Name: "F", Pos: pos, Type: &Type{Kind: KindInterface, Elem: &Type{Kind: KindPtr, Elem: &Type{
-				Pos: pos, Name: "T7", Kind: KindStruct, PkgPath: pkg, Fields: []*StructField{
+				Pos: pos, Name: "T7", Kind: KindStruct, ReflectType: reflect.TypeOf(types.T7{}), PkgPath: pkg, Fields: []*StructField{
 					{Name: "F", Pos: pos, Type: &Type{Kind: KindInterface, Elem: &Type{Name: "string", Kind: KindString}}},
 				},
 			}}}},
 		}},
 	}, 13: {
 		v: types.T7{F: &types.T8{F1: "foo bar"}},
-		want: &Type{Pos: pos, Name: "T7", Kind: KindStruct, PkgPath: pkg, Fields: []*StructField{
+		want: &Type{Pos: pos, Name: "T7", Kind: KindStruct, ReflectType: reflect.TypeOf(types.T7{}), PkgPath: pkg, Fields: []*StructField{
 			{Name: "F", Pos: pos, Type: &Type{Kind: KindInterface, Elem: &Type{Kind: KindPtr, Elem: &Type{
-				Pos: pos, Name: "T8", Kind: KindStruct, PkgPath: pkg, Fields: []*StructField{
+				Pos: pos, Name: "T8", Kind: KindStruct, ReflectType: reflect.TypeOf(types.T8{}), PkgPath: pkg, Fields: []*StructField{
 					{Name: "F1", Pos: pos, Type: &Type{Kind: KindInterface, Elem: &Type{Name: "string", Kind: KindString}}},
 					{Name: "F2", Pos: pos, Type: &Type{Kind: KindInterface}},
 				},
@@ -127,7 +128,7 @@ func TestTypeOf(t *testing.T) {
 	}, 14: {
 		v: types.T9{},
 		want: func() *Type {
-			t := &Type{Name: "T9", Pos: pos, Kind: KindStruct, PkgPath: pkg, Fields: []*StructField{
+			t := &Type{Name: "T9", Pos: pos, Kind: KindStruct, ReflectType: reflect.TypeOf(types.T9{}), PkgPath: pkg, Fields: []*StructField{
 				{Name: "F1", Pos: pos, Type: &Type{Kind: KindPtr}},
 				{Name: "F2", Pos: pos, Type: &Type{Kind: KindInterface}},
 			}}
@@ -137,15 +138,15 @@ func TestTypeOf(t *testing.T) {
 	}, 15: {
 		v: types.T9{F1: &types.T9{F2: "foo bar"}},
 		want: func() *Type {
-			t := &Type{Name: "T9", Pos: pos, Kind: KindStruct, PkgPath: pkg, Fields: []*StructField{
+			t := &Type{Name: "T9", Pos: pos, Kind: KindStruct, ReflectType: reflect.TypeOf(types.T9{}), PkgPath: pkg, Fields: []*StructField{
 				{Name: "F1", Pos: pos, Type: &Type{Kind: KindPtr}},
 				{Name: "F2", Pos: pos, Type: &Type{Kind: KindInterface}},
 			}}
 			t.Fields[0].Type.Elem = t
 
-			return &Type{Name: "T9", Pos: pos, Kind: KindStruct, PkgPath: pkg, Fields: []*StructField{
+			return &Type{Name: "T9", Pos: pos, Kind: KindStruct, ReflectType: reflect.TypeOf(types.T9{}), PkgPath: pkg, Fields: []*StructField{
 				{Name: "F1", Pos: pos, Type: &Type{Kind: KindPtr, Elem: &Type{
-					Pos: pos, Name: "T9", Kind: KindStruct, PkgPath: pkg, Fields: []*StructField{
+					Pos: pos, Name: "T9", Kind: KindStruct, ReflectType: reflect.TypeOf(types.T9{}), PkgPath: pkg, Fields: []*StructField{
 						{Name: "F1", Pos: pos, Type: &Type{Kind: KindPtr, Elem: t}},
 						{Name: "F2", Pos: pos, Type: &Type{Kind: KindInterface, Elem: &Type{
 							Name: "string", Kind: KindString,
@@ -161,15 +162,15 @@ func TestTypeOf(t *testing.T) {
 			F2: &types.T9{F2: 123},
 		},
 		want: func() *Type {
-			t := &Type{Pos: pos, Name: "T9", Kind: KindStruct, PkgPath: pkg, Fields: []*StructField{
+			t := &Type{Pos: pos, Name: "T9", Kind: KindStruct, ReflectType: reflect.TypeOf(types.T9{}), PkgPath: pkg, Fields: []*StructField{
 				{Name: "F1", Pos: pos, Type: &Type{Kind: KindPtr}},
 				{Name: "F2", Pos: pos, Type: &Type{Kind: KindInterface}},
 			}}
 			t.Fields[0].Type.Elem = t
 
-			return &Type{Pos: pos, Name: "T9", Kind: KindStruct, PkgPath: pkg, Fields: []*StructField{
+			return &Type{Pos: pos, Name: "T9", Kind: KindStruct, ReflectType: reflect.TypeOf(types.T9{}), PkgPath: pkg, Fields: []*StructField{
 				{Name: "F1", Pos: pos, Type: &Type{Kind: KindPtr, Elem: &Type{
-					Pos: pos, Name: "T9", Kind: KindStruct, PkgPath: pkg, Fields: []*StructField{
+					Pos: pos, Name: "T9", Kind: KindStruct, ReflectType: reflect.TypeOf(types.T9{}), PkgPath: pkg, Fields: []*StructField{
 						{Name: "F1", Pos: pos, Type: &Type{Kind: KindPtr, Elem: t}},
 						{Name: "F2", Pos: pos, Type: &Type{Kind: KindInterface, Elem: &Type{
 							Name: "string", Kind: KindString,
@@ -177,7 +178,7 @@ func TestTypeOf(t *testing.T) {
 					}},
 				}},
 				{Name: "F2", Pos: pos, Type: &Type{Kind: KindInterface, Elem: &Type{Kind: KindPtr, Elem: &Type{
-					Pos: pos, Name: "T9", Kind: KindStruct, PkgPath: pkg, Fields: []*StructField{
+					Pos: pos, Name: "T9", Kind: KindStruct, ReflectType: reflect.TypeOf(types.T9{}), PkgPath: pkg, Fields: []*StructField{
 						{Name: "F1", Pos: pos, Type: &Type{Kind: KindPtr, Elem: t}},
 						{Name: "F2", Pos: pos, Type: &Type{Kind: KindInterface, Elem: &Type{
 							Name: "int", Kind: KindInt,
@@ -227,7 +228,7 @@ func TestTypeOf(t *testing.T) {
 		},
 	}, 24: {
 		v: types.S8{},
-		want: &Type{Name: "S8", Pos: pos, Kind: KindStruct, PkgPath: pkg,
+		want: &Type{Name: "S8", Pos: pos, Kind: KindStruct, ReflectType: reflect.TypeOf(types.S8{}), PkgPath: pkg,
 			Doc: []string{"// S8 decl doc"},
 			Fields: []*StructField{
 				{Name: "F1", Pos: pos, Type: &Type{Name: "string", Kind: KindString},

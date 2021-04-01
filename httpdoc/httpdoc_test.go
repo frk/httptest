@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"testing"
 
@@ -26,9 +27,10 @@ func Test(t *testing.T) {
 	defer testFile.Close()
 
 	tests := []struct {
-		file string
-		mode page.TestMode
-		toc  []*TopicGroup
+		file    string
+		mode    page.TestMode
+		typName func(reflect.StructField) (typeName string, ok bool)
+		toc     []*TopicGroup
 	}{{
 		file: "sidebar_from_topics",
 		mode: page.SidebarTest,
@@ -189,6 +191,7 @@ func Test(t *testing.T) {
 		mode: page.ArticleFieldListTest,
 		toc: []*TopicGroup{{
 			Topics: []*Topic{{
+				Name:       "Test Topic",
 				Attributes: httpdoc.T1{},
 			}},
 		}},
@@ -197,7 +200,62 @@ func Test(t *testing.T) {
 		mode: page.ArticleFieldListTest,
 		toc: []*TopicGroup{{
 			Topics: []*Topic{{
+				Name:       "Test Topic",
 				Attributes: httpdoc.T2{},
+			}},
+		}},
+	}, {
+		file: "article_field_list_attributes_with_tag_names",
+		mode: page.ArticleFieldListTest,
+		toc: []*TopicGroup{{
+			Topics: []*Topic{{
+				Name:       "Test Topic",
+				Attributes: httpdoc.T3{},
+			}},
+		}},
+	}, {
+		file: "article_field_list_attributes_with_custom_type_names",
+		mode: page.ArticleFieldListTest,
+		typName: func(f reflect.StructField) (typeName string, ok bool) {
+			name := []byte(f.Type.String())
+			i, j := 0, len(name)-1
+			for i < j {
+				name[i], name[j] = name[j], name[i]
+				i, j = i+1, j-1
+			}
+			return string(name), true
+		},
+		toc: []*TopicGroup{{
+			Topics: []*Topic{{
+				Name:       "Test Topic",
+				Attributes: httpdoc.T1{},
+			}},
+		}},
+	}, {
+		file: "article_field_list_attributes_with_nested_fields_1",
+		mode: page.ArticleFieldListTest,
+		toc: []*TopicGroup{{
+			Topics: []*Topic{{
+				Name:       "Test Topic",
+				Attributes: httpdoc.T4{},
+			}},
+		}},
+	}, {
+		file: "article_field_list_attributes_with_nested_fields_2",
+		mode: page.ArticleFieldListTest,
+		toc: []*TopicGroup{{
+			Topics: []*Topic{{
+				Name:       "Test Topic",
+				Attributes: httpdoc.T5{},
+			}},
+		}},
+	}, {
+		file: "article_field_list_attributes_with_nested_fields_3",
+		mode: page.ArticleFieldListTest,
+		toc: []*TopicGroup{{
+			Topics: []*Topic{{
+				Name:       "Test Topic",
+				Attributes: httpdoc.T6{},
 			}},
 		}},
 	}, {
@@ -232,7 +290,10 @@ func Test(t *testing.T) {
 				return
 			}
 
-			c := Config{mode: tt.mode}
+			c := Config{
+				FieldTypeName: tt.typName,
+				mode:          tt.mode,
+			}
 			if err := c.Build(tt.toc); err != nil {
 				t.Error(err)
 			} else {

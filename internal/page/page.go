@@ -71,8 +71,8 @@ type ContentSection struct {
 ////////////////////////////////////////////////////////////////////////////////
 
 type Article struct {
-	Heading    string
 	Href       string
+	Heading    string
 	Text       template.HTML
 	FieldLists []*FieldList
 }
@@ -83,13 +83,16 @@ type FieldList struct {
 }
 
 type FieldListItem struct {
+	// The unique identifier of the item.
+	Id string
+	// The href linking to the item.
+	Href string
 	// The name of the field.
 	Name string
 	// The path to the field's name if nested, otherwise empty.
 	Path string
 	// The name of the field's type.
 	Type string
-	Href string
 	// The field's documentation.
 	Text      template.HTML
 	SubFields []*FieldListItem

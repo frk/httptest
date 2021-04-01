@@ -119,6 +119,7 @@ func typeInfo(a *analysis, rt reflect.Type, rv reflect.Value, rts []reflect.Type
 	case KindStruct:
 		num := rt.NumField()
 		typ.Fields = make([]*StructField, num)
+		typ.ReflectType = rt
 
 		for i := 0; i < num; i++ {
 			ft := rt.Field(i)

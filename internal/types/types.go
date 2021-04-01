@@ -37,12 +37,10 @@ type Type struct {
 	// If Type is a basic, defined type then Values will hold the list of
 	// declared constants of that type, if any.
 	Values []*ConstValue
+	// NOTE: Set only for types of the struct kind.
+	ReflectType reflect.Type
 
 	hasiface bool `cmp:"-"`
-}
-
-func (t *Type) GetName() string {
-	return t.string()
 }
 
 func (t *Type) isBuiltin() bool {
@@ -61,8 +59,7 @@ func (t *Type) isConstable() bool {
 	return t.isDefined() && t.Kind.IsBasic()
 }
 
-// used for debugging
-func (t *Type) string() string {
+func (t *Type) String() string {
 	if len(t.Name) > 0 {
 		if len(t.PkgPath) > 0 {
 			return path.Base(t.PkgPath) + "." + t.Name
@@ -74,13 +71,13 @@ func (t *Type) string() string {
 	default: // assume builtin basic
 		return t.Kind.String()
 	case KindArray:
-		return "[" + strconv.FormatInt(int64(t.ArrayLen), 10) + "]" + t.Elem.string()
+		return "[" + strconv.FormatInt(int64(t.ArrayLen), 10) + "]" + t.Elem.String()
 	case KindSlice:
-		return "[]" + t.Elem.string()
+		return "[]" + t.Elem.String()
 	case KindMap:
-		return "map[" + t.Key.string() + "]" + t.Elem.string()
+		return "map[" + t.Key.String() + "]" + t.Elem.String()
 	case KindPtr:
-		return "*" + t.Elem.string()
+		return "*" + t.Elem.String()
 	case KindUint8:
 		if t.IsByte {
 			return "byte"
@@ -91,7 +88,14 @@ func (t *Type) string() string {
 			return "rune"
 		}
 		return "int32"
-	case KindStruct, KindInterface, KindChan, KindFunc:
+	case KindStruct:
+		if len(t.Fields) > 0 {
+			return "struct{ /* ... */ }"
+		}
+		return "struct{}"
+	case KindInterface:
+		return "interface{}"
+	case KindChan, KindFunc:
 		return "<unsupported>"
 	}
 	return "<unknown>"

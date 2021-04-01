@@ -227,8 +227,9 @@ var article_field_list_sub = `{{ define "article_field_list_sub" -}}
 ` //`
 
 var article_field_item = `{{ define "article_field_item" -}}
-<li>
+<li id="{{ .Id }}">
 	<h3>
+		<a class="field-anchor" href="{{ .Href }}">¶</a>
 		{{- with .Path }}
 		<span class="field-path">{{ . }}</span>
 		{{- end }}
@@ -242,7 +243,7 @@ var article_field_item = `{{ define "article_field_item" -}}
 	</div>
 
 	{{- with .SubFields }}
-	{{ template "article_field_list" . }}
+	{{ template "article_field_list_sub" . }}
 	{{- end }}
 </li>
 {{ end -}}

@@ -94,8 +94,29 @@ type FieldListItem struct {
 	// The name of the field's type.
 	Type string
 	// The field's documentation.
-	Text      template.HTML
+	Text template.HTML
+	// If the field's type is named and constants were declared with it
+	// the EnumList will hold info about those constants. If the field's
+	// type is unnamed or there are no associated constants then EnumList
+	// will be nil.
+	EnumList *EnumList
+	// If the field's type is a struct then SubFields will hold the fields
+	// of that struct. If the field's type is not a struct then SubFields
+	// will be nil.
 	SubFields []*FieldListItem
+}
+
+type EnumList struct {
+	// The title to be use for the enum list.
+	Title string
+	Items []*EnumItem
+}
+
+type EnumItem struct {
+	// The enum value.
+	Value string
+	// The enum value's documentation.
+	Text template.HTML
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -13,6 +13,7 @@ const (
 	ContentTest          TestMode = "content"
 	ArticleTest          TestMode = "article"
 	ArticleFieldListTest TestMode = "article_field_list"
+	ArticleFieldItemTest TestMode = "article_field_item"
 	EndpointOverviewTest TestMode = "endpoint_overview"
 )
 
@@ -31,6 +32,7 @@ func Write(w io.Writer, p Page, m TestMode) error {
 		article_field_list,
 		article_field_list_sub,
 		article_field_item,
+		field_enum_list,
 		example,
 		endpoint_overview,
 	}, "")
@@ -58,6 +60,8 @@ func Write(w io.Writer, p Page, m TestMode) error {
 			data = p.Content.Sections[0].Article
 		case ArticleFieldListTest:
 			data = p.Content.Sections[0].Article.FieldLists
+		case ArticleFieldItemTest:
+			data = p.Content.Sections[0].Article.FieldLists[0].Items[0]
 		case EndpointOverviewTest:
 			data = p.Content.Sections[0].Example.EndpointOverview
 		}
@@ -203,9 +207,9 @@ var article = `{{ define "article" -}}
 
 var article_field_list = `{{ define "article_field_list" -}}
 {{ range . -}}
-<div class="article-field-list">
-	<h5>{{ .Title }}</h5>
-	<ul>
+<div class="article-field-list-container">
+	<h5 class="article-field-list-header">{{ .Title }}</h5>
+	<ul class="article-field-list">
 		{{ range .Items -}}
 		{{ template "article_field_item" . }}
 		{{ end -}}
@@ -216,8 +220,8 @@ var article_field_list = `{{ define "article_field_list" -}}
 ` //`
 
 var article_field_list_sub = `{{ define "article_field_list_sub" -}}
-<div class="article-field-list">
-	<ul>
+<div class="article-field-list-container">
+	<ul class="article-field-list">
 		{{ range . -}}
 		{{ template "article_field_item" . }}
 		{{ end -}}
@@ -228,7 +232,7 @@ var article_field_list_sub = `{{ define "article_field_list_sub" -}}
 
 var article_field_item = `{{ define "article_field_item" -}}
 <li id="{{ .Id }}">
-	<h3>
+	<h3 class="field-header">
 		<a class="field-anchor" href="{{ .Href }}">¶</a>
 		{{- with .Path }}
 		<span class="field-path">{{ . }}</span>
@@ -238,14 +242,40 @@ var article_field_item = `{{ define "article_field_item" -}}
 	</h3>
 	<div class="field-doc">
 		{{- with .Text }}
-		{{ . }}
+		<div class="field-doc-text">
+			{{ . }}
+		</div>
 		{{- end }}
 	</div>
 
+	{{- with .EnumList }}
+	{{ template "field_enum_list" . }}
+	{{- end }}
 	{{- with .SubFields }}
 	{{ template "article_field_list_sub" . }}
 	{{- end }}
 </li>
+{{ end -}}
+` //`
+
+var field_enum_list = `{{ define "field_enum_list" -}}
+<div class="field-enum-list-container">
+	<h5 class="field-enum-list-header">{{ .Title }}</h5>
+	<ul class="field-enum-list">
+		{{ range .Items -}}
+		<li class="field-enum-item">
+			<div class="field-enum-item-value">
+				<code>{{ .Value }}</code>
+			</div>
+			<div class="field-enum-item-text">
+				{{- with .Text }}
+				{{ . }}
+				{{- end }}
+			</div>
+		</li>
+		{{ end -}}
+	</ul>
+</div>
 {{ end -}}
 ` //`
 

@@ -259,6 +259,15 @@ func Test(t *testing.T) {
 			}},
 		}},
 	}, {
+		file: "field_enum_list",
+		mode: page.ArticleFieldItemTest,
+		toc: []*TopicGroup{{
+			Topics: []*Topic{{
+				Name:       "Test Topic",
+				Attributes: httpdoc.T7{},
+			}},
+		}},
+	}, {
 		file: "endpoint_overview",
 		mode: page.EndpointOverviewTest,
 		toc: []*TopicGroup{{

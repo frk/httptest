@@ -308,51 +308,67 @@ func (c *Config) buildFieldListFromType(typ *types.Type, t *Topic, path []string
 			continue
 		}
 
-		var fieldName = f.Name
+		item := new(page.FieldListItem)
+
+		// the field's name
+		item.Name = f.Name
 		if name := tag.First(tagKey); name != "" {
-			fieldName = name
+			item.Name = name
 		}
 
-		var fieldType = f.Type.String()
+		// the field's path
+		if len(path) > 0 {
+			item.Path = strings.Join(path, ".") + "."
+		}
+
+		// the field's id
+		item.Id = tId + "_" + item.Path + item.Name
+
+		// the field's anchor
+		item.Href = tHref
+		if i := strings.IndexByte(item.Href, '#'); i > -1 {
+			item.Href = item.Href[:i]
+		}
+		item.Href = item.Href + "#" + item.Id
+
+		// the field's type
+		item.Type = f.Type.String()
 		if c.FieldTypeName != nil {
 			sf, ok := typ.ReflectType.FieldByName(f.Name)
 			if !ok {
-				// this should not happen
+				// shouldn't happen
 				panic(fmt.Sprintf("httpdoc: reflect.Type.FieldByName(%q) failed.", f.Name))
 			}
 			if name, ok := c.FieldTypeName(sf); len(name) > 0 || ok {
-				fieldType = name
+				item.Type = name
 			}
 		}
 
-		var fieldDoc string
+		// the field's documentation
 		if len(f.Doc) > 0 {
 			html, err := comment.ToHTML(f.Doc)
 			if err != nil {
 				return nil, err
 			}
-			fieldDoc = html
+			item.Text = template.HTML(html)
 		}
 
-		var fieldPath string
-		if len(path) > 0 {
-			fieldPath = strings.Join(path, ".") + "."
-		}
-
-		var fieldId = tId + "_" + fieldPath + fieldName
-		var fieldHref = tHref
-		if i := strings.IndexByte(fieldHref, '#'); i > -1 {
-			fieldHref = fieldHref[:i]
-		}
-		fieldHref = fieldHref + "#" + fieldId
-
-		var subFields []*page.FieldListItem
-		if f.Type.Kind == types.KindStruct {
-			list, err := c.buildFieldListFromType(f.Type, t, append(path, fieldName))
+		// the field type's enum values
+		if len(f.Type.Values) > 0 {
+			enumList, err := c.buildEnumListFromType(f.Type)
 			if err != nil {
 				return nil, err
 			}
-			subFields = list.Items
+			item.EnumList = enumList
+		}
+
+		// the field's sub fields
+		if f.Type.Kind == types.KindStruct && len(f.Type.Fields) > 0 {
+			subList, err := c.buildFieldListFromType(f.Type, t, append(path, item.Name))
+			if err != nil {
+				return nil, err
+			}
+			item.SubFields = subList.Items
 		}
 
 		if false { // Parameters?
@@ -360,15 +376,40 @@ func (c *Config) buildFieldListFromType(typ *types.Type, t *Topic, path []string
 			// TODO validation directive
 		}
 
-		item := new(page.FieldListItem)
-		item.Id = fieldId
-		item.Href = fieldHref
-		item.Name = fieldName
-		item.Type = fieldType
-		item.Text = template.HTML(fieldDoc)
-		item.Path = fieldPath
-		item.SubFields = subFields
 		list.Items = append(list.Items, item)
+	}
+
+	return list, nil
+}
+
+func (c *Config) buildEnumListFromType(typ *types.Type) (*page.EnumList, error) {
+	list := new(page.EnumList)
+	list.Title = "Possible enum values"
+	list.Items = make([]*page.EnumItem, len(typ.Values))
+
+	for i, v := range typ.Values {
+		enum := new(page.EnumItem)
+		enum.Value = v.Value
+
+		// the internal/types package returns const values of the
+		// string kind quoted, unquote the value for display.
+		if typ.Kind == types.KindString {
+			value, err := strconv.Unquote(enum.Value)
+			if err != nil {
+				return nil, err
+			}
+			enum.Value = value
+		}
+
+		if len(v.Doc) > 0 {
+			html, err := comment.ToHTML(v.Doc)
+			if err != nil {
+				return nil, err
+			}
+			enum.Text = template.HTML(html)
+		}
+
+		list.Items[i] = enum
 	}
 
 	return list, nil

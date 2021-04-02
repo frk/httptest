@@ -72,3 +72,20 @@ type T6 struct {
 	} `json:"f_1"`
 	F2 float32
 }
+
+type T7 struct {
+	F1 E1
+}
+
+type E1 string
+
+const (
+	// Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod
+	// tempor incididunt ut labore et dolore magna aliqua.
+	E1_foo E1 = "foo"
+	// Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi
+	// ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit
+	// in voluptate velit esse cillum dolore eu fugiat nulla pariatur.
+	E1_bar E1 = "bar"
+	E1_baz E1 = "baz" // this is just a line comment
+)

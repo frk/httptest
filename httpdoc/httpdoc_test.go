@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/frk/compare"
@@ -36,13 +37,14 @@ func Test(t *testing.T) {
 	defer testFile.Close()
 
 	tests := []struct {
-		file         string
-		rootdir      string
-		repourl      string
-		typName      func(reflect.StructField) (typeName string, ok bool)
-		fieldSetting func(reflect.StructField, reflect.Type) (label, text string, ok bool)
-		mode         page.TestMode
-		toc          []*TopicGroup
+		file            string
+		rootdir         string
+		repourl         string
+		typName         func(reflect.StructField) (typeName string, ok bool)
+		fieldSetting    func(reflect.StructField, reflect.Type) (label, text string, ok bool)
+		fieldValidation func(reflect.StructField, reflect.Type) (text template.HTML)
+		mode            page.TestMode
+		toc             []*TopicGroup
 	}{{
 		file: "sidebar_from_topics",
 		mode: page.SidebarTest,
@@ -315,6 +317,34 @@ func Test(t *testing.T) {
 			}},
 		}},
 	}, {
+		file: "article_field_list_parameters_3",
+		fieldValidation: func(s reflect.StructField, t reflect.Type) (text template.HTML) {
+			tag := tagutil.New(string(s.Tag))
+			if v := tag.First("validation"); len(v) > 0 {
+				vv := strings.Split(v, ":")
+				switch vv[0] {
+				case "len":
+					return template.HTML("<p>value must be of length between " +
+						"<code>" + vv[1] + "</code> and <code>" + vv[2] +
+						"</code> characters long</p>")
+				case "min":
+					return template.HTML("<p>value must be at least " +
+						"<code>" + vv[1] + "</code></p>")
+				case "max":
+					return template.HTML("<p>value must be at most " +
+						"<code>" + vv[1] + "</code></p>")
+				}
+			}
+			return ""
+		},
+		mode: page.ArticleFieldListTest,
+		toc: []*TopicGroup{{
+			Topics: []*Topic{{
+				Name:       "Test Topic",
+				Parameters: httpdoc.T3{},
+			}},
+		}},
+	}, {
 		file: "endpoint_overview",
 		mode: page.EndpointOverviewTest,
 		toc: []*TopicGroup{{
@@ -347,11 +377,12 @@ func Test(t *testing.T) {
 			}
 
 			c := Config{
-				ProjectRoot:   tt.rootdir,
-				RepositoryURL: tt.repourl,
-				FieldTypeName: tt.typName,
-				FieldSetting:  tt.fieldSetting,
-				mode:          tt.mode,
+				ProjectRoot:     tt.rootdir,
+				RepositoryURL:   tt.repourl,
+				FieldTypeName:   tt.typName,
+				FieldSetting:    tt.fieldSetting,
+				FieldValidation: tt.fieldValidation,
+				mode:            tt.mode,
 			}
 			if err := c.Build(tt.toc); err != nil {
 				t.Error(err)

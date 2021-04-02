@@ -246,6 +246,11 @@ var article_field_item = `{{ define "article_field_item" -}}
 		<a class="field-source-link" href="{{ . }}">‹›</a>
 		{{- end }}
 	</h3>
+	{{- with .Validation }}
+	<div class="field-validation">
+		{{ . }}
+	</div>
+	{{- end }}
 	<div class="field-doc">
 		{{- with .Text }}
 		<div class="field-doc-text">

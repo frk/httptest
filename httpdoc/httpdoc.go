@@ -46,15 +46,28 @@ type Config struct {
 	//
 	// If FieldTypeName is nil or it returns false as the second return
 	// value (ok) it will fall back to the default behaviour.
-	FieldTypeName func(reflect.StructField) (typeName string, ok bool)
-	// FieldSetting returns values that are used to document whether a field
-	// is required, optional, or something else. The returned label is used
-	// in the corresponding element's class. The returned text is used as the
-	// corresponding element's content.
+	FieldTypeName func(field reflect.StructField) (typeName string, ok bool)
+	// FieldSetting returns values that are used to document whether the given
+	// field is required, optional, or something else. The structType argument
+	// represents the type of struct to which the field belongs.
 	//
-	// If the returned ok is false then the field's setting documentation
-	// will not be generated.
-	FieldSetting func(reflect.StructField, reflect.Type) (label, text string, ok bool)
+	// The returned label is used in the corresponding element's class.
+	// The returned text is used as the corresponding element's content.
+	// The returned ok value indicates whether or not the field's setting
+	// documentation should not be generated.
+	//
+	// If FieldSetting is nil then the documentation will be generated based
+	// on the field's "doc" tag and if the field doesn't have a "doc" tag then
+	// the field will be documented as optional.
+	FieldSetting func(field reflect.StructField, structType reflect.Type) (label, text string, ok bool)
+	// FieldValidation returns the documentation on the given field's validity
+	// requirements. The structType argument represents the type of struct
+	// to which the field belongs. If the returned text is empty then no
+	// documentation will be rendered.
+	//
+	// If FieldValidation is nil then no documentation on the field validity
+	// requirements will be generated.
+	FieldValidation func(field reflect.StructField, structType reflect.Type) (text template.HTML)
 
 	//
 	buf bytes.Buffer
@@ -434,7 +447,10 @@ func (c *Config) buildFieldListFromType(typ *types.Type, t *Topic, withValidatio
 				item.SettingText = text
 			}
 
-			// TODO validation directive
+			// the field's validation
+			if c.FieldValidation != nil {
+				item.Validation = c.FieldValidation(sf, typ.ReflectType)
+			}
 		}
 
 		list.Items = append(list.Items, item)

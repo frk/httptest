@@ -22,9 +22,9 @@ type T2 struct {
 }
 
 type T3 struct {
-	F1 string  `json:"fooBar" set:"required"`
-	F2 float64 `json:"foo_bar" set:"optional"`
-	F3 int     `set:"conditional"`
+	F1 string  `json:"fooBar" set:"required" validation:"len:8:128"`
+	F2 float64 `json:"foo_bar" set:"optional" validation:"max:0.7"`
+	F3 int     `set:"conditional" validation:"min:21"`
 	F4 bool    `json:"foo-bar"`
 }
 

@@ -102,6 +102,8 @@ type FieldItem struct {
 	// part of the associated CSS class name. The SettingText is used as the
 	// text to be rendered in the documentation.
 	SettingLabel, SettingText string
+	// The field's validation documentation.
+	Validation template.HTML
 	// If the field's type is named and constants were declared with it
 	// the EnumList will hold info about those constants. If the field's
 	// type is unnamed or there are no associated constants then EnumList

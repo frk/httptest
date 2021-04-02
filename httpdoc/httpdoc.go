@@ -19,12 +19,23 @@ import (
 	"github.com/frk/tagutil"
 )
 
-const DefaultFieldNameTagKey = "json"
-
 type Config struct {
-	ProjectRoot   string
-	RepositoryURL string
-
+	// ProjectRoot and RepositoryURL are used to generate source links
+	// for handlers, struct types, fields, and enums. If one or both of
+	// them are left unset then the links will not be generated.
+	//
+	// The ProjectRoot field should be set to the local (i.e. on the host machine),
+	// root directory of the project for which the documentation is being generated.
+	//
+	// The RepositoryURL field should be set to the remote, web-accessible, root
+	// location of the project for which the documentation is being generated.
+	// For example:
+	//	// for a github repo the url should have the following format.
+	//	RepositoryURL: "https://github.com/<user>/<project>/tree/<branch>/",
+	//	// for a bitbucket repo the url should have the following format.
+	//	RepositoryURL: "https://bitbucket.org/<user>/<project>/src/<branch>/",
+	//
+	ProjectRoot, RepositoryURL string
 	// The tag key to be used to retrieve a field's name, defaults to "json".
 	//
 	// If no name is present in the tag value associated with the key,
@@ -36,6 +47,14 @@ type Config struct {
 	// If FieldTypeName is nil or it returns false as the second return
 	// value (ok) it will fall back to the default behaviour.
 	FieldTypeName func(reflect.StructField) (typeName string, ok bool)
+	// FieldSetting returns values that are used to document whether a field
+	// is required, optional, or something else. The returned label is used
+	// in the corresponding element's class. The returned text is used as the
+	// corresponding element's content.
+	//
+	// If the returned ok is false then the field's setting documentation
+	// will not be generated.
+	FieldSetting func(reflect.StructField, reflect.Type) (label, text string, ok bool)
 
 	//
 	buf bytes.Buffer
@@ -81,7 +100,10 @@ func (c *Config) Build(toc []*TopicGroup) error {
 	c.tgHrefs = make(map[*httptest.TestGroup]string)
 
 	if len(c.FieldNameTagKey) == 0 {
-		c.FieldNameTagKey = DefaultFieldNameTagKey
+		c.FieldNameTagKey = "json"
+	}
+	if c.FieldSetting == nil {
+		c.FieldSetting = defaultFieldSetting
 	}
 
 	// NOTE: The code that constructs source links requires both of these
@@ -271,6 +293,24 @@ func (c *Config) buildArticleFromTopic(t *Topic, a *page.Article) error {
 
 	}
 
+	if t.Parameters != nil {
+		typ := c.src.TypeOf(t.Parameters)
+		// must be struct, or ptr to struct
+		if typ.Kind == types.KindPtr {
+			typ = typ.Elem
+		}
+		if typ.Kind != types.KindStruct {
+			return fmt.Errorf("httpdoc: Topic.Parameters:(%T) unsupported type kind", t.Parameters)
+		}
+
+		list, err := c.buildFieldListFromType(typ, t, true, nil)
+		if err != nil {
+			return err
+		}
+		list.Title = "Parameters"
+		a.FieldLists = append(a.FieldLists, list)
+	}
+
 	if t.Attributes != nil {
 		typ := c.src.TypeOf(t.Attributes)
 		// must be struct, or ptr to struct
@@ -281,7 +321,7 @@ func (c *Config) buildArticleFromTopic(t *Topic, a *page.Article) error {
 			return fmt.Errorf("httpdoc: Topic.Attributes:(%T) unsupported type kind", t.Attributes)
 		}
 
-		list, err := c.buildFieldListFromType(typ, t, nil)
+		list, err := c.buildFieldListFromType(typ, t, false, nil)
 		if err != nil {
 			return err
 		}
@@ -306,7 +346,7 @@ func (c *Config) buildArticleFromTestGroup(tg *httptest.TestGroup, a *page.Artic
 	return nil
 }
 
-func (c *Config) buildFieldListFromType(typ *types.Type, t *Topic, path []string) (*page.FieldList, error) {
+func (c *Config) buildFieldListFromType(typ *types.Type, t *Topic, withValidation bool, path []string) (*page.FieldList, error) {
 	list := new(page.FieldList)
 
 	tId := c.idForTopic(t, nil)
@@ -314,10 +354,13 @@ func (c *Config) buildFieldListFromType(typ *types.Type, t *Topic, path []string
 	tagKey := c.FieldNameTagKey
 	for _, f := range typ.Fields {
 		tag := tagutil.New(f.Tag)
-
-		// skip field?
-		if tag.Contains(tagKey, "-") || tag.Contains("doc", "-") {
+		if tag.Contains(tagKey, "-") || tag.Contains("doc", "-") { // skip field?
 			continue
+		}
+		sf, ok := typ.ReflectType.FieldByName(f.Name)
+		if !ok {
+			// shouldn't happen
+			panic(fmt.Sprintf("httpdoc: reflect.Type.FieldByName(%q) failed.", f.Name))
 		}
 
 		item := new(page.FieldItem)
@@ -346,11 +389,6 @@ func (c *Config) buildFieldListFromType(typ *types.Type, t *Topic, path []string
 		// the field's type
 		item.Type = f.Type.String()
 		if c.FieldTypeName != nil {
-			sf, ok := typ.ReflectType.FieldByName(f.Name)
-			if !ok {
-				// shouldn't happen
-				panic(fmt.Sprintf("httpdoc: reflect.Type.FieldByName(%q) failed.", f.Name))
-			}
 			if name, ok := c.FieldTypeName(sf); len(name) > 0 || ok {
 				item.Type = name
 			}
@@ -376,7 +414,7 @@ func (c *Config) buildFieldListFromType(typ *types.Type, t *Topic, path []string
 
 		// the field's sub fields
 		if f.Type.Kind == types.KindStruct && len(f.Type.Fields) > 0 {
-			subList, err := c.buildFieldListFromType(f.Type, t, append(path, item.Name))
+			subList, err := c.buildFieldListFromType(f.Type, t, withValidation, append(path, item.Name))
 			if err != nil {
 				return nil, err
 			}
@@ -389,8 +427,13 @@ func (c *Config) buildFieldListFromType(typ *types.Type, t *Topic, path []string
 			item.SourceLink = c.RepositoryURL + file + "#" + strconv.Itoa(f.Pos.Line)
 		}
 
-		if false { // Parameters?
-			// TODO required directive
+		if withValidation {
+			// the field's setting
+			if label, text, ok := c.FieldSetting(sf, typ.ReflectType); ok {
+				item.SettingLabel = label
+				item.SettingText = text
+			}
+
 			// TODO validation directive
 		}
 
@@ -604,4 +647,17 @@ func (c *Config) hrefForTestGroup(tg *httptest.TestGroup, parent *Topic) string 
 	// cache the href
 	c.tgHrefs[tg] = href
 	return href
+}
+
+func defaultFieldSetting(s reflect.StructField, t reflect.Type) (label, text string, ok bool) {
+	const (
+		required = "required"
+		optional = "optional"
+	)
+
+	tag := tagutil.New(string(s.Tag))
+	if tag.Contains("doc", required) {
+		return required, required, true
+	}
+	return optional, optional, true
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/frk/httptest"
 	"github.com/frk/httptest/internal/page"
 	"github.com/frk/httptest/internal/testdata/httpdoc"
+	"github.com/frk/tagutil"
 )
 
 func Test(t *testing.T) {
@@ -35,12 +36,13 @@ func Test(t *testing.T) {
 	defer testFile.Close()
 
 	tests := []struct {
-		file    string
-		rootdir string
-		repourl string
-		typName func(reflect.StructField) (typeName string, ok bool)
-		mode    page.TestMode
-		toc     []*TopicGroup
+		file         string
+		rootdir      string
+		repourl      string
+		typName      func(reflect.StructField) (typeName string, ok bool)
+		fieldSetting func(reflect.StructField, reflect.Type) (label, text string, ok bool)
+		mode         page.TestMode
+		toc          []*TopicGroup
 	}{{
 		file: "sidebar_from_topics",
 		mode: page.SidebarTest,
@@ -282,6 +284,37 @@ func Test(t *testing.T) {
 			}},
 		}},
 	}, {
+		file: "article_field_list_parameters_1",
+		mode: page.ArticleFieldListTest,
+		toc: []*TopicGroup{{
+			Topics: []*Topic{{
+				Name:       "Test Topic",
+				Parameters: httpdoc.T1{},
+			}},
+		}},
+	}, {
+		file: "article_field_list_parameters_2",
+		fieldSetting: func(s reflect.StructField, t reflect.Type) (label, text string, ok bool) {
+			tag := tagutil.New(string(s.Tag))
+			if tag.Contains("set", "required") {
+				return "required", "This field is required", true
+			}
+			if tag.Contains("set", "optional") {
+				return "optional", "This field is optional", true
+			}
+			if tag.Contains("set", "conditional") {
+				return "conditional", "This field is conditional", true
+			}
+			return "", "", false
+		},
+		mode: page.ArticleFieldListTest,
+		toc: []*TopicGroup{{
+			Topics: []*Topic{{
+				Name:       "Test Topic",
+				Parameters: httpdoc.T3{},
+			}},
+		}},
+	}, {
 		file: "endpoint_overview",
 		mode: page.EndpointOverviewTest,
 		toc: []*TopicGroup{{
@@ -317,6 +350,7 @@ func Test(t *testing.T) {
 				ProjectRoot:   tt.rootdir,
 				RepositoryURL: tt.repourl,
 				FieldTypeName: tt.typName,
+				FieldSetting:  tt.fieldSetting,
 				mode:          tt.mode,
 			}
 			if err := c.Build(tt.toc); err != nil {

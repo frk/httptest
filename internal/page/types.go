@@ -97,6 +97,11 @@ type FieldItem struct {
 	Text template.HTML
 	// A link to the source of the field.
 	SourceLink string
+	// SettingLabel and SettingText are used to indicates whether the field
+	// is required, optional, or something else. The SettingLabel is used as
+	// part of the associated CSS class name. The SettingText is used as the
+	// text to be rendered in the documentation.
+	SettingLabel, SettingText string
 	// If the field's type is named and constants were declared with it
 	// the EnumList will hold info about those constants. If the field's
 	// type is unnamed or there are no associated constants then EnumList

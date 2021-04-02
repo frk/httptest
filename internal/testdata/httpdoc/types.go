@@ -1,9 +1,9 @@
 package httpdoc
 
 type T1 struct {
-	F1 string
-	F2 string
-	F3 float64
+	F1 string  `doc:"required"`
+	F2 string  `doc:"optional"`
+	F3 float64 `doc:",required"`
 	F4 float64
 }
 
@@ -22,10 +22,10 @@ type T2 struct {
 }
 
 type T3 struct {
-	F1 string  `json:"fooBar"`
-	F2 float64 `json:"foo_bar"`
-	F3 int
-	F4 bool `json:"foo-bar"`
+	F1 string  `json:"fooBar" set:"required"`
+	F2 float64 `json:"foo_bar" set:"optional"`
+	F3 int     `set:"conditional"`
+	F4 bool    `json:"foo-bar"`
 }
 
 type T4 struct {

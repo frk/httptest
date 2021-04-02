@@ -239,6 +239,9 @@ var article_field_item = `{{ define "article_field_item" -}}
 		{{- end }}
 		<span class="field-name">{{ .Name }}</span>
 		<span class="field-type">{{ .Type }}</span>
+		{{- if .SettingText }}
+		<span class="field-setting-{{ .SettingLabel }}">{{ .SettingText }}</span>
+		{{- end }}
 		{{- with .SourceLink }}
 		<a class="field-source-link" href="{{ . }}">‹›</a>
 		{{- end }}

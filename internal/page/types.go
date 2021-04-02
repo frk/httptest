@@ -79,10 +79,10 @@ type Article struct {
 
 type FieldList struct {
 	Title string
-	Items []*FieldListItem
+	Items []*FieldItem
 }
 
-type FieldListItem struct {
+type FieldItem struct {
 	// The unique identifier of the item.
 	Id string
 	// The href linking to the item.
@@ -95,6 +95,8 @@ type FieldListItem struct {
 	Type string
 	// The field's documentation.
 	Text template.HTML
+	// A link to the source of the field.
+	SourceLink string
 	// If the field's type is named and constants were declared with it
 	// the EnumList will hold info about those constants. If the field's
 	// type is unnamed or there are no associated constants then EnumList
@@ -103,7 +105,7 @@ type FieldListItem struct {
 	// If the field's type is a struct then SubFields will hold the fields
 	// of that struct. If the field's type is not a struct then SubFields
 	// will be nil.
-	SubFields []*FieldListItem
+	SubFields []*FieldItem
 }
 
 type EnumList struct {
@@ -117,6 +119,8 @@ type EnumItem struct {
 	Value string
 	// The enum value's documentation.
 	Text template.HTML
+	// A link to the source of the enum value.
+	SourceLink string
 }
 
 ////////////////////////////////////////////////////////////////////////////////

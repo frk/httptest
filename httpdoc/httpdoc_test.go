@@ -17,8 +17,16 @@ import (
 
 func Test(t *testing.T) {
 	_, f, _, _ := runtime.Caller(0)
-	testdatadir := filepath.Dir(filepath.Dir(f)) + "/internal/testdata"
+	workdir := filepath.Dir(f)
+	rootdir, err := findRootDir(workdir)
+	if err != nil {
+		t.Error(err)
+		return
+	}
 
+	repourl := "https://github.com/frk/httptest/tree/master/"
+
+	testdatadir := filepath.Dir(workdir) + "/internal/testdata"
 	testFile, err := os.Open(testdatadir + "/test.html")
 	if err != nil {
 		t.Error(err)
@@ -28,8 +36,10 @@ func Test(t *testing.T) {
 
 	tests := []struct {
 		file    string
-		mode    page.TestMode
+		rootdir string
+		repourl string
 		typName func(reflect.StructField) (typeName string, ok bool)
+		mode    page.TestMode
 		toc     []*TopicGroup
 	}{{
 		file: "sidebar_from_topics",
@@ -250,8 +260,10 @@ func Test(t *testing.T) {
 			}},
 		}},
 	}, {
-		file: "article_field_list_attributes_with_nested_fields_3",
-		mode: page.ArticleFieldListTest,
+		file:    "article_field_list_attributes_with_nested_fields_3",
+		rootdir: rootdir,
+		repourl: repourl,
+		mode:    page.ArticleFieldListTest,
 		toc: []*TopicGroup{{
 			Topics: []*Topic{{
 				Name:       "Test Topic",
@@ -259,8 +271,10 @@ func Test(t *testing.T) {
 			}},
 		}},
 	}, {
-		file: "field_enum_list",
-		mode: page.ArticleFieldItemTest,
+		file:    "field_enum_list",
+		rootdir: rootdir,
+		repourl: repourl,
+		mode:    page.ArticleFieldItemTest,
 		toc: []*TopicGroup{{
 			Topics: []*Topic{{
 				Name:       "Test Topic",
@@ -300,6 +314,8 @@ func Test(t *testing.T) {
 			}
 
 			c := Config{
+				ProjectRoot:   tt.rootdir,
+				RepositoryURL: tt.repourl,
 				FieldTypeName: tt.typName,
 				mode:          tt.mode,
 			}
@@ -349,4 +365,47 @@ func flatten(data []byte) (out []byte) {
 	}
 
 	return out[:j]
+}
+
+func findRootDir(wd string) (string, error) {
+	dir, err := filepath.Abs(wd)
+	if err != nil {
+		return "", err
+	}
+
+	for len(dir) > 1 && dir[0] == '/' {
+		if isRoot, err := isRootDir(dir); err != nil {
+			return "", err
+		} else if isRoot {
+			return dir, nil
+		}
+
+		// parent dir will be examined next
+		dir = filepath.Dir(dir)
+	}
+
+	return "", nil
+}
+
+// isRootDir reports if the directory at the given path is the root directory of a git project.
+func isRootDir(path string) (bool, error) {
+	d, err := os.Open(path)
+	if err != nil {
+		return false, err
+	}
+	defer d.Close()
+
+	infoList, err := d.Readdir(-1)
+	if err != nil {
+		return false, err
+	}
+
+	for _, info := range infoList {
+		name := info.Name()
+		if name == ".git" && info.IsDir() {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }

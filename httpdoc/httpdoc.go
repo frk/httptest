@@ -22,6 +22,9 @@ import (
 const DefaultFieldNameTagKey = "json"
 
 type Config struct {
+	ProjectRoot   string
+	RepositoryURL string
+
 	// The tag key to be used to retrieve a field's name, defaults to "json".
 	//
 	// If no name is present in the tag value associated with the key,
@@ -79,6 +82,15 @@ func (c *Config) Build(toc []*TopicGroup) error {
 
 	if len(c.FieldNameTagKey) == 0 {
 		c.FieldNameTagKey = DefaultFieldNameTagKey
+	}
+
+	// NOTE: The code that constructs source links requires both of these
+	// to not end in slash, which is why this is here.
+	if l := len(c.RepositoryURL); l > 0 && c.RepositoryURL[l-1] == '/' {
+		c.RepositoryURL = c.RepositoryURL[:l-1]
+	}
+	if l := len(c.ProjectRoot); l > 0 && c.ProjectRoot[l-1] == '/' {
+		c.ProjectRoot = c.ProjectRoot[:l-1]
 	}
 
 	////////////////////////////////////////////////////////////////////////
@@ -308,7 +320,7 @@ func (c *Config) buildFieldListFromType(typ *types.Type, t *Topic, path []string
 			continue
 		}
 
-		item := new(page.FieldListItem)
+		item := new(page.FieldItem)
 
 		// the field's name
 		item.Name = f.Name
@@ -371,6 +383,12 @@ func (c *Config) buildFieldListFromType(typ *types.Type, t *Topic, path []string
 			item.SubFields = subList.Items
 		}
 
+		// the field's source link
+		if len(c.ProjectRoot) > 0 && len(c.RepositoryURL) > 0 {
+			file := strings.TrimPrefix(f.Pos.Filename, c.ProjectRoot)
+			item.SourceLink = c.RepositoryURL + file + "#" + strconv.Itoa(f.Pos.Line)
+		}
+
 		if false { // Parameters?
 			// TODO required directive
 			// TODO validation directive
@@ -407,6 +425,11 @@ func (c *Config) buildEnumListFromType(typ *types.Type) (*page.EnumList, error) 
 				return nil, err
 			}
 			enum.Text = template.HTML(html)
+		}
+
+		if len(c.ProjectRoot) > 0 && len(c.RepositoryURL) > 0 {
+			file := strings.TrimPrefix(v.Pos.Filename, c.ProjectRoot)
+			enum.SourceLink = c.RepositoryURL + file + "#" + strconv.Itoa(v.Pos.Line)
 		}
 
 		list.Items[i] = enum

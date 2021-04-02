@@ -239,6 +239,9 @@ var article_field_item = `{{ define "article_field_item" -}}
 		{{- end }}
 		<span class="field-name">{{ .Name }}</span>
 		<span class="field-type">{{ .Type }}</span>
+		{{- with .SourceLink }}
+		<a class="field-source-link" href="{{ . }}">‹›</a>
+		{{- end }}
 	</h3>
 	<div class="field-doc">
 		{{- with .Text }}
@@ -264,8 +267,15 @@ var field_enum_list = `{{ define "field_enum_list" -}}
 	<ul class="field-enum-list">
 		{{ range .Items -}}
 		<li class="field-enum-item">
-			<div class="field-enum-item-value">
-				<code>{{ .Value }}</code>
+			<div class="field-enum-item-header">
+				<div class="field-enum-item-value">
+					<code>{{ .Value }}</code>
+				</div>
+				<div class="field-enum-item-source-link">
+					{{- with .SourceLink }}
+					<a href="{{ . }}">‹›</a>
+					{{- end }}
+				</div>
 			</div>
 			<div class="field-enum-item-text">
 				{{- with .Text }}

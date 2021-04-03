@@ -117,7 +117,7 @@ var sidebar_nav = `{{ define "sidebar_nav" -}}
 <nav class="sidebar-nav">
 {{ range . -}}
 	<div class="nav-group">
-		<h5 class="nav-heading">{{ .Heading }}</h5>
+		<h5 class="nav-heading">{{ .Title }}</h5>
 		<ul class="nav-items">
 			{{ range .Items }}{{ template "sidebar_nav_item" . }}{{ end -}}
 		</ul>
@@ -186,16 +186,27 @@ var content_footer = `{{ define "content_footer" -}}
 
 var article = `{{ define "article" -}}
 <div class="article">
-	<h1>{{ .Heading }}</h1>
+	<h1 class="article-heading">
+		<a class="article-anchor" href="{{ .Href }}">{{ .Title }}</a>
+	</h1>
 
-	{{- with .Text }}
-	<div class="article-text">
+	{{- with .Doc }}
+	<div class="article-doc">
 		{{ . }}
 	</div>
 	{{- end }}
 
 	{{- with .FieldLists }}
 	{{ template "article_field_list" . }}
+	{{- end }}
+
+	{{- with .Conclusion }}
+	<div class="article-conclusion">
+		<h3 class="article-conclusion-header">{{ .Title }}</h3>
+		<div class="article-conclusion-text">
+		{{ .Text }}
+		</div>
+	</div>
 	{{- end }}
 </div>
 {{ end -}}
@@ -252,7 +263,7 @@ var article_field_item = `{{ define "article_field_item" -}}
 	</div>
 	{{- end }}
 	<div class="field-doc">
-		{{- with .Text }}
+		{{- with .Doc }}
 		<div class="field-doc-text">
 			{{ . }}
 		</div>
@@ -270,23 +281,23 @@ var article_field_item = `{{ define "article_field_item" -}}
 ` //`
 
 var field_enum_list = `{{ define "field_enum_list" -}}
-<div class="field-enum-list-container">
-	<h5 class="field-enum-list-header">{{ .Title }}</h5>
-	<ul class="field-enum-list">
+<div class="enum-list-container">
+	<h5 class="enum-list-header">{{ .Title }}</h5>
+	<ul class="enum-list">
 		{{ range .Items -}}
-		<li class="field-enum-item">
-			<div class="field-enum-item-header">
-				<div class="field-enum-item-value">
+		<li class="enum-item">
+			<div class="enum-item-header">
+				<div class="enum-item-value">
 					<code>{{ .Value }}</code>
 				</div>
-				<div class="field-enum-item-source-link">
+				<div class="enum-item-source-link">
 					{{- with .SourceLink }}
 					<a href="{{ . }}">‹›</a>
 					{{- end }}
 				</div>
 			</div>
-			<div class="field-enum-item-text">
-				{{- with .Text }}
+			<div class="enum-item-doc">
+				{{- with .Doc }}
 				{{ . }}
 				{{- end }}
 			</div>

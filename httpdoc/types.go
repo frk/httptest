@@ -14,18 +14,6 @@ type TopicGroup struct {
 	Topics []*Topic
 }
 
-// - the resulting documentation will have paths for each direct Topic in each TopicGroup
-// []TopicGroup{{Topics: []Topic{{}, ... }}, ... }
-//
-// - SubTopics will be linked to using fragments <- need to know the parent Topic's href
-// - TestGroups will be linked to using fragments <- need to know the parent Topic's href
-//
-// - each *httpdoc.Topic & *httptest.TestGroup represent an article in the documentation
-// that needs to be referenced accurately
-//
-// - root topics, i.e. those that are the direct children of an *httpdoc.TopicGroup,
-// must will have an id but that will not be referenced
-
 type Topic struct {
 	// The name of the topic. Used to generate the nav-item link-text in the
 	// sidebar and the heading of the corresponding section in the main column.

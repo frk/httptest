@@ -46,6 +46,9 @@ func Test(t *testing.T) {
 		mode            page.TestMode
 		toc             []*TopicGroup
 	}{{
+		///////////////////////////////////////////////////////////////
+		// Sidebar
+		/////////////////////////////////////////////////////////////////
 		file: "sidebar_from_topics",
 		mode: page.SidebarTest,
 		toc: []*TopicGroup{{
@@ -128,6 +131,9 @@ func Test(t *testing.T) {
 			}},
 		}},
 	}, {
+		///////////////////////////////////////////////////////////////
+		// Content
+		/////////////////////////////////////////////////////////////////
 		file: "content_from_topics",
 		mode: page.ContentTest,
 		toc: []*TopicGroup{{
@@ -152,6 +158,9 @@ func Test(t *testing.T) {
 			}},
 		}},
 	}, {
+		///////////////////////////////////////////////////////////////
+		// Article Text
+		/////////////////////////////////////////////////////////////////
 		file: "article_from_topic_template_html",
 		mode: page.ArticleTest,
 		toc: []*TopicGroup{{
@@ -201,6 +210,65 @@ func Test(t *testing.T) {
 			}},
 		}},
 	}, {
+		///////////////////////////////////////////////////////////////
+		// Article Conclusion
+		/////////////////////////////////////////////////////////////////
+		file: "article_conclusion_from_topic_template_html",
+		mode: page.ArticleTest,
+		toc: []*TopicGroup{{
+			Name: "Topic Group 1",
+			Topics: []*Topic{{
+				Name: "Article",
+				Text: `<p>this is a test article</p>`,
+				Returns: template.HTML(`<div>
+				<h4>Test</h4>
+				<p>this is template.HTML</p>
+				</div>`), //`
+			}},
+		}},
+	}, {
+		file: "article_conclusion_from_topic_raw_string",
+		mode: page.ArticleTest,
+		toc: []*TopicGroup{{
+			Name: "Topic Group 1",
+			Topics: []*Topic{{
+				Name: "Article",
+				Text: `<p>this is a test article</p>`,
+				Returns: `<div>
+				<h4>Test</h4>
+				<p>this is a raw string</p>
+				</div>`, //`
+			}},
+		}},
+	}, {
+		file: "article_conclusion_from_topic_html_iface",
+		mode: page.ArticleTest,
+		toc: []*TopicGroup{{
+			Name: "Topic Group 1",
+			Topics: []*Topic{{
+				Name: "Article",
+				Text: `<p>this is a test article</p>`,
+				Returns: htmlimpl{str: `<div>
+				<h4>Test</h4>
+				<p>this is from httpdoc.HTML.HTML()</p>
+				</div>`}, //`
+			}},
+		}},
+	}, {
+		file: "article_conclusion_from_topic_file",
+		mode: page.ArticleTest,
+		toc: []*TopicGroup{{
+			Name: "Topic Group 1",
+			Topics: []*Topic{{
+				Name:    "Article",
+				Text:    `<p>this is a test article</p>`,
+				Returns: testFile,
+			}},
+		}},
+	}, {
+		/////////////////////////////////////////////////////////////////
+		// Article Fields (Attributes)
+		/////////////////////////////////////////////////////////////////
 		file: "article_field_list_attributes",
 		mode: page.ArticleFieldListTest,
 		toc: []*TopicGroup{{
@@ -275,17 +343,9 @@ func Test(t *testing.T) {
 			}},
 		}},
 	}, {
-		file:    "field_enum_list",
-		rootdir: rootdir,
-		repourl: repourl,
-		mode:    page.ArticleFieldItemTest,
-		toc: []*TopicGroup{{
-			Topics: []*Topic{{
-				Name:       "Test Topic",
-				Attributes: httpdoc.T7{},
-			}},
-		}},
-	}, {
+		////////////////////////////////////////////////////////////////
+		// Article Fields (Parameters)
+		////////////////////////////////////////////////////////////////
 		file: "article_field_list_parameters_1",
 		mode: page.ArticleFieldListTest,
 		toc: []*TopicGroup{{
@@ -345,6 +405,23 @@ func Test(t *testing.T) {
 			}},
 		}},
 	}, {
+		/////////////////////////////////////////////////////////////////
+		// Enum List
+		/////////////////////////////////////////////////////////////////
+		file:    "field_enum_list",
+		rootdir: rootdir,
+		repourl: repourl,
+		mode:    page.ArticleFieldItemTest,
+		toc: []*TopicGroup{{
+			Topics: []*Topic{{
+				Name:       "Test Topic",
+				Attributes: httpdoc.T7{},
+			}},
+		}},
+	}, {
+		/////////////////////////////////////////////////////////////////
+		// Example Endpoint Overview
+		/////////////////////////////////////////////////////////////////
 		file: "endpoint_overview",
 		mode: page.EndpointOverviewTest,
 		toc: []*TopicGroup{{
@@ -370,6 +447,14 @@ func Test(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.file, func(t *testing.T) {
+			defer func() {
+				// move the file cursor back to the beginning
+				// so it can be reused by multiple tests
+				if _, err := testFile.Seek(0, 0); err != nil {
+					t.Errorf("testFile.Seek(0, 0) fail: %v", err)
+				}
+			}()
+
 			want, err := ioutil.ReadFile(testdatadir + "/httpdoc/" + tt.file + ".html")
 			if err != nil {
 				t.Error(err)
@@ -379,7 +464,7 @@ func Test(t *testing.T) {
 			c := Config{
 				ProjectRoot:     tt.rootdir,
 				RepositoryURL:   tt.repourl,
-				FieldTypeName:   tt.typName,
+				FieldType:       tt.typName,
 				FieldSetting:    tt.fieldSetting,
 				FieldValidation: tt.fieldValidation,
 				mode:            tt.mode,

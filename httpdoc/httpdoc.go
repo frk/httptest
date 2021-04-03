@@ -19,6 +19,16 @@ import (
 	"github.com/frk/tagutil"
 )
 
+// TODO
+// - build Article from TestGroups
+// - build Example from TestGroups
+//	- generate Request examples for raw HTTP, cURL, JavaScript, Go. These need
+//        to be annotated with HTML tags for syntax highlighting
+//	- json produced from httptest.Request/Response.Body needs to be annotated
+//        with HTML tags for syntax highlighting
+// - build Example from Topics
+// -
+
 type Config struct {
 	// ProjectRoot and RepositoryURL are used to generate source links
 	// for handlers, struct types, fields, and enums. If one or both of
@@ -36,17 +46,15 @@ type Config struct {
 	//	RepositoryURL: "https://bitbucket.org/<user>/<project>/src/<branch>/",
 	//
 	ProjectRoot, RepositoryURL string
-	// The tag key to be used to retrieve a field's name, defaults to "json".
-	//
-	// If no name is present in the tag value associated with the key,
-	// the field's name will be used as fallback.
-	FieldNameTagKey string
-	// FieldTypeName returns the name for a specific field's type based on
+	// The tag to be used to resolve a field's name for the documentation, defaults to "json".
+	// If no name is present in the tag's value the field's name will be used as fallback.
+	FieldNameTag string
+	// FieldType returns the name for a specific field's type based on
 	// given reflect.StructField value.
 	//
-	// If FieldTypeName is nil or it returns false as the second return
+	// If FieldType is nil or it returns false as the second return
 	// value (ok) it will fall back to the default behaviour.
-	FieldTypeName func(field reflect.StructField) (typeName string, ok bool)
+	FieldType func(field reflect.StructField) (typeName string, ok bool)
 	// FieldSetting returns values that are used to document whether the given
 	// field is required, optional, or something else. The structType argument
 	// represents the type of struct to which the field belongs.
@@ -112,8 +120,9 @@ func (c *Config) Build(toc []*TopicGroup) error {
 	c.tHrefs = make(map[*Topic]string)
 	c.tgHrefs = make(map[*httptest.TestGroup]string)
 
-	if len(c.FieldNameTagKey) == 0 {
-		c.FieldNameTagKey = "json"
+	// defaults
+	if len(c.FieldNameTag) == 0 {
+		c.FieldNameTag = "json"
 	}
 	if c.FieldSetting == nil {
 		c.FieldSetting = defaultFieldSetting
@@ -128,16 +137,7 @@ func (c *Config) Build(toc []*TopicGroup) error {
 		c.ProjectRoot = c.ProjectRoot[:l-1]
 	}
 
-	////////////////////////////////////////////////////////////////////////
-	// TODO write a main.go (package main) program that imports a package
-	// that executes the code below and confirm that the result then is as
-	// expected....
-	//
-	// pkg, err := go/build.ImportDir(dir, build.FindOnly) (*Package, error)
-	//
-	// ... = gcexportdata.Find(pkg.ImportPath, "")
-	////////////////////////////////////////////////////////////////////////
-
+	// build & write
 	if err := c.buildSidebar(toc); err != nil {
 		return err
 	}
@@ -147,8 +147,6 @@ func (c *Config) Build(toc []*TopicGroup) error {
 	if err := page.Write(&c.buf, c.page, c.mode); err != nil {
 		return err
 	}
-
-	// ...
 
 	return nil
 }
@@ -160,7 +158,7 @@ func (c *Config) Build(toc []*TopicGroup) error {
 func (c *Config) buildSidebar(toc []*TopicGroup) error {
 	for _, tg := range toc {
 		c.ng = new(page.SidebarNavGroup)
-		c.ng.Heading = tg.Name
+		c.ng.Title = tg.Name
 
 		if err := c.buildSidebarNavFromTopics(tg.Topics, nil); err != nil {
 			return err
@@ -274,9 +272,8 @@ func (c *Config) buildContentSectionsFromTestGroups(tgs []*httptest.TestGroup, p
 }
 
 func (c *Config) buildArticleFromTopic(t *Topic, a *page.Article) error {
-	a.Heading = t.Name
-
-	// TODO href
+	a.Title = t.Name
+	a.Href = "#" + t.contentSection.Id
 
 	if t.Text != nil {
 		// NOTE(mkopriva): it may be useful to add support for the
@@ -285,21 +282,21 @@ func (c *Config) buildArticleFromTopic(t *Topic, a *page.Article) error {
 
 		switch v := t.Text.(type) {
 		case template.HTML:
-			a.Text = v
+			a.Doc = v
 		case string:
-			a.Text = template.HTML(v)
+			a.Doc = template.HTML(v)
 		case HTML:
 			html, err := v.HTML()
 			if err != nil {
 				return fmt.Errorf("httpdoc: Topic.Text:(%T) error: %v", v, err)
 			}
-			a.Text = html
+			a.Doc = html
 		case *os.File:
 			b, err := ioutil.ReadAll(v)
 			if err != nil {
 				return fmt.Errorf("httpdoc: Topic.Text:(*os.File) read error: %v", err)
 			}
-			a.Text = template.HTML(b)
+			a.Doc = template.HTML(b)
 		default:
 			return fmt.Errorf("httpdoc: Topic.Text:(%T) unsupported type", v)
 		}
@@ -342,15 +339,41 @@ func (c *Config) buildArticleFromTopic(t *Topic, a *page.Article) error {
 		a.FieldLists = append(a.FieldLists, list)
 	}
 
-	// if t.Type != nil {
-	// 	section.Article.Text = ""  // TODO type's documentation if any
-	// 	section.Article.Type = nil // TODO type's field info if any
-	// }
+	if t.Returns != nil {
+		a.Conclusion = new(page.Conclusion)
+		a.Conclusion.Title = "Returns"
+
+		// NOTE(mkopriva): it may be useful to add support for the
+		// *html/template.Template type and give the user the ability
+		// to provide data through the config.
+
+		switch v := t.Returns.(type) {
+		case template.HTML:
+			a.Conclusion.Text = v
+		case string:
+			a.Conclusion.Text = template.HTML(v)
+		case HTML:
+			html, err := v.HTML()
+			if err != nil {
+				return fmt.Errorf("httpdoc: Topic.Returns:(%T) error: %v", v, err)
+			}
+			a.Conclusion.Text = html
+		case *os.File:
+			b, err := ioutil.ReadAll(v)
+			if err != nil {
+				return fmt.Errorf("httpdoc: Topic.Returns:(*os.File) read error: %v", err)
+			}
+			a.Conclusion.Text = template.HTML(b)
+		default:
+			return fmt.Errorf("httpdoc: Topic.Returns:(%T) unsupported type", v)
+		}
+	}
+
 	return nil
 }
 
 func (c *Config) buildArticleFromTestGroup(tg *httptest.TestGroup, a *page.Article) error {
-	a.Heading = tg.Desc
+	a.Title = tg.Desc
 
 	//switch text := tg.Text.(type) {
 	//case string:
@@ -364,7 +387,7 @@ func (c *Config) buildFieldListFromType(typ *types.Type, t *Topic, withValidatio
 
 	tId := c.idForTopic(t, nil)
 	tHref := c.hrefForTopic(t, nil)
-	tagKey := c.FieldNameTagKey
+	tagKey := c.FieldNameTag
 	for _, f := range typ.Fields {
 		tag := tagutil.New(f.Tag)
 		if tag.Contains(tagKey, "-") || tag.Contains("doc", "-") { // skip field?
@@ -401,8 +424,8 @@ func (c *Config) buildFieldListFromType(typ *types.Type, t *Topic, withValidatio
 
 		// the field's type
 		item.Type = f.Type.String()
-		if c.FieldTypeName != nil {
-			if name, ok := c.FieldTypeName(sf); len(name) > 0 || ok {
+		if c.FieldType != nil {
+			if name, ok := c.FieldType(sf); len(name) > 0 || ok {
 				item.Type = name
 			}
 		}
@@ -413,7 +436,7 @@ func (c *Config) buildFieldListFromType(typ *types.Type, t *Topic, withValidatio
 			if err != nil {
 				return nil, err
 			}
-			item.Text = template.HTML(html)
+			item.Doc = template.HTML(html)
 		}
 
 		// the field type's enum values
@@ -483,7 +506,7 @@ func (c *Config) buildEnumListFromType(typ *types.Type) (*page.EnumList, error) 
 			if err != nil {
 				return nil, err
 			}
-			enum.Text = template.HTML(html)
+			enum.Doc = template.HTML(html)
 		}
 
 		if len(c.ProjectRoot) > 0 && len(c.RepositoryURL) > 0 {

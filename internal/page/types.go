@@ -31,8 +31,8 @@ type SidebarFooter struct {
 }
 
 type SidebarNavGroup struct {
-	Heading string
-	Items   []*SidebarNavItem
+	Title string
+	Items []*SidebarNavItem
 }
 
 type SidebarNavItem struct {
@@ -71,10 +71,15 @@ type ContentSection struct {
 ////////////////////////////////////////////////////////////////////////////////
 
 type Article struct {
-	Href       string
-	Heading    string
-	Text       template.HTML
+	// The article's anchor.
+	Href string
+	// The article's title.
+	Title string
+	// The article's documentation.
+	Doc        template.HTML
 	FieldLists []*FieldList
+	// The final part of the article.
+	Conclusion *Conclusion
 }
 
 type FieldList struct {
@@ -94,7 +99,7 @@ type FieldItem struct {
 	// The name of the field's type.
 	Type string
 	// The field's documentation.
-	Text template.HTML
+	Doc template.HTML
 	// A link to the source of the field.
 	SourceLink string
 	// SettingLabel and SettingText are used to indicates whether the field
@@ -125,9 +130,16 @@ type EnumItem struct {
 	// The enum value.
 	Value string
 	// The enum value's documentation.
-	Text template.HTML
+	Doc template.HTML
 	// A link to the source of the enum value.
 	SourceLink string
+}
+
+type Conclusion struct {
+	// The title of the conclusion.
+	Title string
+	// The text of the conclusion.
+	Text template.HTML
 }
 
 ////////////////////////////////////////////////////////////////////////////////

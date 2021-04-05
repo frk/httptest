@@ -37,6 +37,7 @@ func Test(t *testing.T) {
 	defer testFile.Close()
 
 	tests := []struct {
+		skip            bool
 		file            string
 		rootdir         string
 		repourl         string
@@ -161,42 +162,16 @@ func Test(t *testing.T) {
 		///////////////////////////////////////////////////////////////
 		// Article Text
 		/////////////////////////////////////////////////////////////////
-		file: "article_from_topic_template_html",
-		mode: page.ArticleTest,
-		toc: []*TopicGroup{{
-			Name: "Topic Group 1",
-			Topics: []*Topic{{
-				Name: "Article",
-				Text: template.HTML(`<div>
-				<h4>Test</h4>
-				<p>this is template.HTML</p>
-				</div>`), //`
-			}},
-		}},
-	}, {
 		file: "article_from_topic_raw_string",
 		mode: page.ArticleTest,
 		toc: []*TopicGroup{{
 			Name: "Topic Group 1",
 			Topics: []*Topic{{
 				Name: "Article",
-				Text: `<div>
+				Doc: `<div>
 				<h4>Test</h4>
 				<p>this is a raw string</p>
 				</div>`, //`
-			}},
-		}},
-	}, {
-		file: "article_from_topic_html_iface",
-		mode: page.ArticleTest,
-		toc: []*TopicGroup{{
-			Name: "Topic Group 1",
-			Topics: []*Topic{{
-				Name: "Article",
-				Text: htmlimpl{str: `<div>
-				<h4>Test</h4>
-				<p>this is from httpdoc.HTML.HTML()</p>
-				</div>`}, //`
 			}},
 		}},
 	}, {
@@ -206,52 +181,24 @@ func Test(t *testing.T) {
 			Name: "Topic Group 1",
 			Topics: []*Topic{{
 				Name: "Article",
-				Text: testFile,
+				Doc:  testFile,
 			}},
 		}},
 	}, {
 		///////////////////////////////////////////////////////////////
-		// Article Conclusion
+		// Article "Returns"
 		/////////////////////////////////////////////////////////////////
-		file: "article_conclusion_from_topic_template_html",
-		mode: page.ArticleTest,
-		toc: []*TopicGroup{{
-			Name: "Topic Group 1",
-			Topics: []*Topic{{
-				Name: "Article",
-				Text: `<p>this is a test article</p>`,
-				Returns: template.HTML(`<div>
-				<h4>Test</h4>
-				<p>this is template.HTML</p>
-				</div>`), //`
-			}},
-		}},
-	}, {
 		file: "article_conclusion_from_topic_raw_string",
 		mode: page.ArticleTest,
 		toc: []*TopicGroup{{
 			Name: "Topic Group 1",
 			Topics: []*Topic{{
 				Name: "Article",
-				Text: `<p>this is a test article</p>`,
+				Doc:  `<p>this is a test article</p>`,
 				Returns: `<div>
 				<h4>Test</h4>
 				<p>this is a raw string</p>
 				</div>`, //`
-			}},
-		}},
-	}, {
-		file: "article_conclusion_from_topic_html_iface",
-		mode: page.ArticleTest,
-		toc: []*TopicGroup{{
-			Name: "Topic Group 1",
-			Topics: []*Topic{{
-				Name: "Article",
-				Text: `<p>this is a test article</p>`,
-				Returns: htmlimpl{str: `<div>
-				<h4>Test</h4>
-				<p>this is from httpdoc.HTML.HTML()</p>
-				</div>`}, //`
 			}},
 		}},
 	}, {
@@ -261,7 +208,7 @@ func Test(t *testing.T) {
 			Name: "Topic Group 1",
 			Topics: []*Topic{{
 				Name:    "Article",
-				Text:    `<p>this is a test article</p>`,
+				Doc:     `<p>this is a test article</p>`,
 				Returns: testFile,
 			}},
 		}},
@@ -270,7 +217,7 @@ func Test(t *testing.T) {
 		// Article Fields (Attributes)
 		/////////////////////////////////////////////////////////////////
 		file: "article_field_list_attributes",
-		mode: page.ArticleFieldListTest,
+		mode: page.FieldListTest,
 		toc: []*TopicGroup{{
 			Topics: []*Topic{{
 				Name:       "Test Topic",
@@ -279,7 +226,7 @@ func Test(t *testing.T) {
 		}},
 	}, {
 		file: "article_field_list_attributes_with_comments",
-		mode: page.ArticleFieldListTest,
+		mode: page.FieldListTest,
 		toc: []*TopicGroup{{
 			Topics: []*Topic{{
 				Name:       "Test Topic",
@@ -288,7 +235,7 @@ func Test(t *testing.T) {
 		}},
 	}, {
 		file: "article_field_list_attributes_with_tag_names",
-		mode: page.ArticleFieldListTest,
+		mode: page.FieldListTest,
 		toc: []*TopicGroup{{
 			Topics: []*Topic{{
 				Name:       "Test Topic",
@@ -297,7 +244,7 @@ func Test(t *testing.T) {
 		}},
 	}, {
 		file: "article_field_list_attributes_with_custom_type_names",
-		mode: page.ArticleFieldListTest,
+		mode: page.FieldListTest,
 		typName: func(f reflect.StructField) (typeName string, ok bool) {
 			name := []byte(f.Type.String())
 			i, j := 0, len(name)-1
@@ -315,7 +262,7 @@ func Test(t *testing.T) {
 		}},
 	}, {
 		file: "article_field_list_attributes_with_nested_fields_1",
-		mode: page.ArticleFieldListTest,
+		mode: page.FieldListTest,
 		toc: []*TopicGroup{{
 			Topics: []*Topic{{
 				Name:       "Test Topic",
@@ -324,7 +271,7 @@ func Test(t *testing.T) {
 		}},
 	}, {
 		file: "article_field_list_attributes_with_nested_fields_2",
-		mode: page.ArticleFieldListTest,
+		mode: page.FieldListTest,
 		toc: []*TopicGroup{{
 			Topics: []*Topic{{
 				Name:       "Test Topic",
@@ -335,7 +282,7 @@ func Test(t *testing.T) {
 		file:    "article_field_list_attributes_with_nested_fields_3",
 		rootdir: rootdir,
 		repourl: repourl,
-		mode:    page.ArticleFieldListTest,
+		mode:    page.FieldListTest,
 		toc: []*TopicGroup{{
 			Topics: []*Topic{{
 				Name:       "Test Topic",
@@ -347,7 +294,7 @@ func Test(t *testing.T) {
 		// Article Fields (Parameters)
 		////////////////////////////////////////////////////////////////
 		file: "article_field_list_parameters_1",
-		mode: page.ArticleFieldListTest,
+		mode: page.FieldListTest,
 		toc: []*TopicGroup{{
 			Topics: []*Topic{{
 				Name:       "Test Topic",
@@ -369,7 +316,7 @@ func Test(t *testing.T) {
 			}
 			return "", "", false
 		},
-		mode: page.ArticleFieldListTest,
+		mode: page.FieldListTest,
 		toc: []*TopicGroup{{
 			Topics: []*Topic{{
 				Name:       "Test Topic",
@@ -397,7 +344,7 @@ func Test(t *testing.T) {
 			}
 			return ""
 		},
-		mode: page.ArticleFieldListTest,
+		mode: page.FieldListTest,
 		toc: []*TopicGroup{{
 			Topics: []*Topic{{
 				Name:       "Test Topic",
@@ -411,7 +358,7 @@ func Test(t *testing.T) {
 		file:    "field_enum_list",
 		rootdir: rootdir,
 		repourl: repourl,
-		mode:    page.ArticleFieldItemTest,
+		mode:    page.FieldItemTest,
 		toc: []*TopicGroup{{
 			Topics: []*Topic{{
 				Name:       "Test Topic",
@@ -446,6 +393,10 @@ func Test(t *testing.T) {
 	}}
 
 	for _, tt := range tests {
+		if tt.skip {
+			continue
+		}
+
 		t.Run(tt.file, func(t *testing.T) {
 			defer func() {
 				// move the file cursor back to the beginning
@@ -480,18 +431,6 @@ func Test(t *testing.T) {
 			}
 		})
 	}
-}
-
-type htmlimpl struct {
-	str string
-	err error
-}
-
-func (h htmlimpl) HTML() (template.HTML, error) {
-	if h.err != nil {
-		return "", h.err
-	}
-	return template.HTML(h.str), nil
 }
 
 func flatten(data []byte) (out []byte) {

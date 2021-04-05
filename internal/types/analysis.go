@@ -28,7 +28,41 @@ func (s *Source) TypeOf(v interface{}) *Type {
 	return typ
 }
 
-// holds the state of the analysis of a type
+func (s *Source) TypeDeclOf(v interface{}) *TypeDecl {
+	rt := reflect.TypeOf(v)
+	for rt.Kind() == reflect.Ptr {
+		rt = rt.Elem()
+	}
+
+	td := new(TypeDecl)
+	td.Name = rt.Name()
+	td.PkgPath = rt.PkgPath()
+	if td.Name == "" || td.PkgPath == "" { // unnamed?
+		return nil
+	}
+
+	if src := s.getTypeSourceByName(td.Name, td.PkgPath); src != nil && src.SpecPos != token.NoPos {
+		pos := src.position()
+		cg, doc := src.SpecDoc, []string(nil)
+		if cg == nil || len(cg.List) == 0 {
+			cg = src.DeclDoc
+		}
+		if cg == nil || len(cg.List) == 0 {
+			cg = src.Comment
+		}
+		if cg != nil {
+			for _, s := range cg.List {
+				doc = append(doc, s.Text)
+			}
+		}
+		td.Pos = pos
+		td.Doc = doc
+	}
+
+	return td
+}
+
+// holds the state of the type's analysis
 type analysis struct {
 	src *Source
 	// already visited pointers

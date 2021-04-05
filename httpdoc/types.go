@@ -1,10 +1,7 @@
 package httpdoc
 
 import (
-	"html/template"
-
 	"github.com/frk/httptest"
-	"github.com/frk/httptest/internal/page"
 )
 
 type TopicGroup struct {
@@ -27,26 +24,17 @@ type Topic struct {
 	// main text. It is up to the user to ensure that the content of the source
 	// is valid and safe HTML. The following types are supported:
 	//
-	//	- template.HTML: valid html text.
 	//	- string: raw string expected to contain valid html text.
 	//	- *os.File: a file expected to contain valid html text.
-	//	- httpdoc.HTML: a value of type T that satisfies the httpdoc.HTML
-	//		interface and returns valid html text.
 	//
 	// Any other type will result in an error.
-	Text       interface{}
+	Doc interface{}
+
+	/////////////
+
 	Attributes interface{}
 	Parameters interface{}
 	Returns    interface{}
-
-	// A reference to the associated SidebarNavItem.
-	navItem *page.SidebarNavItem
-	// A reference to the associated ContentSection.
-	contentSection *page.ContentSection
-}
-
-type HTML interface {
-	HTML() (template.HTML, error)
 }
 
 type Example struct {

@@ -1,29 +1,31 @@
-<div class="sidebar">
-	<div class="sidebar-header">
+<div class="sidebar-container">
+	<header class="sidebar-header">
 		<h3 class="sidebar-heading"></h3>
-	</div>
-	<nav class="sidebar-nav">
-		<div class="nav-group">
-			<h5 class="nav-heading">Endpoint Group 1</h5>
-			<ul class="nav-items">
-				<li>
-					<a href="/topic-1" class="nav-item expandable">Topic 1</a>
-					<ul class="nav-items">
-						<li>
-							<a href="/topic-1#topic-1_create-a-foo" class="nav-item expandable">Create a Foo</a>
+	</header>
+	<nav class="sidebar">
+		<div class="sidebar-list-container">
+			<h5 class="sidebar-list-title">Endpoint Group 1</h5>
+			<ul class="sidebar-list">
+				<li class="sidebar-list-item">
+					<a href="/topic-1" class="sidebar-item expandable">Topic 1</a>
+					<ul class="sidebar-list-sub">
+						<li class="sidebar-list-item">
+							<a href="/topic-1#topic-1_create-a-foo" class="sidebar-item expandable">Create a Foo</a>
 						</li>
-						<li>
-							<a href="/topic-1#topic-1_list-foos" class="nav-item expandable">List Foos</a>
+						<li class="sidebar-list-item">
+							<a href="/topic-1#topic-1_list-foos" class="sidebar-item expandable">List Foos</a>
 						</li>
-						<li>
-							<a href="/topic-1#topic-1_get-a-foo" class="nav-item expandable">Get a Foo</a>
+						<li class="sidebar-list-item">
+							<a href="/topic-1#topic-1_get-a-foo" class="sidebar-item expandable">Get a Foo</a>
 						</li>
-						<li>
-							<a href="/topic-1#topic-1_delete-a-foo" class="nav-item expandable">Delete a Foo</a>
+						<li class="sidebar-list-item">
+							<a href="/topic-1#topic-1_delete-a-foo" class="sidebar-item expandable">Delete a Foo</a>
 						</li>
 					</ul>
 				</li>
 			</ul>
 		</div>
 	</nav>
+	<footer class="sidebar-footer">
+	</footer>
 </div>

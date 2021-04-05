@@ -4,6 +4,10 @@ import (
 	"html/template"
 )
 
+////////////////////////////////////////////////////////////////////////////////
+// Page
+////////////////////////////////////////////////////////////////////////////////
+
 type Page struct {
 	Title   string
 	Sidebar Sidebar
@@ -15,9 +19,9 @@ type Page struct {
 ////////////////////////////////////////////////////////////////////////////////
 
 type Sidebar struct {
-	Header    SidebarHeader
-	NavGroups []*SidebarNavGroup
-	Footer    SidebarFooter
+	Header SidebarHeader
+	Lists  []*SidebarList
+	Footer SidebarFooter
 }
 
 type SidebarHeader struct {
@@ -30,15 +34,15 @@ type SidebarFooter struct {
 	// ...
 }
 
-type SidebarNavGroup struct {
+type SidebarList struct {
 	Title string
-	Items []*SidebarNavItem
+	Items []*SidebarItem
 }
 
-type SidebarNavItem struct {
+type SidebarItem struct {
 	Text     string
 	Href     string
-	SubItems []*SidebarNavItem
+	SubItems []*SidebarItem
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -46,24 +50,17 @@ type SidebarNavItem struct {
 ////////////////////////////////////////////////////////////////////////////////
 
 type Content struct {
-	Header   ContentHeader
-	Sections []*ContentSection
-	Footer   ContentFooter
+	Header   Header
+	Articles []*Article
+	Footer   Footer
 }
 
-type ContentHeader struct {
+type Header struct {
 	// ...
 }
 
-type ContentFooter struct {
+type Footer struct {
 	// ...
-}
-
-type ContentSection struct {
-	Id          string
-	Article     Article
-	Example     Example
-	SubSections []*ContentSection
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -71,16 +68,35 @@ type ContentSection struct {
 ////////////////////////////////////////////////////////////////////////////////
 
 type Article struct {
+	Id string
 	// The article's anchor.
 	Href string
 	// The article's title.
 	Title string
+	// A link to the source code associated with the article.
+	SourceLink *SourceLink
 	// The article's documentation.
-	Doc        template.HTML
-	FieldLists []*FieldList
-	// The final part of the article.
-	Conclusion *Conclusion
+	Doc template.HTML
+	// A list of additional sections of the article.
+	Sections []*ArticleSection
+	//
+	Example Example
+	// A list of sub articles.
+	SubArticles []*Article
 }
+
+type ArticleSection struct {
+	// The title of the section.
+	Title string
+	// The following fields represent the content of the section.
+	// NOTE: Only one of these fields should be set.
+	Text       template.HTML
+	FieldLists []*FieldList
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Fields
+////////////////////////////////////////////////////////////////////////////////
 
 type FieldList struct {
 	Title string
@@ -101,7 +117,7 @@ type FieldItem struct {
 	// The field's documentation.
 	Doc template.HTML
 	// A link to the source of the field.
-	SourceLink string
+	SourceLink *SourceLink
 	// SettingLabel and SettingText are used to indicates whether the field
 	// is required, optional, or something else. The SettingLabel is used as
 	// part of the associated CSS class name. The SettingText is used as the
@@ -109,37 +125,12 @@ type FieldItem struct {
 	SettingLabel, SettingText string
 	// The field's validation documentation.
 	Validation template.HTML
-	// If the field's type is named and constants were declared with it
-	// the EnumList will hold info about those constants. If the field's
-	// type is unnamed or there are no associated constants then EnumList
-	// will be nil.
-	EnumList *EnumList
+	// A list of values associated with the field.
+	ValueList *ValueList
 	// If the field's type is a struct then SubFields will hold the fields
 	// of that struct. If the field's type is not a struct then SubFields
 	// will be nil.
 	SubFields []*FieldItem
-}
-
-type EnumList struct {
-	// The title to be use for the enum list.
-	Title string
-	Items []*EnumItem
-}
-
-type EnumItem struct {
-	// The enum value.
-	Value string
-	// The enum value's documentation.
-	Doc template.HTML
-	// A link to the source of the enum value.
-	SourceLink string
-}
-
-type Conclusion struct {
-	// The title of the conclusion.
-	Title string
-	// The text of the conclusion.
-	Text template.HTML
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -147,15 +138,16 @@ type Conclusion struct {
 ////////////////////////////////////////////////////////////////////////////////
 
 type Example struct {
-	EndpointOverview []EndpointOverviewItem
-	Code             []ExampleCode
+	Sections []*ExampleSection
 }
 
-type EndpointOverviewItem struct {
-	Href    string
-	Method  string
-	Pattern string
-	Tooltip string
+type ExampleSection struct {
+	// The title of the section.
+	Title string
+	// The following fields represent the content of the section.
+	// NOTE: Only one of these fields should be set.
+	Text             template.HTML
+	EndpointOverview *EndpointOverview
 }
 
 type ExampleCode struct {
@@ -172,4 +164,52 @@ type ExampleResponse struct {
 	StatusCode int
 	Header     map[string][]string
 	Body       string
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Endpoint Overview
+////////////////////////////////////////////////////////////////////////////////
+
+type EndpointOverview struct {
+	Title string
+	Items []*EndpointItem
+}
+
+type EndpointItem struct {
+	Href    string
+	Method  string
+	Pattern string
+	Tooltip string
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Value List
+////////////////////////////////////////////////////////////////////////////////
+
+type ValueList struct {
+	// The title to be use for the value list.
+	Title string
+	// Class is used as a CSS class prefix for the list's elements.
+	Class string
+	Items []*ValueItem
+}
+
+type ValueItem struct {
+	// The text representation of the value.
+	Text string
+	// The value's documentation.
+	Doc template.HTML
+	// A link to the source of the value's declaration.
+	SourceLink *SourceLink
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Etc.
+////////////////////////////////////////////////////////////////////////////////
+
+type SourceLink struct {
+	// The link to the source code.
+	Href string
+	// The text inside the anchor.
+	Text string
 }

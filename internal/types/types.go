@@ -6,6 +6,18 @@ import (
 	"strconv"
 )
 
+// TypeDecl holds basic info on a declared Go type.
+type TypeDecl struct {
+	// The position of a type's declaration in the source code.
+	Pos Position
+	// The raw documentation of the type.
+	Doc []string
+	// The declared type's name
+	Name string
+	// The type's package import path
+	PkgPath string
+}
+
 // Type is the representation of a Go type.
 type Type struct {
 	// The position of the type's declaration in the source code.

@@ -287,3 +287,64 @@ func TestTypeOf(t *testing.T) {
 		}
 	}
 }
+
+func TestTypeDeclOf(t *testing.T) {
+	pos := Position{Filename: "/some/file", Line: 1234}
+	pkg := "github.com/frk/httptest/internal/testdata/types"
+	tests := []struct {
+		v    interface{}
+		want *TypeDecl
+	}{0: {
+		v:    types.T1{},
+		want: &TypeDecl{Pos: pos, Name: "T1", PkgPath: pkg},
+	}, 1: {
+		v:    &types.T9{},
+		want: &TypeDecl{Pos: pos, Name: "T9", PkgPath: pkg},
+	}, 2: {
+		v:    types.S1(""),
+		want: &TypeDecl{Name: "S1", PkgPath: pkg, Pos: pos, Doc: []string{"// S1 decl doc"}},
+	}, 3: {
+		v: types.S2(""),
+		want: &TypeDecl{Name: "S2", Pos: pos, PkgPath: pkg,
+			Doc: []string{"// S2 comment"}},
+	}, 4: {
+		v: types.S3(""),
+		want: &TypeDecl{Name: "S3", Pos: pos, PkgPath: pkg,
+			Doc: []string{"// S3,S4,S5 decl doc"}},
+	}, 5: {
+		v: types.S4(""),
+		want: &TypeDecl{Name: "S4", Pos: pos, PkgPath: pkg,
+			Doc: []string{"// S4 spec doc"}},
+	}, 6: {
+		v: types.S5(""),
+		want: &TypeDecl{Name: "S5", Pos: pos, PkgPath: pkg,
+			Doc: []string{"// S3,S4,S5 decl doc"}},
+	}, 7: {
+		v: types.S6(""),
+		want: &TypeDecl{Name: "S6", Pos: pos, PkgPath: pkg,
+			Doc: []string{"/*\n\tS6 decl doc line 1\n\tS6 decl doc line 2\n*/"}},
+	}, 8: {
+		v: types.S7(""),
+		want: &TypeDecl{Name: "S7", Pos: pos, PkgPath: pkg,
+			Doc: []string{
+				"/*\n\tS7 decl doc line 1\n\tS7 decl doc line 2\n*/",
+				"// S7 decl doc line 3",
+				"// S7 decl doc line 4",
+			}},
+	}}
+
+	_, f, _, _ := runtime.Caller(0)
+	dir := filepath.Dir(filepath.Dir(f))
+	src, err := Load(dir + "/testdata/types")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cmp := compare.Config{ObserveFieldTag: "cmp"}
+	for i, tt := range tests {
+		got := src.TypeDeclOf(tt.v)
+		if err := cmp.Compare(got, tt.want); err != nil {
+			t.Errorf("[%d] %T: %v", i, tt.v, err)
+		}
+	}
+}

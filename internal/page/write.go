@@ -12,28 +12,37 @@ const (
 	SidebarTest          TestMode = "sidebar"
 	ContentTest          TestMode = "content"
 	ArticleTest          TestMode = "article"
-	ArticleFieldListTest TestMode = "article_field_list"
-	ArticleFieldItemTest TestMode = "article_field_item"
+	FieldListTest        TestMode = "field_list"
+	FieldItemTest        TestMode = "field_item"
 	EndpointOverviewTest TestMode = "endpoint_overview"
 )
 
 func Write(w io.Writer, p Page, m TestMode) error {
 	tmpl := strings.Join([]string{
 		page_root,
+
 		sidebar,
 		sidebar_header,
-		sidebar_nav,
-		sidebar_nav_item,
+		sidebar_footer,
+		sidebar_lists,
+		sidebar_item,
+
 		content,
 		content_header,
-		content_sections,
 		content_footer,
+		content_articles,
+
 		article,
-		article_field_list,
-		article_field_list_sub,
-		article_field_item,
-		field_enum_list,
-		example,
+		article_section_lead,
+		article_section_list,
+
+		field_list,
+		field_list_sub,
+		field_item,
+
+		value_list,
+
+		example_section_list,
 		endpoint_overview,
 	}, "")
 
@@ -57,13 +66,13 @@ func Write(w io.Writer, p Page, m TestMode) error {
 		case ContentTest:
 			data = p.Content
 		case ArticleTest:
-			data = p.Content.Sections[0].Article
-		case ArticleFieldListTest:
-			data = p.Content.Sections[0].Article.FieldLists
-		case ArticleFieldItemTest:
-			data = p.Content.Sections[0].Article.FieldLists[0].Items[0]
+			data = p.Content.Articles[0]
+		case FieldListTest:
+			data = p.Content.Articles[0].Sections[0].FieldLists
+		case FieldItemTest:
+			data = p.Content.Articles[0].Sections[0].FieldLists[0].Items[0]
 		case EndpointOverviewTest:
-			data = p.Content.Sections[0].Example.EndpointOverview
+			data = p.Content.Articles[0].Example.Sections[0].EndpointOverview
 		}
 
 		return t.ExecuteTemplate(w, name, data)
@@ -84,12 +93,8 @@ var page_root = `
 		<title>{{ .Title }}</title>
 	</head>
 	<body>
-
 		{{ template "sidebar" .Sidebar }}
 		{{ template "content" .Content }}
-
-		<footer>
-		</footer>
 	</body>
 </html>
 ` //`
@@ -99,40 +104,47 @@ var page_root = `
 ////////////////////////////////////////////////////////////////////////////////
 
 var sidebar = `{{ define "sidebar" -}}
-<div class="sidebar">
+<div class="sidebar-container">
 	{{ template "sidebar_header" .Header }}
-	{{ template "sidebar_nav" .NavGroups }}
+	{{ template "sidebar_lists" .Lists }}
+	{{ template "sidebar_footer" .Footer }}
 </div>
 {{ end }}
 ` //`
 
 var sidebar_header = `{{ define "sidebar_header" -}}
-<div class="sidebar-header">
+<header class="sidebar-header">
 	<h3 class="sidebar-heading">{{ .Title }}</h3>
-</div>
-{{- end }}
+</header>
+{{ end -}}
 ` //`
 
-var sidebar_nav = `{{ define "sidebar_nav" -}}
-<nav class="sidebar-nav">
+var sidebar_footer = `{{ define "sidebar_footer" -}}
+<footer class="sidebar-footer">
+</footer>
+{{ end -}}
+` //`
+
+var sidebar_lists = `{{ define "sidebar_lists" -}}
+<nav class="sidebar">
 {{ range . -}}
-	<div class="nav-group">
-		<h5 class="nav-heading">{{ .Title }}</h5>
-		<ul class="nav-items">
-			{{ range .Items }}{{ template "sidebar_nav_item" . }}{{ end -}}
+	<div class="sidebar-list-container">
+		<h5 class="sidebar-list-title">{{ .Title }}</h5>
+		<ul class="sidebar-list">
+			{{ range .Items }}{{ template "sidebar_item" . }}{{ end -}}
 		</ul>
 	</div>
 {{ end -}}
 </nav>
-{{- end }}
+{{ end -}}
 ` //`
 
-var sidebar_nav_item = `{{ define "sidebar_nav_item" -}}
-<li>
-	<a href="{{ .Href }}" class="nav-item expandable">{{ .Text }}</a>
+var sidebar_item = `{{ define "sidebar_item" -}}
+<li class="sidebar-list-item">
+	<a href="{{ .Href }}" class="sidebar-item expandable">{{ .Text }}</a>
 	{{- if .SubItems }}
-	<ul class="nav-items">
-		{{ range .SubItems }}{{ template "sidebar_nav_item" . }}{{ end -}}
+	<ul class="sidebar-list-sub">
+		{{ range .SubItems }}{{ template "sidebar_item" . }}{{ end -}}
 	</ul>
 	{{- end }}
 </li>
@@ -144,40 +156,35 @@ var sidebar_nav_item = `{{ define "sidebar_nav_item" -}}
 ////////////////////////////////////////////////////////////////////////////////
 
 var content = `{{ define "content" -}}
-<div class="content">
+<div class="content-container">
 	{{ template "content_header" .Header }}
-	{{ template "content_sections" .Sections }}
+	<main role="main">
+		{{ template "content_articles" .Articles }}
+	</main>
 	{{ template "content_footer" .Footer }}
 </div>
 {{ end }}
 ` //`
 
 var content_header = `{{ define "content_header" -}}
-<div class="content-header">
-</div>
-{{- end }}
-` //`
-
-var content_sections = `{{ define "content_sections" -}}
-<div class="content-sections">
-	{{ range . -}}
-	<section id="{{ .Id }}">
-		{{ template "article" .Article }}
-		{{ template "example" .Example }}
-
-		{{- with .SubSections }}
-		{{ template "content_sections" . }}
-		{{- end }}
-	</section>
-	{{ end -}}
-</div>
-{{- end }}
+<header class="content-header">
+</header>
+{{ end -}}
 ` //`
 
 var content_footer = `{{ define "content_footer" -}}
-<div class="content-footer">
+<footer class="content-footer">
+</footer>
+{{ end -}}
+` //`
+
+var content_articles = `{{ define "content_articles" -}}
+<div class="articles-container">
+	{{ range . -}}
+	{{ template "article" . }}
+	{{ end -}}
 </div>
-{{- end -}}
+{{ end -}}
 ` //`
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -185,44 +192,87 @@ var content_footer = `{{ define "content_footer" -}}
 ////////////////////////////////////////////////////////////////////////////////
 
 var article = `{{ define "article" -}}
-<div class="article">
-	<h1 class="article-heading">
+<article id="{{ .Id }}">
+	<div class="article-content">
+		<div class="article-body">
+			{{ template "article_section_lead" . }}
+			{{- with .Sections }}
+			{{ template "article_section_list" . }}
+			{{- end }}
+		</div>
+		<aside class="article-example">
+			{{- with .Example.Sections }}
+			{{ template "example_section_list" . }}
+			{{- end }}
+		</aside>
+	</div>
+
+	{{- with .SubArticles }}
+	<div class="article-related">
+		{{ range . -}}
+		{{ template "article" . }}
+		{{ end -}}
+	</div>
+	{{- end }}
+</article>
+{{ end -}}
+` //`
+
+var article_section_lead = `{{ define "article_section_lead" -}}
+<section class="article-section-lead">
+	<h2 class="article-section-lead-title">
 		<a class="article-anchor" href="{{ .Href }}">{{ .Title }}</a>
-	</h1>
+	</h2>
+
+	{{- with .SourceLink }}
+	<div class="article-source">
+		<a class="article-source-link" href="{{ .Href }}">{{ .Text }}</a>
+	</div>
+	{{- end }}
 
 	{{- with .Doc }}
 	<div class="article-doc">
 		{{ . }}
 	</div>
 	{{- end }}
-
-	{{- with .FieldLists }}
-	{{ template "article_field_list" . }}
-	{{- end }}
-
-	{{- with .Conclusion }}
-	<div class="article-conclusion">
-		<h3 class="article-conclusion-header">{{ .Title }}</h3>
-		<div class="article-conclusion-text">
-		{{ .Text }}
-		</div>
-	</div>
-	{{- end }}
-</div>
+</section>
 {{ end -}}
 ` //`
 
-////////////////////////////////////////////////////////////////////////////////
-// Article Fields
-////////////////////////////////////////////////////////////////////////////////
-
-var article_field_list = `{{ define "article_field_list" -}}
+var article_section_list = `{{ define "article_section_list" -}}
 {{ range . -}}
-<div class="article-field-list-container">
-	<h5 class="article-field-list-header">{{ .Title }}</h5>
-	<ul class="article-field-list">
+{{ if .Text -}}
+<section class="article-section-text">
+	<h3 class="article-section-text-title">{{ .Title }}</h3>
+	<div class="article-doc">
+		{{ .Text }}
+	</div>
+</section>
+{{ else if .FieldLists }}
+<section class="article-section-fields">
+	<h3 class="article-section-fields-title">{{ .Title }}</h3>
+	{{ range .FieldLists -}}
+	{{ template "field_list" . }}
+	{{ end -}}
+</section>
+{{ end -}}
+{{ end -}}
+{{ end -}}
+` //`
+
+////////////////////////////////////////////////////////////////////////////////
+// Fields
+////////////////////////////////////////////////////////////////////////////////
+
+var field_list = `{{ define "field_list" -}}
+{{ range . -}}
+<div class="field-list-container">
+	{{- with .Title }}
+	<h5 class="field-list-header">{{ . }}</h5>
+	{{- end }}
+	<ul class="field-list">
 		{{ range .Items -}}
-		{{ template "article_field_item" . }}
+		{{ template "field_item" . }}
 		{{ end -}}
 	</ul>
 </div>
@@ -230,18 +280,18 @@ var article_field_list = `{{ define "article_field_list" -}}
 {{ end -}}
 ` //`
 
-var article_field_list_sub = `{{ define "article_field_list_sub" -}}
-<div class="article-field-list-container">
-	<ul class="article-field-list">
+var field_list_sub = `{{ define "field_list_sub" -}}
+<div class="field-list-container">
+	<ul class="field-list">
 		{{ range . -}}
-		{{ template "article_field_item" . }}
+		{{ template "field_item" . }}
 		{{ end -}}
 	</ul>
 </div>
 {{ end -}}
 ` //`
 
-var article_field_item = `{{ define "article_field_item" -}}
+var field_item = `{{ define "field_item" -}}
 <li id="{{ .Id }}">
 	<h3 class="field-header">
 		<a class="field-anchor" href="{{ .Href }}">¶</a>
@@ -254,7 +304,7 @@ var article_field_item = `{{ define "article_field_item" -}}
 		<span class="field-setting-{{ .SettingLabel }}">{{ .SettingText }}</span>
 		{{- end }}
 		{{- with .SourceLink }}
-		<a class="field-source-link" href="{{ . }}">‹›</a>
+		<a class="field-source-link" href="{{ .Href }}">‹›</a>
 		{{- end }}
 	</h3>
 	{{- with .Validation }}
@@ -270,41 +320,13 @@ var article_field_item = `{{ define "article_field_item" -}}
 		{{- end }}
 	</div>
 
-	{{- with .EnumList }}
-	{{ template "field_enum_list" . }}
+	{{- with .ValueList }}
+	{{ template "value_list" . }}
 	{{- end }}
 	{{- with .SubFields }}
-	{{ template "article_field_list_sub" . }}
+	{{ template "field_list_sub" . }}
 	{{- end }}
 </li>
-{{ end -}}
-` //`
-
-var field_enum_list = `{{ define "field_enum_list" -}}
-<div class="enum-list-container">
-	<h5 class="enum-list-header">{{ .Title }}</h5>
-	<ul class="enum-list">
-		{{ range .Items -}}
-		<li class="enum-item">
-			<div class="enum-item-header">
-				<div class="enum-item-value">
-					<code>{{ .Value }}</code>
-				</div>
-				<div class="enum-item-source-link">
-					{{- with .SourceLink }}
-					<a href="{{ . }}">‹›</a>
-					{{- end }}
-				</div>
-			</div>
-			<div class="enum-item-doc">
-				{{- with .Doc }}
-				{{ . }}
-				{{- end }}
-			</div>
-		</li>
-		{{ end -}}
-	</ul>
-</div>
 {{ end -}}
 ` //`
 
@@ -312,28 +334,74 @@ var field_enum_list = `{{ define "field_enum_list" -}}
 // Example
 ////////////////////////////////////////////////////////////////////////////////
 
-var example = `{{ define "example" -}}
-<div class="example">
-	{{- if .EndpointOverview }}
-	{{ template "endpoint_overview" .EndpointOverview }}
+var example_section_list = `{{ define "example_section_list" -}}
+{{ range . -}}
+{{ if .Text }}
+<section class="example-section-text">
+	{{- with .Title }}
+	<h3 class="example-section-text-title">{{ . }}</h3>
 	{{- end }}
-</div>
-{{- end -}}
+	<div class="example-doc">
+		{{ .Text }}
+	</div>
+</section>
+{{ else if .EndpointOverview }}
+<section class="example-section-endpoint-overview">
+	{{ template "endpoint_overview" .EndpointOverview }}
+</section>
+{{ end -}}
+{{ end -}}
+{{ end -}}
 ` //`
 
 var endpoint_overview = `{{ define "endpoint_overview" -}}
-<div class="endpoint-overview">
-	<div class="ep-ov-topbar">ENDPOINTS</div>
-	<div class="ep-ov-table">
-	{{- range . }}
-		<div class="ep-ov-row">
+<div class="endpoint-overview-container">
+	<div class="endpoint-overview-topbar">
+		<h3 class="endpoint-overview-title">{{ .Title }}</h3>
+	</div>
+	<div class="endpoint-overview-table">
+	{{- range .Items }}
+		<div class="endpoint-overview-row">
 			<a href="{{ .Href }}">
-				<span class="ep-ov-method method-{{ lower .Method }}"><code>{{ .Method }}</code></span>
-				<span class="ep-ov-pattern"><code>{{ .Pattern }}</code></span>
+				<span class="endpoint-overview-method method-{{ lower .Method }}"><code>{{ .Method }}</code></span>
+				<span class="endpoint-overview-pattern"><code>{{ .Pattern }}</code></span>
 			</a>
 		</div>
 	{{- end }}
 	</div>
+</div>
+{{ end -}}
+` //`
+
+////////////////////////////////////////////////////////////////////////////////
+// Value List
+////////////////////////////////////////////////////////////////////////////////
+
+var value_list = `{{ define "value_list" -}}
+{{ $class := .Class -}}
+<div class="{{ $class }}-list-container">
+	<h5 class="{{ $class }}-list-header">{{ .Title }}</h5>
+	<ul class="{{ $class }}-list">
+		{{ range .Items -}}
+		<li class="{{ $class }}-item">
+			<div class="{{ $class }}-item-header">
+				<div class="{{ $class }}-item-value">
+					<code>{{ .Text }}</code>
+				</div>
+				<div class="{{ $class }}-item-source-link">
+					{{- with .SourceLink }}
+					<a href="{{ .Href }}">‹›</a>
+					{{- end }}
+				</div>
+			</div>
+			<div class="{{ $class }}-item-doc">
+				{{- with .Doc }}
+				{{ . }}
+				{{- end }}
+			</div>
+		</li>
+		{{ end -}}
+	</ul>
 </div>
 {{ end -}}
 ` //`

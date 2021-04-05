@@ -31,6 +31,8 @@ type TestGroup struct {
 	Tests []*Test
 	// Indicates that the TestGroup should be skipped by the test runner.
 	Skip bool
+	// TODO
+	Doc interface{}
 }
 
 // The Test type describes the HTTP request to be sent to an endpoint and the
@@ -76,6 +78,9 @@ type Response struct {
 	Header Header
 	// The expected response body.
 	Body Body
+
+	// TODO the "Returns" documentation
+	Doc interface{}
 }
 
 // A Header represents the key-value pairs in an HTTP header.

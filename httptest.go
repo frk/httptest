@@ -173,7 +173,7 @@ func initrequest(s *tstate) error {
 		path = s.tt.Request.Params.SetParams(path)
 	}
 	if s.tt.Request.Query != nil {
-		path += "?" + s.tt.Request.Query.QueryEncode()
+		path += "?" + s.tt.Request.Query.GetQuery()
 	}
 	url := s.host + path
 
@@ -194,12 +194,18 @@ func initrequest(s *tstate) error {
 
 	// set the necessary headers
 	if s.tt.Request.Body != nil {
-		req.Header.Set("Content-Type", s.tt.Request.Body.ContentType())
+		req.Header.Set("Content-Type", s.tt.Request.Body.Type())
 	}
-	for k, vv := range s.tt.Request.Header {
-		for _, v := range vv {
-			req.Header.Add(k, v)
+	if s.tt.Request.Header != nil {
+		h := s.tt.Request.Header.GetHeader()
+		for k, vv := range h {
+			for _, v := range vv {
+				req.Header.Add(k, v)
+			}
 		}
+	}
+	if s.tt.Request.Auth != nil {
+		s.tt.Request.Auth.SetAuth(req)
 	}
 
 	s.req = req
@@ -214,8 +220,9 @@ func checkresponse(s *tstate) error {
 		return &testError{code: errResponseStatus, s: s}
 	}
 	if s.tt.Response.Header != nil {
-		for key, _ := range s.tt.Response.Header {
-			wantVals, gotVals := s.tt.Response.Header[key], s.res.Header[key]
+		wantHeader := s.tt.Response.Header.GetHeader()
+		for key, _ := range wantHeader {
+			wantVals, gotVals := wantHeader[key], s.res.Header[key]
 
 		wantloop:
 			for _, want := range wantVals {
@@ -231,10 +238,8 @@ func checkresponse(s *tstate) error {
 		}
 	}
 	if s.tt.Response.Body != nil {
-		if err := s.tt.Response.Body.CompareContent(s.res.Body); err != nil {
-			if e, ok := err.(*testError); ok {
-				e.s = s
-			}
+		if err := s.tt.Response.Body.Compare(s.res.Body); err != nil {
+			err = &testError{code: errResponseBody, s: s, err: err}
 			errs = append(errs, err)
 		}
 	}

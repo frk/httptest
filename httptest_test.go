@@ -1,21 +1,17 @@
 package httptest
 
 import (
-	"encoding/json"
+	//"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/frk/compare"
 )
-
-type errorTransport struct{}
-
-func (errorTransport) RoundTrip(*http.Request) (*http.Response, error) {
-	return nil, errors.New("bad round trip")
-}
 
 func Test_Config_Run(t *testing.T) {
 	server := &http.Server{Addr: "localhost:3456"}
@@ -103,12 +99,12 @@ func Test_Config_Run(t *testing.T) {
 	}, {
 		// make sure that the Request.Body is correctly sent as the http.Request's Body #1
 		name: "body_test_1", tgs: []*TestGroup{{Endpoint: Endpoint{"POST", "/v1/foo"}, Tests: []*Test{{
-			Request:  Request{Body: Text(`foo bar baz`)},
+			Request:  Request{Body: fakebody{typ: "text/plain", val: `foo bar baz`}},
 			Response: Response{StatusCode: 200},
 		}}}},
 		handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ct := r.Header.Get("Content-Type")
-			if ct != textContentType {
+			if ct != "text/plain" {
 				w.WriteHeader(500)
 			}
 			body, err := ioutil.ReadAll(r.Body)
@@ -119,12 +115,12 @@ func Test_Config_Run(t *testing.T) {
 	}, {
 		// make sure that the Request.Body is correctly sent as the http.Request's Body #2
 		name: "body_test_2", tgs: []*TestGroup{{Endpoint: Endpoint{"POST", "/v1/foo"}, Tests: []*Test{{
-			Request:  Request{Body: JSON([]interface{}{123, "foo", "bar"})},
+			Request:  Request{Body: fakebody{typ: "application/json", val: `[123,"foo","bar"]`}},
 			Response: Response{StatusCode: 200},
 		}}}},
 		handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ct := r.Header.Get("Content-Type")
-			if ct != jsonContentType {
+			if ct != "application/json" {
 				w.WriteHeader(500)
 			}
 			body, err := ioutil.ReadAll(r.Body)
@@ -135,7 +131,7 @@ func Test_Config_Run(t *testing.T) {
 	}, {
 		// make sure the error from Request.Body.Reader is returned
 		name: "request_body_reader", tgs: []*TestGroup{{Endpoint: Endpoint{"POST", "/v1/foo"}, Tests: []*Test{{
-			Request: Request{Body: JSON([]func(){nil})},
+			Request: Request{Body: fakebody{}},
 		}}}},
 		handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}),
 		want: []interface{}{&testError{code: errRequestBodyReader, s: &tstate{host: host, ep: Endpoint{"POST", "/v1/foo"}, tt: &Test{}},
@@ -179,10 +175,10 @@ func Test_Config_Run(t *testing.T) {
 	}, {
 		// make sure the test fails if response body is not as expected
 		name: "response_body_mismatch", tgs: []*TestGroup{{Endpoint: Endpoint{"POST", "/v1/foo"}, Tests: []*Test{{
-			Response: Response{StatusCode: 200, Body: JSON(jsonstruct{A: "foo", B: 123})},
+			Response: Response{StatusCode: 200, Body: fakebody{typ: "application/json", val: `{"A":"foo","B":123}`, err: errors.New("dummy")}},
 		}}}},
 		handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			json.NewEncoder(w).Encode(jsonstruct{A: "bar", B: 321})
+			// ...
 		}),
 		want: []interface{}{errorList{
 			&testError{code: errResponseBody, s: &tstate{host: host, ep: Endpoint{"POST", "/v1/foo"}, tt: &Test{}, req: &http.Request{}, res: &http.Response{}}, err: errors.New("dummy")},
@@ -249,6 +245,29 @@ func Test_Config_Run(t *testing.T) {
 		})
 	}
 }
+
+type errorTransport struct{}
+
+func (errorTransport) RoundTrip(*http.Request) (*http.Response, error) {
+	return nil, errors.New("bad round trip")
+}
+
+type fakebody struct {
+	typ string
+	val string
+	err error
+}
+
+func (f fakebody) Type() string { return f.typ }
+
+func (f fakebody) Reader() (io.Reader, error) {
+	if f.val == "" {
+		return nil, errors.New("dummy")
+	}
+	return strings.NewReader(f.val), nil
+}
+
+func (f fakebody) Compare(io.Reader) error { return f.err }
 
 type fake_t struct {
 	errs []interface{}

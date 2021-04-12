@@ -1,7 +1,6 @@
-package httptest
+package httpbody
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -9,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/frk/compare"
+	"github.com/frk/httptest"
+	"github.com/frk/httptest/httpdoc"
 )
 
 func readallString(r io.Reader) string {
@@ -41,9 +42,9 @@ type formstruct struct {
 	C []float32
 }
 
-func Test_Body_ContentType(t *testing.T) {
+func Test_Body_Type(t *testing.T) {
 	tests := []struct {
-		body Body
+		body httptest.Body
 		want string
 	}{
 		{JSON(nil), jsonContentType},
@@ -56,7 +57,7 @@ func Test_Body_ContentType(t *testing.T) {
 	for _, tt := range tests {
 		name := fmt.Sprintf("%T", tt.body)
 		t.Run(name, func(t *testing.T) {
-			got := tt.body.ContentType()
+			got := tt.body.Type()
 			if got != tt.want {
 				t.Errorf("got=%q; want=%q", got, tt.want)
 			}
@@ -66,7 +67,7 @@ func Test_Body_ContentType(t *testing.T) {
 
 func Test_Body_Value(t *testing.T) {
 	tests := []struct {
-		body Body
+		body httptest.Body
 		want interface{}
 	}{{
 		body: JSON(jsonstruct{"foo", 84, &jsonstruct{"bar", 22, nil}}),
@@ -88,9 +89,13 @@ func Test_Body_Value(t *testing.T) {
 	for _, tt := range tests {
 		name := fmt.Sprintf("%T", tt.body)
 		t.Run(name, func(t *testing.T) {
-			got := tt.body.Value()
-			if e := compare.Compare(got, tt.want); e != nil {
-				t.Error(e)
+			got, err := tt.body.(httpdoc.Valuer).Value()
+			if err != nil {
+				t.Error(err)
+			} else {
+				if e := compare.Compare(got, tt.want); e != nil {
+					t.Error(e)
+				}
 			}
 		})
 	}
@@ -98,7 +103,7 @@ func Test_Body_Value(t *testing.T) {
 
 func Test_Body_Reader(t *testing.T) {
 	tests := []struct {
-		body Body
+		body httptest.Body
 		want string
 	}{
 		////////////////////////////////////////////////////////////////
@@ -198,48 +203,48 @@ func Test_Body_Reader(t *testing.T) {
 
 func Test_Body_CompareContent(t *testing.T) {
 	tests := []struct {
-		body Body
-		data string
-		want error
+		body    httptest.Body
+		data    string
+		wantErr bool
 	}{
 		////////////////////////////////////////////////////////////////
 		// JSON
 		////////////////////////////////////////////////////////////////
 		{
 			// same data as body, OK
-			body: JSON(jsonstruct{"foo", 84, &jsonstruct{"bar", 22, nil}}),
-			data: `{"A":"foo","B":84,"C":{"A":"bar","B":22,"C":null}}`,
-			want: nil,
+			body:    JSON(jsonstruct{"foo", 84, &jsonstruct{"bar", 22, nil}}),
+			data:    `{"A":"foo","B":84,"C":{"A":"bar","B":22,"C":null}}`,
+			wantErr: false,
 		}, {
 			// additional fields that aren't expected by the body are OK
-			body: JSON(jsonstruct{"foo", 84, &jsonstruct{"bar", 22, nil}}),
-			data: `{"XYZ":[1,2,3],"A":"foo","B":84,"C":{"A":"bar","B":22,"C":null}}`,
-			want: nil,
+			body:    JSON(jsonstruct{"foo", 84, &jsonstruct{"bar", 22, nil}}),
+			data:    `{"XYZ":[1,2,3],"A":"foo","B":84,"C":{"A":"bar","B":22,"C":null}}`,
+			wantErr: false,
 		}, {
 			// slices are OK
-			body: JSON([]jsonstruct{{"foo", 84, nil}, {"bar", 22, nil}}),
-			data: `[{"A":"foo","B":84,"C":null},{"A":"bar","B":22,"C":null}]`,
-			want: nil,
+			body:    JSON([]jsonstruct{{"foo", 84, nil}, {"bar", 22, nil}}),
+			data:    `[{"A":"foo","B":84,"C":null},{"A":"bar","B":22,"C":null}]`,
+			wantErr: false,
 		}, {
 			// pointers to slices are OK
-			body: JSON(&[]*jsonstruct{{"foo", 84, nil}, {"bar", 22, nil}}),
-			data: `[{"A":"foo","B":84,"C":null},{"A":"bar","B":22,"C":null}]`,
-			want: nil,
+			body:    JSON(&[]*jsonstruct{{"foo", 84, nil}, {"bar", 22, nil}}),
+			data:    `[{"A":"foo","B":84,"C":null},{"A":"bar","B":22,"C":null}]`,
+			wantErr: false,
 		}, {
 			// mismatched values NOT OK
-			body: JSON(jsonstruct{A: "foo"}),
-			data: `{"A":"bar"}`,
-			want: &testError{code: errResponseBody, err: errors.New("<dummy>")},
+			body:    JSON(jsonstruct{A: "foo"}),
+			data:    `{"A":"bar"}`,
+			wantErr: true,
 		}, {
 			// extra comma NOT OK
-			body: JSON(jsonstruct{A: "foo"}),
-			data: `{"A":"foo",}`,
-			want: &testError{code: errResponseBody, err: errors.New("<dummy>")},
+			body:    JSON(jsonstruct{A: "foo"}),
+			data:    `{"A":"foo",}`,
+			wantErr: true,
 		}, {
 			// data is not json NOT OK
-			body: JSON(jsonstruct{A: "foo"}),
-			data: `<A>foo</A>`,
-			want: &testError{code: errResponseBody, err: errors.New("<dummy>")},
+			body:    JSON(jsonstruct{A: "foo"}),
+			data:    `<A>foo</A>`,
+			wantErr: true,
 		},
 
 		////////////////////////////////////////////////////////////////
@@ -247,39 +252,39 @@ func Test_Body_CompareContent(t *testing.T) {
 		////////////////////////////////////////////////////////////////
 		{
 			// same data as body, OK
-			body: XML(xmlroot{[]xmlelem{{"foo", 84, &xmlelem{"bar", 22, nil}}}}),
-			data: `<xmlroot><elem><A>foo</A><B>84</B><C><A>bar</A><B>22</B></C></elem></xmlroot>`,
-			want: nil,
+			body:    XML(xmlroot{[]xmlelem{{"foo", 84, &xmlelem{"bar", 22, nil}}}}),
+			data:    `<xmlroot><elem><A>foo</A><B>84</B><C><A>bar</A><B>22</B></C></elem></xmlroot>`,
+			wantErr: false,
 		}, {
 			// additional fields that aren't expected by the body are OK
-			body: XML(xmlroot{[]xmlelem{{"foo", 84, &xmlelem{"bar", 22, nil}}}}),
-			data: `<xmlroot><elem><XYZ>123</XYZ><A>foo</A><B>84</B><C><A>bar</A><B>22</B></C></elem></xmlroot>`,
-			want: nil,
+			body:    XML(xmlroot{[]xmlelem{{"foo", 84, &xmlelem{"bar", 22, nil}}}}),
+			data:    `<xmlroot><elem><XYZ>123</XYZ><A>foo</A><B>84</B><C><A>bar</A><B>22</B></C></elem></xmlroot>`,
+			wantErr: false,
 		}, {
 			// multi-value slices
-			body: XML(xmlroot{[]xmlelem{{"foo", 84, nil}, {"bar", 22, nil}}}),
-			data: `<xmlroot><elem><A>foo</A><B>84</B></elem><elem><A>bar</A><B>22</B></elem></xmlroot>`,
-			want: nil,
+			body:    XML(xmlroot{[]xmlelem{{"foo", 84, nil}, {"bar", 22, nil}}}),
+			data:    `<xmlroot><elem><A>foo</A><B>84</B></elem><elem><A>bar</A><B>22</B></elem></xmlroot>`,
+			wantErr: false,
 		}, {
 			// pointers are OK
-			body: XML(&xmlroot{[]xmlelem{{"foo", 84, nil}, {"bar", 22, nil}}}),
-			data: `<xmlroot><elem><A>foo</A><B>84</B></elem><elem><A>bar</A><B>22</B></elem></xmlroot>`,
-			want: nil,
+			body:    XML(&xmlroot{[]xmlelem{{"foo", 84, nil}, {"bar", 22, nil}}}),
+			data:    `<xmlroot><elem><A>foo</A><B>84</B></elem><elem><A>bar</A><B>22</B></elem></xmlroot>`,
+			wantErr: false,
 		}, {
 			// mismatched values NOT OK
-			body: XML(xmlelem{A: "foo"}),
-			data: `<xmlelem><A>bar</A></xmlelem>`,
-			want: &testError{code: errResponseBody, err: errors.New("<dummy>")},
+			body:    XML(xmlelem{A: "foo"}),
+			data:    `<xmlelem><A>bar</A></xmlelem>`,
+			wantErr: true,
 		}, {
 			// mismatched closing element NOT OK
-			body: XML(xmlelem{A: "foo"}),
-			data: `<xmlelem><A>bar</B></xmlelem>`,
-			want: &testError{code: errResponseBody, err: errors.New("<dummy>")},
+			body:    XML(xmlelem{A: "foo"}),
+			data:    `<xmlelem><A>bar</B></xmlelem>`,
+			wantErr: true,
 		}, {
 			// missing closing element NOT OK
-			body: XML(xmlelem{A: "foo"}),
-			data: `<xmlelem><A>bar</A>`,
-			want: &testError{code: errResponseBody, err: errors.New("<dummy>")},
+			body:    XML(xmlelem{A: "foo"}),
+			data:    `<xmlelem><A>bar</A>`,
+			wantErr: true,
 		},
 
 		////////////////////////////////////////////////////////////////
@@ -287,22 +292,22 @@ func Test_Body_CompareContent(t *testing.T) {
 		////////////////////////////////////////////////////////////////
 		{
 			// same data as body, OK
-			body: CSV([][]string{{"foo", "bar"}, {"123", "456"}}),
-			data: "foo,bar\n123,456",
-			want: nil,
+			body:    CSV([][]string{{"foo", "bar"}, {"123", "456"}}),
+			data:    "foo,bar\n123,456",
+			wantErr: false,
 		}, {
 			body: CSV([][]string{
 				{"a", "b", "c", "d"},
 				{"foo, bar", "baz", "2 qux", ""},
 				{"世界", "123", "0.002304", "foo \"bar\""},
 			}),
-			data: "a,b,c,d\n\"foo, bar\",baz,2 qux,\n世界,123,0.002304,\"foo \"\"bar\"\"\"",
-			want: nil,
+			data:    "a,b,c,d\n\"foo, bar\",baz,2 qux,\n世界,123,0.002304,\"foo \"\"bar\"\"\"",
+			wantErr: false,
 		}, {
 			// mismatched values NOT OK
-			body: CSV([][]string{{"foo", "bar"}, {"123", "456"}}),
-			data: "foo,bar\n456,123",
-			want: &testError{code: errResponseBody, err: errors.New("<dummy>")},
+			body:    CSV([][]string{{"foo", "bar"}, {"123", "456"}}),
+			data:    "foo,bar\n456,123",
+			wantErr: true,
 		},
 
 		////////////////////////////////////////////////////////////////
@@ -310,29 +315,29 @@ func Test_Body_CompareContent(t *testing.T) {
 		////////////////////////////////////////////////////////////////
 		{
 			// same data as body
-			body: Form(formstruct{"foo", 84, []float32{3.14, 42.0003}}),
-			data: `A=foo&B=84&C=3.14&C=42.0003`,
-			want: nil,
+			body:    Form(formstruct{"foo", 84, []float32{3.14, 42.0003}}),
+			data:    `A=foo&B=84&C=3.14&C=42.0003`,
+			wantErr: false,
 		}, {
 			// additional fields that aren't expected by the body are ok
-			body: Form(formstruct{"foo", 84, []float32{3.14, 42.0003}}),
-			data: `A=foo&B=84&C=3.14&C=42.0003&D=true&E=foo+bar`,
-			want: nil,
+			body:    Form(formstruct{"foo", 84, []float32{3.14, 42.0003}}),
+			data:    `A=foo&B=84&C=3.14&C=42.0003&D=true&E=foo+bar`,
+			wantErr: false,
 		}, {
 			// pointer is ok
-			body: Form(&formstruct{"foo", 84, []float32{3.14, 42.0003}}),
-			data: `A=foo&B=84&C=3.14&C=42.0003&D=true&E=foo+bar`,
-			want: nil,
+			body:    Form(&formstruct{"foo", 84, []float32{3.14, 42.0003}}),
+			data:    `A=foo&B=84&C=3.14&C=42.0003&D=true&E=foo+bar`,
+			wantErr: false,
 		}, {
 			// mismatched values
-			body: Form(formstruct{A: "foo"}),
-			data: `A=bar`,
-			want: &testError{code: errResponseBody, err: errors.New("<dummy>")},
+			body:    Form(formstruct{A: "foo"}),
+			data:    `A=bar`,
+			wantErr: true,
 		}, {
 			// not urlencoded form
-			body: Form(formstruct{A: "foo"}),
-			data: `{"A":"foo"}`,
-			want: &testError{code: errResponseBody, err: errors.New("<dummy>")},
+			body:    Form(formstruct{A: "foo"}),
+			data:    `{"A":"foo"}`,
+			wantErr: true,
 		},
 
 		////////////////////////////////////////////////////////////////
@@ -340,41 +345,39 @@ func Test_Body_CompareContent(t *testing.T) {
 		////////////////////////////////////////////////////////////////
 		{
 			// same data as body
-			body: Text("Hello, 世界"),
-			data: `Hello, 世界`,
-			want: nil,
+			body:    Text("Hello, 世界"),
+			data:    `Hello, 世界`,
+			wantErr: false,
 		}, {
 			// same data as body #2
-			body: Text(""),
-			data: ``,
-			want: nil,
+			body:    Text(""),
+			data:    ``,
+			wantErr: false,
 		}, {
 			// mismatched values
-			body: Text("Hello, 世界"),
-			data: `Hello, World`,
-			want: &testError{code: errResponseBody, err: errors.New("<dummy>")},
+			body:    Text("Hello, 世界"),
+			data:    `Hello, World`,
+			wantErr: true,
 		}, {
 			// mismatched values
-			body: Text("Hello, 世界"),
-			data: ``,
-			want: &testError{code: errResponseBody, err: errors.New("<dummy>")},
+			body:    Text("Hello, 世界"),
+			data:    ``,
+			wantErr: true,
 		}, {
 			// mismatched values
-			body: Text(""),
-			data: `Hello, 世界`,
-			want: &testError{code: errResponseBody, err: errors.New("<dummy>")},
+			body:    Text(""),
+			data:    `Hello, 世界`,
+			wantErr: true,
 		},
 	}
-
-	cmp := compare.Config{ObserveFieldTag: "cmp"}
 
 	for _, tt := range tests {
 		name := fmt.Sprintf("%T", tt.body)
 		t.Run(name, func(t *testing.T) {
 			r := strings.NewReader(tt.data)
-			err := tt.body.CompareContent(r)
-			if e := cmp.Compare(err, tt.want); e != nil {
-				t.Error(e)
+			err := tt.body.Compare(r)
+			if tt.wantErr != (err != nil) {
+				t.Errorf("wantErr=%t got=%v", tt.wantErr, err)
 			}
 		})
 	}

@@ -50,7 +50,7 @@ func (e *testError) EndpointString() string {
 }
 
 func (e *testError) RequestHeader() string {
-	if len(e.s.tt.Request.Header) > 0 {
+	if e.s.tt.Request.Header != nil {
 		return fmt.Sprintf("%v", e.s.tt.Request.Header)
 	}
 	return ""
@@ -89,7 +89,8 @@ func (e *testError) GotHeader() string {
 }
 
 func (e *testError) WantHeader() string {
-	return fmt.Sprintf("%+v", e.s.tt.Response.Header[e.hkey])
+	header := e.s.tt.Response.Header.GetHeader()
+	return fmt.Sprintf("%+v", header[e.hkey])
 }
 
 func (e *testError) Err() (out string) {

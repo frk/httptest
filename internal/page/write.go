@@ -194,17 +194,17 @@ var content_articles = `{{ define "content_articles" -}}
 var article = `{{ define "article" -}}
 <article id="{{ .Id }}">
 	<div class="article-content">
-		<div class="article-body">
+		<div class="article-text-column">
 			{{ template "article_section_lead" . }}
 			{{- with .Sections }}
 			{{ template "article_section_list" . }}
 			{{- end }}
 		</div>
-		<aside class="article-example">
+		<div class="article-code-column">
 			{{- with .Example.Sections }}
 			{{ template "example_section_list" . }}
 			{{- end }}
-		</aside>
+		</div>
 	</div>
 
 	{{- with .SubArticles }}
@@ -230,7 +230,7 @@ var article_section_lead = `{{ define "article_section_lead" -}}
 	</div>
 	{{- end }}
 
-	{{- with .Doc }}
+	{{- with .Text }}
 	<div class="article-doc">
 		{{ . }}
 	</div>

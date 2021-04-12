@@ -51,7 +51,7 @@ type SidebarItem struct {
 
 type Content struct {
 	Header   Header
-	Articles []*Article
+	Articles []*ArticleElement
 	Footer   Footer
 }
 
@@ -64,10 +64,10 @@ type Footer struct {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Article
+// ArticleElement
 ////////////////////////////////////////////////////////////////////////////////
 
-type Article struct {
+type ArticleElement struct {
 	Id string
 	// The article's anchor.
 	Href string
@@ -75,14 +75,14 @@ type Article struct {
 	Title string
 	// A link to the source code associated with the article.
 	SourceLink *SourceLink
-	// The article's documentation.
-	Doc template.HTML
+	// The article's HTML text.
+	Text template.HTML
 	// A list of additional sections of the article.
 	Sections []*ArticleSection
 	//
-	Example Example
+	Example ExampleElement
 	// A list of sub articles.
-	SubArticles []*Article
+	SubArticles []*ArticleElement
 }
 
 type ArticleSection struct {
@@ -91,6 +91,7 @@ type ArticleSection struct {
 	// The following fields represent the content of the section.
 	// NOTE: Only one of these fields should be set.
 	Text       template.HTML
+	AuthInfo   template.HTML
 	FieldLists []*FieldList
 }
 
@@ -134,36 +135,52 @@ type FieldItem struct {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Example
+// ExampleElement
 ////////////////////////////////////////////////////////////////////////////////
 
-type Example struct {
+type ExampleElement struct {
 	Sections []*ExampleSection
 }
 
 type ExampleSection struct {
 	// The title of the section.
 	Title string
+
 	// The following fields represent the content of the section.
 	// NOTE: Only one of these fields should be set.
 	Text             template.HTML
+	ExampleObject    *ExampleObject
+	ExampleRequest   *ExampleRequest
+	ExampleResponse  *ExampleResponse
 	EndpointOverview *EndpointOverview
 }
 
-type ExampleCode struct {
-	Request  *ExampleRequest
-	Response *ExampleResponse
+type ExampleObject struct {
+	Title string
+	Type  string
+	Code  template.HTML
 }
 
 type ExampleRequest struct {
-	Method string
-	Header map[string][]string
+	Method   string
+	Pattern  string
+	Snippets []*ExampleSnippet
+}
+
+type ExampleSnippet struct {
+	Lang string
+	Code template.HTML
 }
 
 type ExampleResponse struct {
-	StatusCode int
-	Header     map[string][]string
-	Body       string
+	// The title of the example.
+	Title string
+	// The HTTP response status
+	Status int
+	// The response's body
+	Header []template.HTML
+	// The response's body
+	Code template.HTML
 }
 
 ////////////////////////////////////////////////////////////////////////////////

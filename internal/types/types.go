@@ -151,6 +151,9 @@ type Position struct {
 	Line int `cmp:"+"`
 }
 
+// IsZero reports whether or not p is empty.
+func (p Position) IsZero() bool { return p == Position{} }
+
 // Kind indicates the specific kind of a Go type.
 type Kind uint
 

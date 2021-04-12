@@ -2,11 +2,13 @@ package httptest
 
 import (
 	"fmt"
+	"io"
+	"net/http"
 	"net/url"
 	"strings"
 )
 
-// The Endpoint type describes an API endpoint to be tested.
+// An Endpoint describes an API endpoint.
 type Endpoint struct {
 	// The endpoint's HTTP method (or verb).
 	Method string
@@ -19,20 +21,54 @@ func (e Endpoint) String() string {
 	return e.Method + " " + e.Pattern
 }
 
-// A TestGroup represents a set of tests to be executed against a specific endpoint.
+// A TestGroup is a set of tests to be executed against a specific endpoint.
 type TestGroup struct {
-	// A short description of what the endpoint-under-test is for. The httpdoc
-	// package uses the description to generate the link text of the corresponding
-	// sidebar item and the heading text for the associated documentation.
-	Desc string
 	// The endpoint to be tested.
 	Endpoint Endpoint
 	// The list of tests that will be executed against the endpoint.
 	Tests []*Test
 	// Indicates that the TestGroup should be skipped by the test runner.
 	Skip bool
-	// TODO
-	Doc interface{}
+	// A short description of what the endpoint-under-test is for. The httpdoc
+	// package uses the description to generate the link text of the corresponding
+	// sidebar item and the heading text for the associated documentation.
+	Desc string
+	// DocA and DocB are optional, they are ignored by the httptest package
+	// and are used only by the httpdoc package. The httpdoc package uses
+	// the first Test's Request and Response to generate input/output docs
+	// for the resulting article.
+	//
+	// DocA, if set, is used by httpdoc to generate documentation [A]bove the input/output docs.
+	// DocB, if set, is used by httpdoc to generate documentation [B]elow the input/output docs.
+	//
+	// The following types are supported:
+	//	- string
+	//	- *os.File
+	//	- httpdoc.HTMLer
+	//	- httpdoc.Valuer
+	//	- interface{} (named types only)
+	// Anything else will result in an error.
+	//
+	// If the type is string, it is expected to contain raw HTML and it is
+	// up to the user to ensure that that HTML is valid and safe.
+	//
+	// If the type is *os.File, it is expected to contain raw HTML and it is
+	// up to the user to ensure that that HTML is valid and safe.
+	//
+	// If the type is httpdoc.HTMLer, then its HTML() method will be used
+	// to retrieve the content and it is up to the user to ensure that that
+	// content is valid and safe HTML.
+	//
+	// If the type is httpdoc.Valuer, then its Value() method will be used
+	// to get the underlying Value, the source of that Value's dynamic type
+	// is then analyzed and any relevant documentation that's found will be
+	// used to generate the HTML text. If the dynamic type is unnamed an
+	// error will be returned instead.
+	//
+	// If the type is none of the above, then the type's source is analyzed
+	// and any relevant documentation that's found will be used to generate
+	// the HTML text. If the type is unnamed an error will be returned.
+	DocA, DocB interface{}
 }
 
 // The Test type describes the HTTP request to be sent to an endpoint and the
@@ -53,20 +89,71 @@ type Test struct {
 	Skip bool
 	// A short description of the test.
 	Desc string
+	// DocA and DocB are optional, they are ignored by the httptest package
+	// and are used only by the httpdoc package. The httpdoc package uses the
+	// Test's Request and Response to generate example docs for the resulting
+	// article.
+	//
+	// DocA, if set, is used by httpdoc to generate documentation [A]bove the example docs.
+	// DocB, if set, is used by httpdoc to generate documentation [B]elow the example docs.
+	//
+	// The following types are supported:
+	//	- string
+	//	- *os.File
+	//	- httpdoc.HTMLer
+	//	- httpdoc.Valuer
+	//	- interface{} (named types only)
+	// Anything else will result in an error.
+	//
+	// If the type is string, it is expected to contain raw HTML and it is
+	// up to the user to ensure that that HTML is valid and safe.
+	//
+	// If the type is *os.File, it is expected to contain raw HTML and it is
+	// up to the user to ensure that that HTML is valid and safe.
+	//
+	// If the type is httpdoc.HTMLer, then its HTML() method will be used
+	// to retrieve the content and it is up to the user to ensure that that
+	// content is valid and safe HTML.
+	//
+	// If the type is httpdoc.Valuer, then its Value() method will be used
+	// to get the underlying Value, the source of that Value's dynamic type
+	// is then analyzed and any relevant documentation that's found will be
+	// used to generate the HTML text. If the dynamic type is unnamed an
+	// error will be returned instead.
+	//
+	// If the type is none of the above, then the type's source is analyzed
+	// and any relevant documentation that's found will be used to generate
+	// the HTML text. If the type is unnamed an error will be returned.
+	DocA, DocB interface{}
 }
 
 // The Request type describes the data to be sent in a single HTTP request.
 type Request struct {
-	// TODO
-	Auth interface{}
-
+	// The auth information to be sent with the request.
+	//
+	// [httpdoc]: If the AuthSetter's type implements either the httpdoc.HTMLer
+	// interface or the httpdoc.Valuer interface, then it will be used by httpdoc
+	// to produce auth-specific documentation.
+	Auth AuthSetter
+	// The HTTP header to be sent with the request.
+	//
+	// [httpdoc]: If the HeaderGetter's type implements the httpdoc.Valuer interface,
+	// then it will be used by httpdoc to produce input-specific documentation.
+	Header HeaderGetter
 	// The path parameters to be substituted in an endpoint pattern.
+	//
+	// [httpdoc]: If the ParamSetter's type implements the httpdoc.Valuer interface,
+	// then it will be used by httpdoc to produce input-specific documentation.
 	Params ParamSetter
 	// The URL query parameters to be appended to an endpoint's path.
-	Query QueryEncoder
-	// The HTTP header to be sent with the request.
-	Header Header
+	//
+	// [httpdoc]: If the QueryGetter's type implements the httpdoc.Valuer interface,
+	// then it will be used by httpdoc to produce input-specific documentation.
+	Query QueryGetter
 	// The request body to be sent.
+	//
+	// [httpdoc]: If the Body's type implements the httpdoc.Valuer interface,
+	// then it will be used by httpdoc to produce input-specific documentation.
 	Body Body
 }
 
@@ -75,36 +162,22 @@ type Response struct {
 	// The expected HTTP status code.
 	StatusCode int
 	// The expected HTTP response headers.
-	Header Header
+	//
+	// [httpdoc]: If the HeaderGetter's type implements the httpdoc.Valuer interface,
+	// then it will be used by httpdoc to produce output-specific documentation.
+	Header HeaderGetter
 	// The expected response body.
+	//
+	// [httpdoc]: If the Body's type also implements the httpdoc.Valuer interface,
+	// then it will be used by httpdoc to produce output-specific documentation.
 	Body Body
-
-	// TODO the "Returns" documentation
-	Doc interface{}
 }
 
-// A Header represents the key-value pairs in an HTTP header.
-type Header map[string][]string
+////////////////////////////////////////////////////////////////////////////////
+// interfaces
+////////////////////////////////////////////////////////////////////////////////
 
-// The QueryEncoder returns a string of query parameters in the "URL encoded" form.
-type QueryEncoder interface {
-	QueryEncode() string
-}
-
-// Query is a QueryEncoder that returns its' contents encoded into "URL encoded" form.
-type Query url.Values
-
-// compiler check
-var _ QueryEncoder = Query(nil)
-
-// QueryEncode encodes the Query's underlying values into "URL encoded"
-// form. QueryEncode uses net/url's Values.Encode to encode the values,
-// see the net/url documentation for more info.
-func (q Query) QueryEncode() string {
-	return url.Values(q).Encode()
-}
-
-// The ParamSetter substitutes the placeholders of an endpoint pattern with parameter values.
+// The ParamSetter substitutes the placeholders of an endpoint pattern with actual parameter values.
 //
 // SetParams should return a copy of the given pattern with all of its placeholders
 // replaced with actual parameter values. How the placeholders should be demarcated
@@ -113,13 +186,72 @@ type ParamSetter interface {
 	SetParams(pattern string) string
 }
 
+// The QueryGetter returns a string of query parameters in the "URL encoded" form.
+type QueryGetter interface {
+	GetQuery() string
+}
+
+// AuthSetter updates an HTTP request with auth information.
+type AuthSetter interface {
+	SetAuth(r *http.Request)
+}
+
+// HeaderGetter returns an HTTP header.
+type HeaderGetter interface {
+	GetHeader() http.Header
+}
+
+// The Body type represents the contents of an HTTP request or response body.
+//
+// The httpbody package contains a number of useful implementations.
+type Body interface {
+	// Type returns the string used in an HTTP request's Content-Type header.
+	Type() string
+	// Reader returns an io.Reader that provides the content of an HTTP request's body.
+	Reader() (body io.Reader, err error)
+	// Compare returns the result of the comparison between the Body's contents
+	// and the contents of the given io.Reader. The level of strictness of the
+	// comparison depends on the implementation. If the contents are equivalent
+	// the returned error will be nil, otherwise the error will describe the
+	// negative result of the comparison.
+	Compare(body io.Reader) error
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// implementations
+////////////////////////////////////////////////////////////////////////////////
+
+// compiler check
+var _ HeaderGetter = Header(nil)
+
+// A Header represents the key-value pairs in an HTTP header.
+type Header map[string][]string
+
+// GetHeader returns the receiver as http.Header.
+func (h Header) GetHeader() http.Header {
+	return http.Header(h)
+}
+
+// compiler check
+var _ QueryGetter = Query(nil)
+
+// Query is a QueryGetter that returns its' contents encoded into "URL encoded" form.
+type Query url.Values
+
+// GetQuery encodes the Query's underlying values into "URL encoded"
+// form. GetQuery uses net/url's Values.Encode to encode the values,
+// see the net/url documentation for more info.
+func (q Query) GetQuery() string {
+	return url.Values(q).Encode()
+}
+
+// compiler check
+var _ ParamSetter = Params(nil)
+
 // Params is a ParamSetter that substitues an endpoint pattern's placeholders with
 // its mapped values. The Params' keys represent the placeholders while the values
 // are the actual parameters to be used to substitue those placeholders.
 type Params map[string]interface{}
-
-// compiler check
-var _ ParamSetter = Params(nil)
 
 // SetParams returns a copy of the given pattern replacing all of its placeholders
 // with the actual parameter values contained in Params. The placeholders, used as

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"html/template"
 	"io/ioutil"
+	"mime"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -20,14 +21,13 @@ import (
 )
 
 // TODO
-// - fix hrefForTopic/hrefForTestGroup
-// - build Article from TestGroups
+// - build ArticleElement from TestGroups
 // - build Example from TestGroups
 //	- generate Request examples for raw HTTP, cURL, JavaScript, Go. These need
 //        to be annotated with HTML tags for syntax highlighting
 //	- json produced from httptest.Request/Response.Body needs to be annotated
 //        with HTML tags for syntax highlighting
-// - build Example from Topics
+// - build Example from Articles
 // -
 
 type Config struct {
@@ -89,14 +89,14 @@ type Config struct {
 
 	// set of already generated ids
 	ids map[string]int
-	// cache of Topic ids
-	tIds map[*Topic]string
+	// cache of Article ids
+	aIds map[*Article]string
 	// cache of TestGroup ids
 	tgIds map[*httptest.TestGroup]string
 	// set of already generated hrefs
 	hrefs map[string]int
-	// cache of Topic hrefs
-	tHrefs map[*Topic]string
+	// cache of Article hrefs
+	aHrefs map[*Article]string
 	// cache of TestGroup hrefs
 	tgHrefs map[*httptest.TestGroup]string
 
@@ -104,10 +104,10 @@ type Config struct {
 	mode page.TestMode
 }
 
-func (c *Config) Build(toc []*TopicGroup) error {
+func (c *Config) Build(dir ArticleDirectory) error {
 	_, f, _, _ := runtime.Caller(1)
-	dir := filepath.Dir(f)
-	src, err := types.Load(dir)
+	fdir := filepath.Dir(f)
+	src, err := types.Load(fdir)
 	if err != nil {
 		return err
 	}
@@ -115,10 +115,10 @@ func (c *Config) Build(toc []*TopicGroup) error {
 	// initialize config
 	c.src = src
 	c.ids = make(map[string]int)
-	c.tIds = make(map[*Topic]string)
+	c.aIds = make(map[*Article]string)
 	c.tgIds = make(map[*httptest.TestGroup]string)
 	c.hrefs = make(map[string]int)
-	c.tHrefs = make(map[*Topic]string)
+	c.aHrefs = make(map[*Article]string)
 	c.tgHrefs = make(map[*httptest.TestGroup]string)
 
 	// defaults
@@ -139,8 +139,8 @@ func (c *Config) Build(toc []*TopicGroup) error {
 	}
 
 	// build & write
-	c.buildSidebar(toc)
-	if err := c.buildContent(toc); err != nil {
+	c.buildSidebar(dir)
+	if err := c.buildContent(dir); err != nil {
 		return err
 	}
 	if err := page.Write(&c.buf, c.page, c.mode); err != nil {
@@ -154,34 +154,31 @@ func (c *Config) Build(toc []*TopicGroup) error {
 // Sidebar
 ////////////////////////////////////////////////////////////////////////////////
 
-func (c *Config) buildSidebar(toc []*TopicGroup) {
-	lists := make([]*page.SidebarList, len(toc))
-	for i, tg := range toc {
+func (c *Config) buildSidebar(dir ArticleDirectory) {
+	lists := make([]*page.SidebarList, len(dir))
+	for i, g := range dir {
 		list := new(page.SidebarList)
-		list.Title = tg.Name
-		list.Items = c.newSidebarItemsFromTopics(tg.Topics, nil)
+		list.Title = g.Name
+		list.Items = c.newSidebarItemsFromArticles(g.Articles, nil)
 
 		lists[i] = list
 	}
 	c.page.Sidebar.Lists = lists
 }
 
-func (c *Config) newSidebarItemsFromTopics(topics []*Topic, parent *Topic) []*page.SidebarItem {
-	items := make([]*page.SidebarItem, len(topics))
-	for i, t := range topics {
-		c.idForTopic(t, parent)
-
+func (c *Config) newSidebarItemsFromArticles(articles []*Article, parent *Article) []*page.SidebarItem {
+	items := make([]*page.SidebarItem, len(articles))
+	for i, a := range articles {
 		item := new(page.SidebarItem)
-		item.Text = t.Name
-		item.Href = c.hrefForTopic(t, parent)
+		item.Text = a.Title
+		item.Href = c.getHrefForArticle(a, parent)
 
-		if len(t.TestGroups) > 0 {
-			items := c.newSidebarItemsFromTestGroups(t.TestGroups, t)
+		if len(a.TestGroups) > 0 {
+			items := c.newSidebarItemsFromTestGroups(a.TestGroups, a)
 			item.SubItems = append(item.SubItems, items...)
 		}
-
-		if len(t.SubTopics) > 0 {
-			items := c.newSidebarItemsFromTopics(t.SubTopics, t)
+		if len(a.SubArticles) > 0 {
+			items := c.newSidebarItemsFromArticles(a.SubArticles, a)
 			item.SubItems = append(item.SubItems, items...)
 		}
 
@@ -190,14 +187,12 @@ func (c *Config) newSidebarItemsFromTopics(topics []*Topic, parent *Topic) []*pa
 	return items
 }
 
-func (c *Config) newSidebarItemsFromTestGroups(tgs []*httptest.TestGroup, parent *Topic) []*page.SidebarItem {
+func (c *Config) newSidebarItemsFromTestGroups(tgs []*httptest.TestGroup, parent *Article) []*page.SidebarItem {
 	items := make([]*page.SidebarItem, len(tgs))
-	for i, tg := range tgs {
-		c.idForTestGroup(tg, parent)
-
+	for i, g := range tgs {
 		item := new(page.SidebarItem)
-		item.Text = tg.Desc
-		item.Href = c.hrefForTestGroup(tg, parent)
+		item.Text = g.Desc
+		item.Href = c.getHrefForTestGroup(g, parent)
 
 		items[i] = item
 	}
@@ -208,251 +203,379 @@ func (c *Config) newSidebarItemsFromTestGroups(tgs []*httptest.TestGroup, parent
 // Content
 ////////////////////////////////////////////////////////////////////////////////
 
-func (c *Config) buildContent(toc []*TopicGroup) error {
-	for _, tg := range toc {
-		if len(tg.Topics) > 0 {
-			list, err := c.newArticleListFromTopics(tg.Topics, nil)
-			if err != nil {
-				return err
-			}
-
-			c.page.Content.Articles = append(c.page.Content.Articles, list...)
+func (c *Config) buildContent(dir ArticleDirectory) error {
+	for _, g := range dir {
+		if len(g.Articles) == 0 {
+			continue
 		}
+
+		list, err := c.newArticleElementListFromArticles(g.Articles, nil)
+		if err != nil {
+			return err
+		}
+
+		c.page.Content.Articles = append(c.page.Content.Articles, list...)
 	}
 	return nil
 }
 
-func (c *Config) newArticleListFromTopics(topics []*Topic, parent *Topic) ([]*page.Article, error) {
-	list := make([]*page.Article, len(topics))
-	for i, t := range topics {
-		article, err := c.newArticleFromTopic(t, parent)
+func (c *Config) newArticleElementListFromArticles(articles []*Article, parent *Article) ([]*page.ArticleElement, error) {
+	list := make([]*page.ArticleElement, len(articles))
+	for i, a := range articles {
+		aElem, err := c.newArticleElementFromArticle(a, parent)
 		if err != nil {
 			return nil, err
 		}
 
-		if len(t.TestGroups) > 0 {
-			section := c.newExampleSectionEndpointOverview(t.TestGroups)
-			article.Example.Sections = append(article.Example.Sections, section)
+		if len(a.TestGroups) > 0 {
+			ov := c.newEndpointOverview(a.TestGroups)
+			section := &page.ExampleSection{EndpointOverview: ov}
+			aElem.Example.Sections = append(aElem.Example.Sections, section)
 
-			list, err := c.newArticleListFromTestGroups(t.TestGroups, t)
+			list, err := c.newArticleElementListFromTestGroups(a.TestGroups, a)
 			if err != nil {
 				return nil, err
 			}
-			article.SubArticles = append(article.SubArticles, list...)
+			aElem.SubArticles = append(aElem.SubArticles, list...)
 		}
-
-		if len(t.SubTopics) > 0 {
-			list, err := c.newArticleListFromTopics(t.SubTopics, t)
+		if len(a.SubArticles) > 0 {
+			list, err := c.newArticleElementListFromArticles(a.SubArticles, a)
 			if err != nil {
 				return nil, err
 			}
-			article.SubArticles = append(article.SubArticles, list...)
+			aElem.SubArticles = append(aElem.SubArticles, list...)
 		}
 
-		list[i] = article
+		list[i] = aElem
 	}
 	return list, nil
 }
 
-func (c *Config) newArticleListFromTestGroups(tgs []*httptest.TestGroup, parent *Topic) ([]*page.Article, error) {
-	list := make([]*page.Article, len(tgs))
-	for i, tg := range tgs {
-		article, err := c.newArticleFromTestGroup(tg, parent)
+func (c *Config) newArticleElementListFromTestGroups(tgs []*httptest.TestGroup, parent *Article) ([]*page.ArticleElement, error) {
+	list := make([]*page.ArticleElement, len(tgs))
+	for i, g := range tgs {
+		aElem, err := c.newArticleElementFromTestGroup(g, parent)
 		if err != nil {
 			return nil, err
 		}
 
-		if err := c.buildExamplesFromTestGroup(tg, article); err != nil {
-			return nil, err
+		if len(g.Tests) > 0 {
+			sections, err := c.newExampleSectionsFromTestGroup(g.Tests[0], g)
+			if err != nil {
+				return nil, err
+			}
+			aElem.Example.Sections = sections
 		}
 
-		list[i] = article
+		list[i] = aElem
 	}
 	return list, nil
 }
 
-func (c *Config) newArticleFromTopic(t *Topic, parent *Topic) (*page.Article, error) {
-	article := new(page.Article)
-	article.Id = c.idForTopic(t, parent)
-	article.Href = "#" + article.Id
-	article.Title = t.Name
+func (c *Config) newArticleElementFromArticle(a *Article, parent *Article) (*page.ArticleElement, error) {
+	aElem := new(page.ArticleElement)
+	aElem.Id = c.getIdForArticle(a, parent)
+	aElem.Href = c.getHrefForArticle(a, parent)
+	aElem.Title = a.Title
 
-	if t.Doc != nil {
-		switch v := t.Doc.(type) {
-		case string:
-			article.Doc = template.HTML(v)
-		case *os.File:
-			b, err := ioutil.ReadAll(v)
-			if err != nil {
-				return nil, fmt.Errorf("httpdoc: Topic.Text:(*os.File) read error: %v", err)
-			}
-			article.Doc = template.HTML(b)
-		default:
-			return nil, fmt.Errorf("httpdoc: Topic.Text:(%T) unsupported type", v)
-		}
-
-	}
-
-	if t.Parameters != nil {
-		stype := getNearestStructType(c.src.TypeOf(t.Parameters))
-		if stype == nil {
-			return nil, fmt.Errorf("httpdoc: Topic.Parameters:(%T) unsupported type kind", t.Parameters)
-		}
-
-		aId := c.idForTopic(t, nil)
-		aHref := c.hrefForTopic(t, nil)
-		list, err := c.newFieldList(stype, aId, aHref, true, nil)
+	if a.Text != nil {
+		html, err := c.newHTML(a.Text, nil)
 		if err != nil {
 			return nil, err
 		}
-
-		section := new(page.ArticleSection)
-		section.Title = "Parameters"
-		section.FieldLists = []*page.FieldList{list}
-		article.Sections = append(article.Sections, section)
+		aElem.Text = html
 	}
 
-	if t.Attributes != nil {
-		stype := getNearestStructType(c.src.TypeOf(t.Attributes))
-		if stype == nil {
-			return nil, fmt.Errorf("httpdoc: Topic.Attributes:(%T) unsupported type kind", t.Attributes)
-		}
-
-		aId := c.idForTopic(t, nil)
-		aHref := c.hrefForTopic(t, nil)
-		list, err := c.newFieldList(stype, aId, aHref, false, nil)
-		if err != nil {
-			return nil, err
-		}
-
-		section := new(page.ArticleSection)
-		section.Title = "Attributes"
-		section.FieldLists = []*page.FieldList{list}
-		article.Sections = append(article.Sections, section)
-	}
-
-	if t.Returns != nil {
-		var text template.HTML
-		switch v := t.Returns.(type) {
-		case string:
-			text = template.HTML(v)
-		case *os.File:
-			b, err := ioutil.ReadAll(v)
+	if a.Code != nil {
+		switch v := a.Code.(type) {
+		case string, *os.File, HTMLer:
+			html, err := c.newHTML(a.Code, nil)
 			if err != nil {
-				return nil, fmt.Errorf("httpdoc: Topic.Returns:(*os.File) read error: %v", err)
+				return nil, err
 			}
-			text = template.HTML(b)
-		default:
-			return nil, fmt.Errorf("httpdoc: Topic.Returns:(%T) unsupported type", v)
-		}
+			section := &page.ExampleSection{Text: html}
+			aElem.Example.Sections = append(aElem.Example.Sections, section)
+		case Valuer, interface{}:
+			obj, err := c.newExampleObject(v, a.Type)
+			if err != nil {
+				return nil, err
+			}
+			section := &page.ExampleSection{ExampleObject: obj}
+			aElem.Example.Sections = append(aElem.Example.Sections, section)
 
-		section := new(page.ArticleSection)
-		section.Title = "Returns"
-		section.Text = text
-		article.Sections = append(article.Sections, section)
+			// Optionally generate a section of field docs to add
+			// to the article's text-column. If not struct, ignore.
+			list, err := c.newFieldList(v, aElem, false)
+			if err != nil && err != errNotStructType {
+				return nil, err
+			}
+			if err != errNotStructType {
+				section := new(page.ArticleSection)
+				section.Title = "Fields"
+				section.FieldLists = []*page.FieldList{list}
+				aElem.Sections = append(aElem.Sections, section)
+			}
+		}
 	}
 
-	return article, nil
+	return aElem, nil
 }
 
-func (c *Config) newArticleFromTestGroup(tg *httptest.TestGroup, parent *Topic) (*page.Article, error) {
-	article := new(page.Article)
-	article.Id = c.idForTestGroup(tg, parent)
-	article.Href = "#" + article.Id
-	article.Title = tg.Desc
+func (c *Config) newArticleElementFromTestGroup(tg *httptest.TestGroup, parent *Article) (*page.ArticleElement, error) {
+	aElem := new(page.ArticleElement)
+	aElem.Id = c.getIdForTestGroup(tg, parent)
+	aElem.Href = c.getHrefForTestGroup(tg, parent)
+	aElem.Title = tg.Desc
 
-	if tg.Doc != nil {
-		switch v := tg.Doc.(type) {
-		case string:
-			article.Doc = template.HTML(v)
-		case *os.File:
-			b, err := ioutil.ReadAll(v)
-			if err != nil {
-				return nil, fmt.Errorf("httpdoc: httptest.TestGroup.Doc:(*os.File) read error: %v", err)
-			}
-			article.Doc = template.HTML(b)
-		default:
-			// If none of the above then assume it's an instance of the
-			// handler that's registered to handle the endpoint and use
-			// its type declaration info to produce the documentation.
-			if decl := c.src.TypeDeclOf(v); decl != nil {
-				html, err := comment.ToHTML(decl.Doc)
-				if err != nil {
-					return nil, err
-				}
-				article.Doc = template.HTML(html)
-
-				if len(c.ProjectRoot) > 0 && len(c.RepositoryURL) > 0 {
-					file := strings.TrimPrefix(decl.Pos.Filename, c.ProjectRoot)
-					href := c.RepositoryURL + file + "#" + strconv.Itoa(decl.Pos.Line)
-					text := decl.PkgPath + "." + decl.Name
-
-					article.SourceLink = new(page.SourceLink)
-					article.SourceLink.Href = href
-					article.SourceLink.Text = text
-				}
-			}
+	if tg.DocA != nil {
+		var decl types.TypeDecl
+		html, err := c.newHTML(tg.DocA, &decl)
+		if err != nil {
+			return nil, err
 		}
+		aElem.Text = html
 
+		// With TestGroup.DocA, if the value was a named type, assume that
+		// that type is directly related to the endpoint, e.g. it could be
+		// the handler registered to handle the endpoint, therefore grab
+		// its source code position and generate a source link for it.
+		if len(decl.Name) > 0 && len(c.ProjectRoot) > 0 && len(c.RepositoryURL) > 0 {
+			file := strings.TrimPrefix(decl.Pos.Filename, c.ProjectRoot)
+			href := c.RepositoryURL + file + "#" + strconv.Itoa(decl.Pos.Line)
+			text := decl.PkgPath + "." + decl.Name
+
+			aElem.SourceLink = new(page.SourceLink)
+			aElem.SourceLink.Href = href
+			aElem.SourceLink.Text = text
+		}
 	}
 
+	// The input/output docs, only the 0th httptest.Test in the group is used,
+	// it is up to the user to make sure that if tests are presents then it is
+	// the 0th one that is representative.
 	if len(tg.Tests) > 0 {
 		t := tg.Tests[0]
 
-		// TODO build additional parameter documentation from:
-		// - t.Request.Params
-		// - t.Request.Query
-		// - t.Request.Header
-		if t.Request.Body != nil {
-			body := t.Request.Body.Value()
-			stype := getNearestStructType(c.src.TypeOf(body))
-			if stype == nil {
-				return nil, fmt.Errorf("httpdoc: httptest.Request.Body:(%T) unsupported type kind", body)
-			}
-
-			aId := c.idForTestGroup(tg, nil)
-			aHref := c.hrefForTestGroup(tg, nil)
-			list, err := c.newFieldList(stype, aId, aHref, true, nil)
+		// auth info
+		switch v := t.Request.Auth.(type) {
+		case HTMLer, Valuer:
+			html, err := c.newHTML(v, nil)
 			if err != nil {
 				return nil, err
 			}
-
-			section := new(page.ArticleSection)
-			section.Title = "Parameters"
-			section.FieldLists = []*page.FieldList{list}
-			article.Sections = append(article.Sections, section)
+			section := &page.ArticleSection{AuthInfo: html}
+			aElem.Sections = append(aElem.Sections, section)
 		}
 
-		// TODO build additional attribute documentation from:
-		// - t.Response.Header
-		// - t.Response.Doc?
-		if t.Response.Body != nil {
-			body := t.Response.Body.Value()
-			stype := getNearestStructType(c.src.TypeOf(body))
-			if stype == nil {
-				return nil, fmt.Errorf("httpdoc: httptest.Response.Body:(%T) unsupported type kind", body)
-			}
-
-			aId := c.idForTestGroup(tg, nil)
-			aHref := c.hrefForTestGroup(tg, nil)
-			list, err := c.newFieldList(stype, aId, aHref, false, nil)
+		// input field lists
+		var inputFields []*page.FieldList
+		if v, ok := t.Request.Header.(Valuer); ok && v != nil {
+			list, err := c.newFieldList(v, aElem, true)
 			if err != nil {
 				return nil, err
 			}
-
+			list.Title = "Header"
+			inputFields = append(inputFields, list)
+		}
+		if v, ok := t.Request.Params.(Valuer); ok && v != nil {
+			list, err := c.newFieldList(v, aElem, true)
+			if err != nil {
+				return nil, err
+			}
+			list.Title = "Path Params"
+			inputFields = append(inputFields, list)
+		}
+		if v, ok := t.Request.Query.(Valuer); ok && v != nil {
+			list, err := c.newFieldList(v, aElem, true)
+			if err != nil {
+				return nil, err
+			}
+			list.Title = "Query"
+			inputFields = append(inputFields, list)
+		}
+		if v, ok := t.Request.Body.(Valuer); ok && v != nil {
+			list, err := c.newFieldList(v, aElem, true)
+			if err != nil {
+				return nil, err
+			}
+			list.Title = "Body"
+			inputFields = append(inputFields, list)
+		}
+		if len(inputFields) > 0 {
 			section := new(page.ArticleSection)
-			section.Title = "Attributes"
-			section.FieldLists = []*page.FieldList{list}
-			article.Sections = append(article.Sections, section)
+			section.Title = "INPUT"
+			section.FieldLists = inputFields
+			aElem.Sections = append(aElem.Sections, section)
 		}
 
-		// TODO Returns ...
+		// NOTE(mkopriva): for now create an output section only for
+		// endpoints where the test request doesn't have a body.
+		// Consider, however, to change this in the future, maybe by
+		// using a tabbed view of input and output for every endpoint.
+		if v, ok := t.Request.Body.(Valuer); !ok || v == nil {
+			var outputFields []*page.FieldList
+			if v, ok := t.Response.Header.(Valuer); ok && v != nil {
+				list, err := c.newFieldList(v, aElem, true)
+				if err != nil {
+					return nil, err
+				}
+				list.Title = "Header"
+				outputFields = append(outputFields, list)
+			}
+			if v, ok := t.Response.Body.(Valuer); ok && v != nil {
+				list, err := c.newFieldList(v, aElem, false)
+				if err != nil {
+					return nil, err
+				}
+				list.Title = "Body"
+				outputFields = append(outputFields, list)
+			}
+			if len(outputFields) > 0 {
+				section := new(page.ArticleSection)
+				section.Title = "OUTPUT"
+				section.FieldLists = outputFields
+				aElem.Sections = append(aElem.Sections, section)
+			}
+		}
 	}
 
-	return article, nil
+	if tg.DocB != nil {
+		html, err := c.newHTML(tg.DocB, nil)
+		if err != nil {
+			return nil, err
+		}
+		section := &page.ArticleSection{Text: html}
+		aElem.Sections = append(aElem.Sections, section)
+	}
+	return aElem, nil
 }
 
-func (c *Config) newFieldList(typ *types.Type, aId string, aHref string, withValidation bool, path []string) (*page.FieldList, error) {
+func (c *Config) newExampleSectionsFromTestGroup(t *httptest.Test, tg *httptest.TestGroup) (sections []*page.ExampleSection, err error) {
+	if t.DocA != nil {
+		html, err := c.newHTML(t.DocA, nil)
+		if err != nil {
+			return nil, err
+		}
+		section := &page.ExampleSection{Text: html}
+		sections = append(sections, section)
+	}
+
+	req := &page.ExampleRequest{}
+	req.Method = tg.Endpoint.Method
+	req.Pattern = tg.Endpoint.Pattern
+	// TODO create snippets from request
+
+	section := &page.ExampleSection{ExampleRequest: req}
+	sections = append(sections, section)
+
+	// Currently this adds an ExampleResponse section only if a body is present
+	// and it implements the Valuer interface, however it may be useful to generate
+	// a response example in other cases as well, e.g. to at least document the
+	// status code, or the http headers of the response...
+	if v, ok := t.Response.Body.(Valuer); ok && v != nil {
+		// TODO value, err := v.Value()
+		// TODO if err != nil {
+		// TODO 	return nil, err
+		// TODO }
+
+		// TODO // resolve the body type first, if can't handle the type then skip the section
+		// TODO typ := t.Response.Body.Type()
+		// TODO if typ, _, err = mime.ParseMediaType(typ); err != nil {
+		// TODO 	return nil, err
+		// TODO }
+
+		// TODO if isSupportedMediaType(typ) {
+		// TODO 	resp := &page.ExampleResponse{Status: t.Response.StatusCode}
+		// TODO 	if t.Response.Header != nil {
+		// TODO 		resp.Header = nil // TODO htmlify.Header(t.Response.Header.GetHeader())
+		// TODO 	}
+
+		// TODO 	text, err := addMarkupToValue(value, typ)
+		// TODO 	if err != nil {
+		// TODO 		return nil, err
+		// TODO 	}
+		// TODO 	resp.Code = text
+
+		// TODO 	section := &page.ExampleSection{ExampleResponse: resp}
+		// TODO 	section.Title = "RESPONSE"
+		// TODO 	sections = append(sections, section)
+		// TODO }
+	}
+
+	if t.DocB != nil {
+		html, err := c.newHTML(t.DocB, nil)
+		if err != nil {
+			return nil, err
+		}
+		section := &page.ExampleSection{Text: html}
+		sections = append(sections, section)
+	}
+	return sections, nil
+}
+
+var errNotNamedType = fmt.Errorf("httpdoc: type is not named")
+
+func (c *Config) newHTML(value interface{}, decl *types.TypeDecl) (html template.HTML, err error) {
+	switch v := value.(type) {
+	case string:
+		html = template.HTML(v)
+	case *os.File:
+		text, err := ioutil.ReadAll(v)
+		if err != nil {
+			return "", err
+		}
+		html = template.HTML(text)
+	case HTMLer:
+		text, err := v.HTML()
+		if err != nil {
+			return "", err
+		}
+		html = template.HTML(text)
+	case Valuer, interface{}:
+		if vv, ok := value.(Valuer); ok && vv != nil {
+			if value, err = vv.Value(); err != nil {
+				return "", err
+			}
+		}
+
+		// Extract documentation from the value's type.
+		d := c.src.TypeDeclOf(value)
+		if d != nil {
+			return "", errNotNamedType
+		}
+		text, err := comment.ToHTML(d.Doc)
+		if err != nil {
+			return "", err
+		}
+		html = template.HTML(text)
+
+		if decl != nil { // retain the type declaration?
+			*decl = *d
+		}
+	}
+
+	return html, nil
+}
+
+var errNotStructType = fmt.Errorf("httpdoc: type is not a struct")
+
+func (c *Config) newFieldList(value interface{}, aElem *page.ArticleElement, isInput bool) (list *page.FieldList, err error) {
+	// if this is a Valuer then get the underlying value
+	if v, ok := value.(Valuer); ok {
+		if value, err = v.Value(); err != nil {
+			return nil, err
+		}
+	}
+
+	typ := c.src.TypeOf(value)
+	if typ = getNearestStructType(typ); typ == nil {
+		return nil, errNotStructType
+	}
+
+	return c._newFieldList(typ, aElem, isInput, nil)
+}
+
+func (c *Config) _newFieldList(typ *types.Type, aElem *page.ArticleElement, isInput bool, path []string) (*page.FieldList, error) {
 	list := new(page.FieldList)
 
 	tagKey := c.FieldNameTag
@@ -481,10 +604,10 @@ func (c *Config) newFieldList(typ *types.Type, aId string, aHref string, withVal
 		}
 
 		// the field's id
-		item.Id = aId + "_" + item.Path + item.Name
+		item.Id = aElem.Id + "_" + item.Path + item.Name
 
 		// the field's anchor
-		item.Href = aHref
+		item.Href = aElem.Href
 		if i := strings.IndexByte(item.Href, '#'); i > -1 {
 			item.Href = item.Href[:i]
 		}
@@ -524,7 +647,7 @@ func (c *Config) newFieldList(typ *types.Type, aId string, aHref string, withVal
 
 		// the field's sub fields
 		if stype := getNearestStructType(ftype); stype != nil && len(stype.Fields) > 0 {
-			subList, err := c.newFieldList(stype, aId, aHref, withValidation, append(path, item.Name))
+			subList, err := c._newFieldList(stype, aElem, isInput, append(path, item.Name))
 			if err != nil {
 				return nil, err
 			}
@@ -540,7 +663,8 @@ func (c *Config) newFieldList(typ *types.Type, aId string, aHref string, withVal
 			item.SourceLink.Href = href
 		}
 
-		if withValidation {
+		// for input fields additionally generate validation info
+		if isInput {
 			// the field's setting
 			if label, text, ok := c.FieldSetting(sf, typ.ReflectType); ok {
 				item.SettingLabel = label
@@ -601,39 +725,56 @@ func (c *Config) newValueListEnums(typ *types.Type) (*page.ValueList, error) {
 	return list, nil
 }
 
-func (c *Config) newExampleSectionEndpointOverview(tgs []*httptest.TestGroup) *page.ExampleSection {
-	overview := new(page.EndpointOverview)
-	overview.Title = "ENDPOINTS"
+func (c *Config) newExampleObject(value interface{}, typ string) (obj *page.ExampleObject, err error) {
+	// resolve the mime type
+	if typ == "" {
+		if body, ok := value.(httptest.Body); ok && body != nil {
+			if typ, _, err = mime.ParseMediaType(body.Type()); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	// TODO if !isSupportedMediaType(typ) {
+	// TODO 	typ = "application/json" // default
+	// TODO }
+
+	// TODO // if this is a Valuer then get the underlying value
+	// TODO if v, ok := value.(Valuer); ok {
+	// TODO 	if value, err = v.Value(); err != nil {
+	// TODO 		return nil, err
+	// TODO 	}
+	// TODO }
+
+	var text template.HTML
+	// TODO // marshal the value and decorate it with html for syntax highlighting
+	// TODO text, err := addMarkupToValue(value, typ)
+	// TODO if err != nil {
+	// TODO 	return nil, err
+	// TODO }
+
+	return &page.ExampleObject{Type: typ, Code: text}, nil
+}
+
+func (c *Config) newEndpointOverview(tgs []*httptest.TestGroup) *page.EndpointOverview {
+	ov := new(page.EndpointOverview)
+	ov.Title = "ENDPOINTS"
 
 	for _, tg := range tgs {
 		item := new(page.EndpointItem)
-		item.Href = c.hrefForTestGroup(tg, nil)
+		item.Href = c.getHrefForTestGroup(tg, nil)
 		item.Method = tg.Endpoint.Method
 		item.Pattern = tg.Endpoint.Pattern
 		item.Tooltip = tg.Desc
-		overview.Items = append(overview.Items, item)
+		ov.Items = append(ov.Items, item)
 	}
 
-	return &page.ExampleSection{EndpointOverview: overview}
+	return ov
 }
 
-func (c *Config) buildExamplesFromTestGroup(tg *httptest.TestGroup, a *page.Article) error {
-	for _, t := range tg.Tests {
-		if t.Request.Body != nil {
-			typ := c.src.TypeOf(t.Request.Body.Value())
-			_ = typ
-		}
-		if t.Response.Body != nil {
-			typ := c.src.TypeOf(t.Response.Body.Value())
-			_ = typ
-		}
-	}
-	return nil
-}
-
-// idForTopic returns a unique id value for the given Topic.
-func (c *Config) idForTopic(t *Topic, parent *Topic) string {
-	if id, ok := c.tIds[t]; ok {
+// getIdForArticle returns a unique id value for the given Article.
+func (c *Config) getIdForArticle(a *Article, parent *Article) string {
+	if id, ok := c.aIds[a]; ok {
 		return id
 	}
 
@@ -643,10 +784,10 @@ func (c *Config) idForTopic(t *Topic, parent *Topic) string {
 			return r
 		}
 		return '-'
-	}, strings.ToLower(t.Name))
+	}, strings.ToLower(a.Title))
 
 	if parent != nil {
-		id = c.idForTopic(parent, nil) + "_" + id
+		id = c.getIdForArticle(parent, nil) + "_" + id
 	}
 
 	// make sure the id is unique
@@ -657,12 +798,12 @@ func (c *Config) idForTopic(t *Topic, parent *Topic) string {
 	}
 
 	// cache the id
-	c.tIds[t] = id
+	c.aIds[a] = id
 	return id
 }
 
-// idForTestGroup returns a unique id for the given TestGroup.
-func (c *Config) idForTestGroup(tg *httptest.TestGroup, parent *Topic) string {
+// getIdForTestGroup returns a unique id for the given TestGroup.
+func (c *Config) getIdForTestGroup(tg *httptest.TestGroup, parent *Article) string {
 	if id, ok := c.tgIds[tg]; ok {
 		return id
 	}
@@ -684,7 +825,7 @@ func (c *Config) idForTestGroup(tg *httptest.TestGroup, parent *Topic) string {
 			// or they use delimiters different from "{" and "}".
 			//
 			// Consider providing a Config.<Field> so that the user can supply
-			// their own "hrefForTestGroup" implementation based on their own need.
+			// their own "getHrefForTestGroup" implementation based on their own need.
 			if r == '{' || r == '}' {
 				return -1
 			}
@@ -698,7 +839,7 @@ func (c *Config) idForTestGroup(tg *httptest.TestGroup, parent *Topic) string {
 	}
 
 	if parent != nil {
-		id = c.idForTopic(parent, nil) + "_" + id
+		id = c.getIdForArticle(parent, nil) + "_" + id
 	}
 
 	// make sure the id is unique
@@ -713,16 +854,16 @@ func (c *Config) idForTestGroup(tg *httptest.TestGroup, parent *Topic) string {
 	return id
 }
 
-// hrefForTopic returns an href string for the given Topic.
-func (c *Config) hrefForTopic(t *Topic, parent *Topic) string {
-	if href, ok := c.tHrefs[t]; ok {
+// getHrefForArticle returns an href string for the given Article.
+func (c *Config) getHrefForArticle(a *Article, parent *Article) string {
+	if href, ok := c.aHrefs[a]; ok {
 		return href
 	}
 
-	id := c.idForTopic(t, parent)
+	id := c.getIdForArticle(a, parent)
 	href := "/" + id
 	if parent != nil {
-		href = c.hrefForTopic(parent, nil)
+		href = c.getHrefForArticle(parent, nil)
 		if i := strings.IndexByte(href, '#'); i > -1 {
 			href = href[:i]
 		}
@@ -737,20 +878,20 @@ func (c *Config) hrefForTopic(t *Topic, parent *Topic) string {
 	}
 
 	// cache the href
-	c.tHrefs[t] = href
+	c.aHrefs[a] = href
 	return href
 }
 
-// hrefForTestGroup returns an href string for the given TestGroup.
-func (c *Config) hrefForTestGroup(tg *httptest.TestGroup, parent *Topic) string {
+// getHrefForTestGroup returns an href string for the given TestGroup.
+func (c *Config) getHrefForTestGroup(tg *httptest.TestGroup, parent *Article) string {
 	if href, ok := c.tgHrefs[tg]; ok {
 		return href
 	}
 
-	id := c.idForTestGroup(tg, parent)
+	id := c.getIdForTestGroup(tg, parent)
 	href := "/" + id
 	if parent != nil {
-		href = c.hrefForTopic(parent, nil)
+		href = c.getHrefForArticle(parent, nil)
 		if i := strings.IndexByte(href, '#'); i > -1 {
 			href = href[:i]
 		}

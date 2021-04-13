@@ -64,7 +64,7 @@ type Footer struct {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// ArticleElement
+// Article Element
 ////////////////////////////////////////////////////////////////////////////////
 
 type ArticleElement struct {
@@ -78,21 +78,71 @@ type ArticleElement struct {
 	// The article's HTML text.
 	Text template.HTML
 	// A list of additional sections of the article.
-	Sections []*ArticleSection
-	//
+	Sections []ArticleSection
+	// An example related to the article.
 	Example ExampleElement
 	// A list of sub articles.
 	SubArticles []*ArticleElement
 }
 
-type ArticleSection struct {
-	// The title of the section.
+type ArticleSection interface {
+	isArticleSection()
+}
+
+type TextArticleSection struct {
 	Title string
-	// The following fields represent the content of the section.
-	// NOTE: Only one of these fields should be set.
-	Text       template.HTML
-	AuthInfo   template.HTML
-	FieldLists []*FieldList
+	Text  template.HTML
+}
+
+type AuthInfoArticleSection struct {
+	Title    string
+	AuthInfo template.HTML
+}
+
+type FieldListArticleSection struct {
+	Title string
+	Lists []*FieldList
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Example Element
+////////////////////////////////////////////////////////////////////////////////
+
+type ExampleElement struct {
+	Sections []ExampleSection
+}
+
+type ExampleSection interface {
+	isExampleSection()
+}
+
+type TextExampleSection struct {
+	Title string
+	Text  template.HTML
+}
+
+type EndpointsExampleSection struct {
+	Title     string
+	Endpoints []*EndpointItem
+}
+
+type ObjectExampleSection struct {
+	Title  string
+	Object template.HTML
+}
+
+type RequestExampleSection struct {
+	Title    string
+	Method   string
+	Pattern  string
+	Snippets []CodeSnippet
+}
+
+type ResponseExampleSection struct {
+	Title  string
+	Status int           // The HTTP response status
+	Header []HeaderItem  // The response's header
+	Body   template.HTML // The response's body
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -135,71 +185,6 @@ type FieldItem struct {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// ExampleElement
-////////////////////////////////////////////////////////////////////////////////
-
-type ExampleElement struct {
-	Sections []*ExampleSection
-}
-
-type ExampleSection struct {
-	// The title of the section.
-	Title string
-
-	// The following fields represent the content of the section.
-	// NOTE: Only one of these fields should be set.
-	Text             template.HTML
-	ExampleObject    *ExampleObject
-	ExampleRequest   *ExampleRequest
-	ExampleResponse  *ExampleResponse
-	EndpointOverview *EndpointOverview
-}
-
-type ExampleObject struct {
-	Title string
-	Type  string
-	Code  template.HTML
-}
-
-type ExampleRequest struct {
-	Method   string
-	Pattern  string
-	Snippets []*ExampleSnippet
-}
-
-type ExampleSnippet struct {
-	Lang string
-	Code template.HTML
-}
-
-type ExampleResponse struct {
-	// The title of the example.
-	Title string
-	// The HTTP response status
-	Status int
-	// The response's body
-	Header []template.HTML
-	// The response's body
-	Code template.HTML
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Endpoint Overview
-////////////////////////////////////////////////////////////////////////////////
-
-type EndpointOverview struct {
-	Title string
-	Items []*EndpointItem
-}
-
-type EndpointItem struct {
-	Href    string
-	Method  string
-	Pattern string
-	Tooltip string
-}
-
-////////////////////////////////////////////////////////////////////////////////
 // Value List
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -221,8 +206,20 @@ type ValueItem struct {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Etc.
+// Misc.
 ////////////////////////////////////////////////////////////////////////////////
+
+type EndpointItem struct {
+	Href    string
+	Method  string
+	Pattern string
+	Tooltip string
+}
+
+type HeaderItem struct {
+	Key   string
+	Value string
+}
 
 type SourceLink struct {
 	// The link to the source code.
@@ -230,3 +227,43 @@ type SourceLink struct {
 	// The text inside the anchor.
 	Text string
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// Code Snippet
+////////////////////////////////////////////////////////////////////////////////
+
+type CodeSnippet interface {
+	isCodeSnippet()
+}
+
+type CodeSnippetRequest struct {
+	Method string
+	Path   string
+	Host   string
+	URL    string
+	Header []HeaderItem
+	Body   template.HTML
+}
+
+type HTTPCodeSnippet struct {
+	CodeSnippetRequest
+}
+
+type CURLCodeSnippet struct {
+	CodeSnippetRequest
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+func (*TextArticleSection) isArticleSection()      {}
+func (*AuthInfoArticleSection) isArticleSection()  {}
+func (*FieldListArticleSection) isArticleSection() {}
+
+func (*TextExampleSection) isExampleSection()      {}
+func (*EndpointsExampleSection) isExampleSection() {}
+func (*ObjectExampleSection) isExampleSection()    {}
+func (*RequestExampleSection) isExampleSection()   {}
+func (*ResponseExampleSection) isExampleSection()  {}
+
+func (*HTTPCodeSnippet) isCodeSnippet() {}
+func (*CURLCodeSnippet) isCodeSnippet() {}

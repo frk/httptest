@@ -1,4 +1,4 @@
-package mimelexer
+package lexer
 
 type FormToken uint
 

@@ -120,3 +120,11 @@ type ArticleGroup struct {
 
 // ArticleDirectory is the hierarchy of articles used to generate the documentation.
 type ArticleDirectory []*ArticleGroup
+
+type SnippetType uint8
+
+const (
+	SNIPP_HTTP SnippetType = iota
+	SNIPP_CURL
+	// TODO add support for more snippet types: js, go, etc..
+)

@@ -1,14 +1,13 @@
-package mimelexer
+package lexer
 
 import (
-	"strings"
-	"unicode/utf8"
+	"bytes"
 )
 
-type JSON_TOKEN_TYPE uint16
+type JSONTokenType uint8
 
 const (
-	_ JSON_TOKEN_TYPE = iota
+	_ JSONTokenType = iota
 
 	JSON_LSB // '['
 	JSON_RSB // ']'
@@ -25,6 +24,9 @@ const (
 	JSON_WS  // white space
 	JSON_EOF // end of the json input
 )
+
+// mainly for debugging
+func (t JSONTokenType) String() string { return jsonTokenTypes[t] }
 
 var jsonTokenTypes = [...]string{
 	JSON_LSB: `'['`,
@@ -43,17 +45,14 @@ var jsonTokenTypes = [...]string{
 	JSON_EOF: `<eof>`,
 }
 
-// mainly for debugging
-func (t JSON_TOKEN_TYPE) String() string { return jsonTokenTypes[t] }
-
 type JSONToken struct {
-	Type  JSON_TOKEN_TYPE
-	Value string
+	Type  JSONTokenType
+	Value []byte
 }
 
-func JSON(data []byte) (tokens <-chan JSONToken) {
+func JSON(input []byte) (tokens <-chan JSONToken) {
 	lx := new(jsonlexer)
-	lx.input = string(data)
+	lx.input = input
 	lx.tokens = make(chan JSONToken)
 	go lx.run()
 
@@ -61,15 +60,13 @@ func JSON(data []byte) (tokens <-chan JSONToken) {
 }
 
 type jsonlexer struct {
-	input  string
+	input  []byte
 	start  int
 	pos    int
 	width  int
-	nest   []rune
+	nest   []byte
 	tokens chan JSONToken
 }
-
-type stateFn func() stateFn
 
 func (lx *jsonlexer) run() {
 	for next := lx.valueStart; next != nil; {
@@ -79,8 +76,10 @@ func (lx *jsonlexer) run() {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-//
+// state functions
 ////////////////////////////////////////////////////////////////////////////////
+
+type stateFn func() stateFn
 
 func (lx *jsonlexer) valueStart() stateFn {
 	lx.eatws()
@@ -242,42 +241,43 @@ func (lx *jsonlexer) endOfFile() stateFn {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-//
+// base commands
 ////////////////////////////////////////////////////////////////////////////////
 
 // emit passes an item back to the client.
-func (lx *jsonlexer) emit(typ JSON_TOKEN_TYPE) {
+func (lx *jsonlexer) emit(typ JSONTokenType) {
 	lx.tokens <- JSONToken{Type: typ, Value: lx.input[lx.start:lx.pos]}
 	lx.start = lx.pos
 }
 
-// next returns the next rune in the input.
-func (lx *jsonlexer) next() (r rune) {
+// next returns the next byte in the input.
+func (lx *jsonlexer) next() (c byte) {
 	if lx.pos >= len(lx.input) {
 		lx.width = 0
 		return eof
 	}
-	r, lx.width = utf8.DecodeRuneInString(lx.input[lx.pos:])
-	lx.pos += lx.width
-	return r
+	c = lx.input[lx.pos]
+	lx.pos += 1
+	lx.width = 1
+	return c
 }
 
-// backup steps back one rune. Can only be called once per call of next.
+// backup steps back one byte. Can bakcup only once per call to next.
 func (lx *jsonlexer) backup() {
 	lx.pos -= lx.width
 	lx.width = 0
 }
 
-// eatws consumes and emits a run of white space runes.
+// eatws consumes and emits a run of white space chars.
 func (lx *jsonlexer) eatws() {
 	if lx.acceptrun(" \t\r\n") > 0 {
 		lx.emit(JSON_WS)
 	}
 }
 
-// acceptrun consumes a run of runes from the valid set and returns the number consumed.
+// acceptrun consumes a run of bytes from the valid set and returns the number consumed.
 func (lx *jsonlexer) acceptrun(valid string) (num int) {
-	for strings.ContainsRune(valid, lx.next()) {
+	for bytes.Contains([]byte(valid), []byte{lx.next()}) {
 		num += 1
 	}
 	lx.backup()

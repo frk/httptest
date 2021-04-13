@@ -2,6 +2,8 @@ package httpdoc
 
 import (
 	"bytes"
+	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"html/template"
 	"io/ioutil"
@@ -10,25 +12,23 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/frk/httptest"
 	"github.com/frk/httptest/internal/comment"
+	"github.com/frk/httptest/internal/markup"
 	"github.com/frk/httptest/internal/page"
 	"github.com/frk/httptest/internal/types"
 	"github.com/frk/tagutil"
 )
 
-// TODO
-// - build ArticleElement from TestGroups
-// - build Example from TestGroups
-//	- generate Request examples for raw HTTP, cURL, JavaScript, Go. These need
-//        to be annotated with HTML tags for syntax highlighting
-//	- json produced from httptest.Request/Response.Body needs to be annotated
-//        with HTML tags for syntax highlighting
-// - build Example from Articles
-// -
+var (
+	DefaultExampleHost  = "https://api.example.com"
+	DefaultFieldNameTag = "json"
+	DefaultSnippetTypes = []SnippetType{SNIPP_HTTP}
+)
 
 type Config struct {
 	// ProjectRoot and RepositoryURL are used to generate source links
@@ -47,8 +47,12 @@ type Config struct {
 	//	RepositoryURL: "https://bitbucket.org/<user>/<project>/src/<branch>/",
 	//
 	ProjectRoot, RepositoryURL string
-	// The tag to be used to resolve a field's name for the documentation, defaults to "json".
-	// If no name is present in the tag's value the field's name will be used as fallback.
+	// The host which will be used in example snippets. If no host
+	// is provided it will default to the value of DefaultExampleHost.
+	ExampleHost string
+	// The tag to be used to resolve a field's name for the documentation,
+	// defaults to DefaultFieldNameTag. If no name is present in the tag's
+	// value the field's name will be used as fallback.
 	FieldNameTag string
 	// FieldType returns the name for a specific field's type based on
 	// given reflect.StructField value.
@@ -77,6 +81,9 @@ type Config struct {
 	// If FieldValidation is nil then no documentation on the field validity
 	// requirements will be generated.
 	FieldValidation func(field reflect.StructField, structType reflect.Type) (text template.HTML)
+	// A list of basic SnippetTypes for which request-specific code examples
+	// should be generated. If left empty it will default to DefaultSnippetTypes.
+	SnippetTypes []SnippetType
 
 	//
 	buf bytes.Buffer
@@ -123,10 +130,13 @@ func (c *Config) Build(dir ArticleDirectory) error {
 
 	// defaults
 	if len(c.FieldNameTag) == 0 {
-		c.FieldNameTag = "json"
+		c.FieldNameTag = DefaultFieldNameTag
 	}
 	if c.FieldSetting == nil {
 		c.FieldSetting = defaultFieldSetting
+	}
+	if len(c.SnippetTypes) < 1 {
+		c.SnippetTypes = DefaultSnippetTypes
 	}
 
 	// NOTE: The code that constructs source links requires both of these
@@ -228,8 +238,7 @@ func (c *Config) newArticleElementListFromArticles(articles []*Article, parent *
 		}
 
 		if len(a.TestGroups) > 0 {
-			ov := c.newEndpointOverview(a.TestGroups)
-			section := &page.ExampleSection{EndpointOverview: ov}
+			section := c.newEndpointsExampleSection(a.TestGroups)
 			aElem.Example.Sections = append(aElem.Example.Sections, section)
 
 			list, err := c.newArticleElementListFromTestGroups(a.TestGroups, a)
@@ -293,15 +302,14 @@ func (c *Config) newArticleElementFromArticle(a *Article, parent *Article) (*pag
 			if err != nil {
 				return nil, err
 			}
-			section := &page.ExampleSection{Text: html}
-			aElem.Example.Sections = append(aElem.Example.Sections, section)
+
+			s := &page.TextExampleSection{Text: html}
+			aElem.Example.Sections = append(aElem.Example.Sections, s)
 		case Valuer, interface{}:
-			obj, err := c.newExampleObject(v, a.Type)
-			if err != nil {
-				return nil, err
+			s, err := c.newObjectExampleSection(v, a.Type, a.Title)
+			if s != nil {
+				aElem.Example.Sections = append(aElem.Example.Sections, s)
 			}
-			section := &page.ExampleSection{ExampleObject: obj}
-			aElem.Example.Sections = append(aElem.Example.Sections, section)
 
 			// Optionally generate a section of field docs to add
 			// to the article's text-column. If not struct, ignore.
@@ -310,10 +318,10 @@ func (c *Config) newArticleElementFromArticle(a *Article, parent *Article) (*pag
 				return nil, err
 			}
 			if err != errNotStructType {
-				section := new(page.ArticleSection)
-				section.Title = "Fields"
-				section.FieldLists = []*page.FieldList{list}
-				aElem.Sections = append(aElem.Sections, section)
+				s := new(page.FieldListArticleSection)
+				s.Title = "Fields"
+				s.Lists = []*page.FieldList{list}
+				aElem.Sections = append(aElem.Sections, s)
 			}
 		}
 	}
@@ -363,7 +371,7 @@ func (c *Config) newArticleElementFromTestGroup(tg *httptest.TestGroup, parent *
 			if err != nil {
 				return nil, err
 			}
-			section := &page.ArticleSection{AuthInfo: html}
+			section := &page.AuthInfoArticleSection{AuthInfo: html}
 			aElem.Sections = append(aElem.Sections, section)
 		}
 
@@ -402,9 +410,9 @@ func (c *Config) newArticleElementFromTestGroup(tg *httptest.TestGroup, parent *
 			inputFields = append(inputFields, list)
 		}
 		if len(inputFields) > 0 {
-			section := new(page.ArticleSection)
+			section := new(page.FieldListArticleSection)
 			section.Title = "INPUT"
-			section.FieldLists = inputFields
+			section.Lists = inputFields
 			aElem.Sections = append(aElem.Sections, section)
 		}
 
@@ -431,9 +439,9 @@ func (c *Config) newArticleElementFromTestGroup(tg *httptest.TestGroup, parent *
 				outputFields = append(outputFields, list)
 			}
 			if len(outputFields) > 0 {
-				section := new(page.ArticleSection)
+				section := new(page.FieldListArticleSection)
 				section.Title = "OUTPUT"
-				section.FieldLists = outputFields
+				section.Lists = outputFields
 				aElem.Sections = append(aElem.Sections, section)
 			}
 		}
@@ -444,70 +452,40 @@ func (c *Config) newArticleElementFromTestGroup(tg *httptest.TestGroup, parent *
 		if err != nil {
 			return nil, err
 		}
-		section := &page.ArticleSection{Text: html}
+		section := &page.TextArticleSection{Text: html}
 		aElem.Sections = append(aElem.Sections, section)
 	}
 	return aElem, nil
 }
 
-func (c *Config) newExampleSectionsFromTestGroup(t *httptest.Test, tg *httptest.TestGroup) (sections []*page.ExampleSection, err error) {
+func (c *Config) newExampleSectionsFromTestGroup(t *httptest.Test, tg *httptest.TestGroup) (sections []page.ExampleSection, err error) {
 	if t.DocA != nil {
 		html, err := c.newHTML(t.DocA, nil)
 		if err != nil {
 			return nil, err
 		}
-		section := &page.ExampleSection{Text: html}
+		section := &page.TextExampleSection{Text: html}
 		sections = append(sections, section)
 	}
 
-	req := &page.ExampleRequest{}
-	req.Method = tg.Endpoint.Method
-	req.Pattern = tg.Endpoint.Pattern
-	// TODO create snippets from request
-
-	section := &page.ExampleSection{ExampleRequest: req}
-	sections = append(sections, section)
-
-	// Currently this adds an ExampleResponse section only if a body is present
-	// and it implements the Valuer interface, however it may be useful to generate
-	// a response example in other cases as well, e.g. to at least document the
-	// status code, or the http headers of the response...
-	if v, ok := t.Response.Body.(Valuer); ok && v != nil {
-		// TODO value, err := v.Value()
-		// TODO if err != nil {
-		// TODO 	return nil, err
-		// TODO }
-
-		// TODO // resolve the body type first, if can't handle the type then skip the section
-		// TODO typ := t.Response.Body.Type()
-		// TODO if typ, _, err = mime.ParseMediaType(typ); err != nil {
-		// TODO 	return nil, err
-		// TODO }
-
-		// TODO if isSupportedMediaType(typ) {
-		// TODO 	resp := &page.ExampleResponse{Status: t.Response.StatusCode}
-		// TODO 	if t.Response.Header != nil {
-		// TODO 		resp.Header = nil // TODO htmlify.Header(t.Response.Header.GetHeader())
-		// TODO 	}
-
-		// TODO 	text, err := addMarkupToValue(value, typ)
-		// TODO 	if err != nil {
-		// TODO 		return nil, err
-		// TODO 	}
-		// TODO 	resp.Code = text
-
-		// TODO 	section := &page.ExampleSection{ExampleResponse: resp}
-		// TODO 	section.Title = "RESPONSE"
-		// TODO 	sections = append(sections, section)
-		// TODO }
+	reqSection, err := c.newRequestExampleSection(t.Request, tg)
+	if err != nil {
+		return nil, err
 	}
+	sections = append(sections, reqSection)
+
+	respSection, err := c.newResponseExampleSection(t.Response, tg)
+	if err != nil {
+		return nil, err
+	}
+	sections = append(sections, respSection)
 
 	if t.DocB != nil {
 		html, err := c.newHTML(t.DocB, nil)
 		if err != nil {
 			return nil, err
 		}
-		section := &page.ExampleSection{Text: html}
+		section := &page.TextExampleSection{Text: html}
 		sections = append(sections, section)
 	}
 	return sections, nil
@@ -725,40 +703,13 @@ func (c *Config) newValueListEnums(typ *types.Type) (*page.ValueList, error) {
 	return list, nil
 }
 
-func (c *Config) newExampleObject(value interface{}, typ string) (obj *page.ExampleObject, err error) {
-	// resolve the mime type
-	if typ == "" {
-		if body, ok := value.(httptest.Body); ok && body != nil {
-			if typ, _, err = mime.ParseMediaType(body.Type()); err != nil {
-				return nil, err
-			}
-		}
-	}
+////////////////////////////////////////////////////////////////////////////////
+// Example Sections
+////////////////////////////////////////////////////////////////////////////////
 
-	// TODO if !isSupportedMediaType(typ) {
-	// TODO 	typ = "application/json" // default
-	// TODO }
-
-	// TODO // if this is a Valuer then get the underlying value
-	// TODO if v, ok := value.(Valuer); ok {
-	// TODO 	if value, err = v.Value(); err != nil {
-	// TODO 		return nil, err
-	// TODO 	}
-	// TODO }
-
-	var text template.HTML
-	// TODO // marshal the value and decorate it with html for syntax highlighting
-	// TODO text, err := addMarkupToValue(value, typ)
-	// TODO if err != nil {
-	// TODO 	return nil, err
-	// TODO }
-
-	return &page.ExampleObject{Type: typ, Code: text}, nil
-}
-
-func (c *Config) newEndpointOverview(tgs []*httptest.TestGroup) *page.EndpointOverview {
-	ov := new(page.EndpointOverview)
-	ov.Title = "ENDPOINTS"
+func (c *Config) newEndpointsExampleSection(tgs []*httptest.TestGroup) *page.EndpointsExampleSection {
+	section := new(page.EndpointsExampleSection)
+	section.Title = "ENDPOINTS"
 
 	for _, tg := range tgs {
 		item := new(page.EndpointItem)
@@ -766,11 +717,175 @@ func (c *Config) newEndpointOverview(tgs []*httptest.TestGroup) *page.EndpointOv
 		item.Method = tg.Endpoint.Method
 		item.Pattern = tg.Endpoint.Pattern
 		item.Tooltip = tg.Desc
-		ov.Items = append(ov.Items, item)
+		section.Endpoints = append(section.Endpoints, item)
 	}
 
-	return ov
+	return section
 }
+
+func (c *Config) newObjectExampleSection(obj interface{}, mediatype, title string) (*page.ObjectExampleSection, error) {
+	// if the object is a Valuer then get the underlying value
+	if v, ok := obj.(Valuer); ok {
+		val, err := v.Value()
+		if err != nil {
+			return nil, err
+		}
+		obj = val
+	}
+
+	// default if no type was provided
+	if mediatype == "" {
+		mediatype = "application/json"
+	}
+
+	text, err := marshalValue(obj, mediatype, true)
+	if err != nil {
+		return nil, err
+	}
+
+	section := new(page.ObjectExampleSection)
+	section.Title = title
+	section.Object = template.HTML(text)
+	return section, nil
+}
+
+func (c *Config) newRequestExampleSection(req httptest.Request, tg *httptest.TestGroup) (*page.RequestExampleSection, error) {
+	section := new(page.RequestExampleSection)
+	section.Title = "REQUEST"
+	section.Method = tg.Endpoint.Method
+	section.Pattern = tg.Endpoint.Pattern
+
+	csr, err := c.newCodeSnippetRequest(tg.Endpoint, req)
+	if err != nil {
+		return nil, err
+	}
+	for _, st := range c.SnippetTypes {
+		switch st {
+		case SNIPP_HTTP:
+			snip := c.newHTTPCodeSnippet(*csr)
+			section.Snippets = append(section.Snippets, snip)
+		case SNIPP_CURL:
+			snip := c.newCURLCodeSnippet(*csr)
+			section.Snippets = append(section.Snippets, snip)
+		}
+		// TODO snippets for vanilla-js, Go
+	}
+
+	return section, nil
+}
+
+func (c *Config) newResponseExampleSection(resp httptest.Response, tg *httptest.TestGroup) (*page.ResponseExampleSection, error) {
+	section := new(page.ResponseExampleSection)
+	section.Title = "RESPONSE"
+	section.Status = resp.StatusCode
+
+	if resp.Header != nil {
+		for key, values := range resp.Header.GetHeader() {
+			for _, val := range values {
+				item := page.HeaderItem{}
+				item.Key = key
+				item.Value = val
+				section.Header = append(section.Header, item)
+			}
+		}
+		sort.Sort(&headerSorter{section.Header})
+	}
+
+	if resp.Body != nil {
+		text, err := marshalBody(resp.Body, true)
+		if err != nil {
+			return nil, err
+		}
+		section.Body = template.HTML(text)
+	}
+
+	return section, nil
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// code snippets
+////////////////////////////////////////////////////////////////////////////////
+
+func (c *Config) newCodeSnippetRequest(ep httptest.Endpoint, req httptest.Request) (*page.CodeSnippetRequest, error) {
+	csr := new(page.CodeSnippetRequest)
+	csr.Method = ep.Method
+	csr.Host = trimURLScheme(c.ExampleHost)
+
+	// prepare the URL's path
+	csr.Path = ep.Pattern
+	if req.Params != nil {
+		csr.Path = req.Params.SetParams(csr.Path)
+	}
+	if req.Query != nil {
+		csr.Path += "?" + req.Query.GetQuery()
+	}
+	if len(csr.Path) > 0 && csr.Path[0] != '/' {
+		csr.Path = "/" + csr.Path
+	}
+
+	// the target URL
+	csr.URL = c.ExampleHost + csr.Path
+
+	// headers
+	if req.Header != nil {
+		for key, values := range req.Header.GetHeader() {
+			// if body's present the content type and length
+			// will be set automatically so skip them here.
+			if req.Body != nil && (key == "Content-Type" || key == "Content-Length") {
+				continue
+			}
+
+			for _, val := range values {
+				item := page.HeaderItem{}
+				item.Key = key
+				item.Value = val
+				csr.Header = append(csr.Header, item)
+			}
+		}
+	}
+
+	// prep the body
+	if req.Body != nil {
+		text, err := marshalBody(req.Body, false)
+		if err != nil {
+			return nil, err
+		}
+
+		h1 := page.HeaderItem{Key: "Content-Type", Value: req.Body.Type()}
+		h2 := page.HeaderItem{Key: "Content-Length", Value: strconv.Itoa(len(text))}
+		csr.Header = append(csr.Header, h1, h2)
+		csr.Body = template.HTML(text)
+	}
+
+	// finally sort the headers, if any are present
+	if len(csr.Header) > 0 {
+		sort.Sort(&headerSorter{csr.Header})
+	}
+	return csr, nil
+}
+
+func (c *Config) newHTTPCodeSnippet(csr page.CodeSnippetRequest) *page.HTTPCodeSnippet {
+	snip := new(page.HTTPCodeSnippet)
+	snip.CodeSnippetRequest = csr
+	return snip
+}
+
+func (c *Config) newCURLCodeSnippet(csr page.CodeSnippetRequest) *page.CURLCodeSnippet {
+	snip := new(page.CURLCodeSnippet)
+	snip.CodeSnippetRequest = csr
+
+	// if the method is GET we can omit it since GET is the default cURL
+	// method and is seldom if ever used explicitly with the -X option
+	if strings.ToUpper(snip.Method) == "GET" {
+		snip.Method = ""
+	}
+
+	return snip
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// helpers
+////////////////////////////////////////////////////////////////////////////////
 
 // getIdForArticle returns a unique id value for the given Article.
 func (c *Config) getIdForArticle(a *Article, parent *Article) string {
@@ -947,4 +1062,96 @@ func getNearestNamedType(t *types.Type) *types.Type {
 		return t
 	}
 	return nil
+}
+
+var errNotSupportedMediaType = fmt.Errorf("httpdoc: media type is not supported")
+
+// isSupportedMediaType reports whether or not the given mediatype is supported.
+func isSupportedMediaType(mediatype string) bool {
+	return mediatype == "application/json" ||
+		mediatype == "application/xml"
+
+	// TODO add support for the following:
+	// - text/csv
+	// - application/x-www-form-urlencoded
+	// - text/plain
+}
+
+// marshalValue marshals the given value according to the specified mediatype.
+func marshalValue(value interface{}, mediatype string, withMarkup bool) (string, error) {
+	if !isSupportedMediaType(mediatype) {
+		return "", errNotSupportedMediaType
+	}
+
+	switch mediatype {
+	case "application/json":
+		data, err := json.MarshalIndent(value, "", "  ")
+		if err != nil {
+			return "", err
+		}
+
+		if withMarkup {
+			return markup.JSON(data), nil
+		}
+		return string(data), nil
+	case "application/xml":
+		data, err := xml.MarshalIndent(value, "", "  ")
+		if err != nil {
+			return "", err
+		}
+
+		if withMarkup {
+			return markup.XML(data), nil
+		}
+		return string(data), nil
+	}
+
+	panic("shouldn't reach")
+	return "", nil
+}
+
+// marshalBody
+func marshalBody(body httptest.Body, withMarkup bool) (string, error) {
+	mediatype, _, err := mime.ParseMediaType(body.Type())
+	if err != nil || !isSupportedMediaType(mediatype) {
+		return "", errNotSupportedMediaType
+	}
+
+	r, err := body.Reader()
+	if err != nil {
+		return "", err
+	}
+
+	switch mediatype {
+	case "application/json":
+		raw, err := ioutil.ReadAll(r)
+		if err != nil {
+			return "", err
+		}
+		data, err := json.MarshalIndent(json.RawMessage(raw), "", "  ")
+		if err != nil {
+			return "", err
+		}
+		if withMarkup {
+			return markup.JSON(data), nil
+		}
+		return string(data), nil
+	case "application/xml":
+		raw, err := ioutil.ReadAll(r)
+		if err != nil {
+			return "", err
+		}
+
+		// TODO(mkopriva): encoding/xml does not provide anything analogous
+		// to `json.MarshalIndent(json.RawMessage(raw), "", "  ")` so to get
+		// neatly formatted text write your own XML formatter for bytes
+
+		if withMarkup {
+			return markup.XML(raw), nil
+		}
+		return string(raw), nil
+	}
+
+	panic("shouldn't reach")
+	return "", nil
 }

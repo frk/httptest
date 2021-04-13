@@ -68,11 +68,11 @@ func Write(w io.Writer, p Page, m TestMode) error {
 		case ArticleTest:
 			data = p.Content.Articles[0]
 		case FieldListTest:
-			data = p.Content.Articles[0].Sections[0].FieldLists
+			data = p.Content.Articles[0].Sections[0].(*FieldListArticleSection).Lists
 		case FieldItemTest:
-			data = p.Content.Articles[0].Sections[0].FieldLists[0].Items[0]
+			data = p.Content.Articles[0].Sections[0].(*FieldListArticleSection).Lists[0].Items[0]
 		case EndpointOverviewTest:
-			data = p.Content.Articles[0].Example.Sections[0].EndpointOverview
+			data = p.Content.Articles[0].Example.Sections[0].(*EndpointsExampleSection)
 		}
 
 		return t.ExecuteTemplate(w, name, data)
@@ -208,7 +208,7 @@ var article = `{{ define "article" -}}
 	</div>
 
 	{{- with .SubArticles }}
-	<div class="article-related">
+	<div class="article-children">
 		{{ range . -}}
 		{{ template "article" . }}
 		{{ end -}}
@@ -241,17 +241,17 @@ var article_section_lead = `{{ define "article_section_lead" -}}
 
 var article_section_list = `{{ define "article_section_list" -}}
 {{ range . -}}
-{{ if .Text -}}
+{{ if (is_text_article_section .) -}}
 <section class="article-section-text">
 	<h3 class="article-section-text-title">{{ .Title }}</h3>
 	<div class="article-doc">
 		{{ .Text }}
 	</div>
 </section>
-{{ else if .FieldLists }}
+{{ else if (is_field_list_article_section .) }}
 <section class="article-section-fields">
 	<h3 class="article-section-fields-title">{{ .Title }}</h3>
-	{{ range .FieldLists -}}
+	{{ range .Lists -}}
 	{{ template "field_list" . }}
 	{{ end -}}
 </section>

@@ -50,7 +50,7 @@ func Test(t *testing.T) {
 		///////////////////////////////////////////////////////////////
 		// Sidebar
 		/////////////////////////////////////////////////////////////////
-		file: "sidebar_from_topics",
+		file: "sidebar_from_articles",
 		mode: page.SidebarTest,
 		toc: []*ArticleGroup{{
 			Name: "Article Group 1",
@@ -135,7 +135,7 @@ func Test(t *testing.T) {
 		///////////////////////////////////////////////////////////////
 		// Content
 		/////////////////////////////////////////////////////////////////
-		file: "content_from_topics",
+		file: "content_from_articles",
 		mode: page.ContentTest,
 		toc: []*ArticleGroup{{
 			Name: "Article Group 1",
@@ -162,7 +162,7 @@ func Test(t *testing.T) {
 		///////////////////////////////////////////////////////////////
 		// Article Text
 		/////////////////////////////////////////////////////////////////
-		file: "article_from_topic_raw_string",
+		file: "article_text_from_raw_string",
 		mode: page.ArticleTest,
 		toc: []*ArticleGroup{{
 			Name: "Article Group 1",
@@ -175,6 +175,7 @@ func Test(t *testing.T) {
 			}},
 		}},
 	}, {
+		skip: true,
 		file: "article_from_topic_file",
 		mode: page.ArticleTest,
 		toc: []*ArticleGroup{{
@@ -382,6 +383,7 @@ func Test(t *testing.T) {
 		/////////////////////////////////////////////////////////////////
 		// Example Endpoint Overview
 		/////////////////////////////////////////////////////////////////
+		skip: true,
 		file: "endpoint_overview",
 		mode: page.EndpointOverviewTest,
 		toc: []*ArticleGroup{{

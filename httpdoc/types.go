@@ -40,7 +40,7 @@ type Article struct {
 	// that contain further documentation.
 	SubArticles []*Article
 	// The Text field, if set, will be used as the source for the article's
-	// text-column content. The following types are accepted:
+	// primary-column content. The following types are accepted:
 	//	- string
 	//	- *os.File
 	//	- httpdoc.HTMLer
@@ -69,7 +69,7 @@ type Article struct {
 	// the HTML text. If the type is unnamed an error will be returned.
 	Text interface{}
 	// The Code field, if set, will be used as the source for the article's
-	// code-column content. The following types are accepted:
+	// example-column content. The following types are accepted:
 	//	- string
 	//	- *os.File
 	//	- httpdoc.HTMLer
@@ -99,7 +99,7 @@ type Article struct {
 	// Note that in the last two cases, if the value's dynamic type is a struct,
 	// or its base element type is a struct, then that struct's source code will
 	// be analyzed to generate the documentation of the individual fields for
-	// the article's text-column.
+	// the article's primary-column.
 	Code interface{}
 	// The Type field can optionally be set to the MIME type that should be used
 	// to present the data in the Code field. If left unset, and the Code field's
@@ -112,7 +112,7 @@ type Article struct {
 // ArticleGroup is a list of loosely related articles. It is used by httpdoc to generate
 // a named or unnamed group of sidebar items that will point to the individual articles.
 type ArticleGroup struct {
-	// The optional name of the group.
+	// The name of the group, optional.
 	Name string
 	// The list of articles that belong to the group.
 	Articles []*Article

@@ -10,7 +10,6 @@ import (
 	"mime"
 	"os"
 	"path/filepath"
-	"reflect"
 	"runtime"
 	"sort"
 	"strconv"
@@ -24,75 +23,19 @@ import (
 	"github.com/frk/tagutil"
 )
 
-var (
-	DefaultExampleHost  = "https://api.example.com"
-	DefaultFieldNameTag = "json"
-	DefaultSnippetTypes = []SnippetType{SNIPP_HTTP}
-)
-
-type Config struct {
-	// ProjectRoot and RepositoryURL are used to generate source links
-	// for handlers, struct types, fields, and enums. If one or both of
-	// them are left unset then the links will not be generated.
-	//
-	// The ProjectRoot field should be set to the local (i.e. on the host machine),
-	// root directory of the project for which the documentation is being generated.
-	//
-	// The RepositoryURL field should be set to the remote, web-accessible, root
-	// location of the project for which the documentation is being generated.
-	// For example:
-	//	// for a github repo the url should have the following format.
-	//	RepositoryURL: "https://github.com/<user>/<project>/tree/<branch>/",
-	//	// for a bitbucket repo the url should have the following format.
-	//	RepositoryURL: "https://bitbucket.org/<user>/<project>/src/<branch>/",
-	//
-	ProjectRoot, RepositoryURL string
-	// The host which will be used in example snippets. If no host
-	// is provided it will default to the value of DefaultExampleHost.
-	ExampleHost string
-	// The tag to be used to resolve a field's name for the documentation,
-	// defaults to DefaultFieldNameTag. If no name is present in the tag's
-	// value the field's name will be used as fallback.
-	FieldNameTag string
-	// FieldType returns the name for a specific field's type based on
-	// given reflect.StructField value.
-	//
-	// If FieldType is nil or it returns false as the second return
-	// value (ok) it will fall back to the default behaviour.
-	FieldType func(field reflect.StructField) (typeName string, ok bool)
-	// FieldSetting returns values that are used to document whether the given
-	// field is required, optional, or something else. The structType argument
-	// represents the type of struct to which the field belongs.
-	//
-	// The returned label is used in the corresponding element's class.
-	// The returned text is used as the corresponding element's content.
-	// The returned ok value indicates whether or not the field's setting
-	// documentation should not be generated.
-	//
-	// If FieldSetting is nil then the documentation will be generated based
-	// on the field's "doc" tag and if the field doesn't have a "doc" tag then
-	// the field will be documented as optional.
-	FieldSetting func(field reflect.StructField, structType reflect.Type) (label, text string, ok bool)
-	// FieldValidation returns the documentation on the given field's validity
-	// requirements. The structType argument represents the type of struct
-	// to which the field belongs. If the returned text is empty then no
-	// documentation will be rendered.
-	//
-	// If FieldValidation is nil then no documentation on the field validity
-	// requirements will be generated.
-	FieldValidation func(field reflect.StructField, structType reflect.Type) (text template.HTML)
-	// A list of basic SnippetTypes for which request-specific code examples
-	// should be generated. If left empty it will default to DefaultSnippetTypes.
-	SnippetTypes []SnippetType
-
-	//
-	buf bytes.Buffer
+// holds the state of the documentaiton build process
+type build struct {
+	Config
+	// the input
+	dir ArticleDirectory
 	// source code info
 	src *types.Source
 	// the page being built
 	page page.Page
 	// the sidebar list currently being built, or nil
 	sbls *page.SidebarList
+	// buffer to write to
+	buf bytes.Buffer
 
 	// set of already generated ids
 	ids map[string]int
@@ -111,16 +54,22 @@ type Config struct {
 	mode page.TestMode
 }
 
-func (c *Config) Build(dir ArticleDirectory) error {
-	_, f, _, _ := runtime.Caller(1)
-	fdir := filepath.Dir(f)
-	src, err := types.Load(fdir)
+// The argument skip is for the runtime.Caller func, it is the number of stack
+// frames to ascend, with 0 identifying the caller of loadCallerSource.
+func (c *build) loadCallerSource(skip int) error {
+	_, f, _, _ := runtime.Caller(1 + skip)
+	d := filepath.Dir(f)
+	src, err := types.Load(d)
 	if err != nil {
 		return err
 	}
 
-	// initialize config
 	c.src = src
+	return nil
+}
+
+func (c *build) run() error {
+	// initialize build
 	c.ids = make(map[string]int)
 	c.aIds = make(map[*Article]string)
 	c.tgIds = make(map[*httptest.TestGroup]string)
@@ -128,35 +77,21 @@ func (c *Config) Build(dir ArticleDirectory) error {
 	c.aHrefs = make(map[*Article]string)
 	c.tgHrefs = make(map[*httptest.TestGroup]string)
 
-	// defaults
-	if len(c.FieldNameTag) == 0 {
-		c.FieldNameTag = DefaultFieldNameTag
-	}
-	if c.FieldSetting == nil {
-		c.FieldSetting = defaultFieldSetting
-	}
-	if len(c.SnippetTypes) < 1 {
-		c.SnippetTypes = DefaultSnippetTypes
-	}
-
-	// NOTE: The code that constructs source links requires both of these
-	// to *not* end in slash, which is why this is here.
-	if l := len(c.RepositoryURL); l > 0 && c.RepositoryURL[l-1] == '/' {
-		c.RepositoryURL = c.RepositoryURL[:l-1]
-	}
-	if l := len(c.ProjectRoot); l > 0 && c.ProjectRoot[l-1] == '/' {
-		c.ProjectRoot = c.ProjectRoot[:l-1]
-	}
+	// ensure the configured hrefs and the hrefs generated later don't collide
+	c.hrefs[c.RootPath] = 0
+	c.hrefs[c.logoURL] = 0
+	c.hrefs[c.SigninPath] = 0
 
 	// build & write
-	c.buildSidebar(dir)
-	if err := c.buildContent(dir); err != nil {
+	if err := c.buildSidebar(); err != nil {
+		return err
+	}
+	if err := c.buildContent(); err != nil {
 		return err
 	}
 	if err := page.Write(&c.buf, c.page, c.mode); err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -164,21 +99,43 @@ func (c *Config) Build(dir ArticleDirectory) error {
 // Sidebar
 ////////////////////////////////////////////////////////////////////////////////
 
-func (c *Config) buildSidebar(dir ArticleDirectory) {
-	lists := make([]*page.SidebarList, len(dir))
-	for i, g := range dir {
+func (c *build) buildSidebar() error {
+	c.page.Title = c.PageTitle
+	c.page.Sidebar.Header.Title = c.PageTitle
+	c.page.Sidebar.Header.RootURL = template.URL(c.RootPath)
+	c.page.Sidebar.Header.LogoURL = template.URL(c.logoURL)
+	c.page.Sidebar.Footer.SigninURL = template.URL(c.SigninPath)
+
+	lists := []*page.SidebarList{}
+	for _, g := range c.dir {
+		if len(g.Articles) == 0 {
+			continue
+		}
+
+		items, err := c.newSidebarItemsFromArticles(g.Articles, nil)
+		if err != nil {
+			return err
+		}
+
 		list := new(page.SidebarList)
 		list.Title = g.Name
-		list.Items = c.newSidebarItemsFromArticles(g.Articles, nil)
-
-		lists[i] = list
+		list.Items = items
+		lists = append(lists, list)
 	}
 	c.page.Sidebar.Lists = lists
+	return nil
 }
 
-func (c *Config) newSidebarItemsFromArticles(articles []*Article, parent *Article) []*page.SidebarItem {
+var errNoArticleTitle = fmt.Errorf("httpdoc: Article.Title is required.")
+
+func (c *build) newSidebarItemsFromArticles(articles []*Article, parent *Article) ([]*page.SidebarItem, error) {
 	items := make([]*page.SidebarItem, len(articles))
 	for i, a := range articles {
+		// an article title is required, fail if none was provided
+		if a.Title == "" {
+			return nil, errNoArticleTitle
+		}
+
 		item := new(page.SidebarItem)
 		item.Text = a.Title
 		item.Href = c.getHrefForArticle(a, parent)
@@ -188,23 +145,27 @@ func (c *Config) newSidebarItemsFromArticles(articles []*Article, parent *Articl
 			item.SubItems = append(item.SubItems, items...)
 		}
 		if len(a.SubArticles) > 0 {
-			items := c.newSidebarItemsFromArticles(a.SubArticles, a)
+			items, err := c.newSidebarItemsFromArticles(a.SubArticles, a)
+			if err != nil {
+				return nil, err
+			}
 			item.SubItems = append(item.SubItems, items...)
 		}
 
 		items[i] = item
 	}
-	return items
+	return items, nil
 }
 
-func (c *Config) newSidebarItemsFromTestGroups(tgs []*httptest.TestGroup, parent *Article) []*page.SidebarItem {
-	items := make([]*page.SidebarItem, len(tgs))
-	for i, g := range tgs {
-		item := new(page.SidebarItem)
-		item.Text = g.Desc
-		item.Href = c.getHrefForTestGroup(g, parent)
-
-		items[i] = item
+func (c *build) newSidebarItemsFromTestGroups(tgs []*httptest.TestGroup, parent *Article) (items []*page.SidebarItem) {
+	for _, g := range tgs {
+		// include the test group only if a decent description was extracted
+		if desc := getTestGroupDesc(g); len(desc) > 0 {
+			item := new(page.SidebarItem)
+			item.Text = desc
+			item.Href = c.getHrefForTestGroup(g, parent)
+			items = append(items, item)
+		}
 	}
 	return items
 }
@@ -213,8 +174,8 @@ func (c *Config) newSidebarItemsFromTestGroups(tgs []*httptest.TestGroup, parent
 // Content
 ////////////////////////////////////////////////////////////////////////////////
 
-func (c *Config) buildContent(dir ArticleDirectory) error {
-	for _, g := range dir {
+func (c *build) buildContent() error {
+	for _, g := range c.dir {
 		if len(g.Articles) == 0 {
 			continue
 		}
@@ -229,7 +190,11 @@ func (c *Config) buildContent(dir ArticleDirectory) error {
 	return nil
 }
 
-func (c *Config) newArticleElementListFromArticles(articles []*Article, parent *Article) ([]*page.ArticleElement, error) {
+////////////////////////////////////////////////////////////////////////////////
+// Aritcle Element List
+////////////////////////////////////////////////////////////////////////////////
+
+func (c *build) newArticleElementListFromArticles(articles []*Article, parent *Article) ([]*page.ArticleElement, error) {
 	list := make([]*page.ArticleElement, len(articles))
 	for i, a := range articles {
 		aElem, err := c.newArticleElementFromArticle(a, parent)
@@ -238,7 +203,7 @@ func (c *Config) newArticleElementListFromArticles(articles []*Article, parent *
 		}
 
 		if len(a.TestGroups) > 0 {
-			section := c.newEndpointsExampleSection(a.TestGroups)
+			section := c.newExampleEndpoints(a.TestGroups)
 			aElem.Example.Sections = append(aElem.Example.Sections, section)
 
 			list, err := c.newArticleElementListFromTestGroups(a.TestGroups, a)
@@ -260,7 +225,7 @@ func (c *Config) newArticleElementListFromArticles(articles []*Article, parent *
 	return list, nil
 }
 
-func (c *Config) newArticleElementListFromTestGroups(tgs []*httptest.TestGroup, parent *Article) ([]*page.ArticleElement, error) {
+func (c *build) newArticleElementListFromTestGroups(tgs []*httptest.TestGroup, parent *Article) ([]*page.ArticleElement, error) {
 	list := make([]*page.ArticleElement, len(tgs))
 	for i, g := range tgs {
 		aElem, err := c.newArticleElementFromTestGroup(g, parent)
@@ -281,7 +246,11 @@ func (c *Config) newArticleElementListFromTestGroups(tgs []*httptest.TestGroup, 
 	return list, nil
 }
 
-func (c *Config) newArticleElementFromArticle(a *Article, parent *Article) (*page.ArticleElement, error) {
+////////////////////////////////////////////////////////////////////////////////
+// Aritcle Element
+////////////////////////////////////////////////////////////////////////////////
+
+func (c *build) newArticleElementFromArticle(a *Article, parent *Article) (*page.ArticleElement, error) {
 	aElem := new(page.ArticleElement)
 	aElem.Id = c.getIdForArticle(a, parent)
 	aElem.Href = c.getHrefForArticle(a, parent)
@@ -303,22 +272,22 @@ func (c *Config) newArticleElementFromArticle(a *Article, parent *Article) (*pag
 				return nil, err
 			}
 
-			s := &page.TextExampleSection{Text: html}
+			s := &page.ExampleText{Text: html}
 			aElem.Example.Sections = append(aElem.Example.Sections, s)
 		case Valuer, interface{}:
-			s, err := c.newObjectExampleSection(v, a.Type, a.Title)
-			if s != nil {
-				aElem.Example.Sections = append(aElem.Example.Sections, s)
-			}
-
-			// Optionally generate a section of field docs to add
-			// to the article's text-column. If not struct, ignore.
-			list, err := c.newFieldList(v, aElem, false)
-			if err != nil && err != errNotStructType {
+			s, err := c.newExampleObject(v, a.Type, a.Title)
+			if err != nil {
 				return nil, err
 			}
-			if err != errNotStructType {
-				s := new(page.FieldListArticleSection)
+			aElem.Example.Sections = append(aElem.Example.Sections, s)
+
+			// Optionally generate a section of field docs to add
+			// to the article's primary-column. If not struct, ignore.
+			list, err := c.newFieldList(v, aElem, page.FIELD_LIST_OBJECT, false)
+			if err != nil && err != errNotStructType {
+				return nil, err
+			} else if err == nil {
+				s := new(page.ArticleFieldList)
 				s.Title = "Fields"
 				s.Lists = []*page.FieldList{list}
 				aElem.Sections = append(aElem.Sections, s)
@@ -329,11 +298,11 @@ func (c *Config) newArticleElementFromArticle(a *Article, parent *Article) (*pag
 	return aElem, nil
 }
 
-func (c *Config) newArticleElementFromTestGroup(tg *httptest.TestGroup, parent *Article) (*page.ArticleElement, error) {
+func (c *build) newArticleElementFromTestGroup(tg *httptest.TestGroup, parent *Article) (*page.ArticleElement, error) {
 	aElem := new(page.ArticleElement)
 	aElem.Id = c.getIdForTestGroup(tg, parent)
 	aElem.Href = c.getHrefForTestGroup(tg, parent)
-	aElem.Title = tg.Desc
+	aElem.Title = getTestGroupDesc(tg)
 
 	if tg.DocA != nil {
 		var decl types.TypeDecl
@@ -347,9 +316,8 @@ func (c *Config) newArticleElementFromTestGroup(tg *httptest.TestGroup, parent *
 		// that type is directly related to the endpoint, e.g. it could be
 		// the handler registered to handle the endpoint, therefore grab
 		// its source code position and generate a source link for it.
-		if len(decl.Name) > 0 && len(c.ProjectRoot) > 0 && len(c.RepositoryURL) > 0 {
-			file := strings.TrimPrefix(decl.Pos.Filename, c.ProjectRoot)
-			href := c.RepositoryURL + file + "#" + strconv.Itoa(decl.Pos.Line)
+		if len(decl.Name) > 0 && c.SourceURL != nil {
+			href := c.SourceURL(decl.Pos.Filename, decl.Pos.Line)
 			text := decl.PkgPath + "." + decl.Name
 
 			aElem.SourceLink = new(page.SourceLink)
@@ -371,46 +339,43 @@ func (c *Config) newArticleElementFromTestGroup(tg *httptest.TestGroup, parent *
 			if err != nil {
 				return nil, err
 			}
-			section := &page.AuthInfoArticleSection{AuthInfo: html}
+			section := &page.ArticleAuthInfo{Text: html}
+			section.Title = "Auth"
 			aElem.Sections = append(aElem.Sections, section)
 		}
 
 		// input field lists
 		var inputFields []*page.FieldList
 		if v, ok := t.Request.Header.(Valuer); ok && v != nil {
-			list, err := c.newFieldList(v, aElem, true)
+			list, err := c.newFieldList(v, aElem, page.FIELD_LIST_HEADER, true)
 			if err != nil {
 				return nil, err
 			}
-			list.Title = "Header"
 			inputFields = append(inputFields, list)
 		}
 		if v, ok := t.Request.Params.(Valuer); ok && v != nil {
-			list, err := c.newFieldList(v, aElem, true)
+			list, err := c.newFieldList(v, aElem, page.FIELD_LIST_PATH, true)
 			if err != nil {
 				return nil, err
 			}
-			list.Title = "Path Params"
 			inputFields = append(inputFields, list)
 		}
 		if v, ok := t.Request.Query.(Valuer); ok && v != nil {
-			list, err := c.newFieldList(v, aElem, true)
+			list, err := c.newFieldList(v, aElem, page.FIELD_LIST_QUERY, true)
 			if err != nil {
 				return nil, err
 			}
-			list.Title = "Query"
 			inputFields = append(inputFields, list)
 		}
 		if v, ok := t.Request.Body.(Valuer); ok && v != nil {
-			list, err := c.newFieldList(v, aElem, true)
+			list, err := c.newFieldList(v, aElem, page.FIELD_LIST_BODY, true)
 			if err != nil {
 				return nil, err
 			}
-			list.Title = "Body"
 			inputFields = append(inputFields, list)
 		}
 		if len(inputFields) > 0 {
-			section := new(page.FieldListArticleSection)
+			section := new(page.ArticleFieldList)
 			section.Title = "INPUT"
 			section.Lists = inputFields
 			aElem.Sections = append(aElem.Sections, section)
@@ -423,23 +388,21 @@ func (c *Config) newArticleElementFromTestGroup(tg *httptest.TestGroup, parent *
 		if v, ok := t.Request.Body.(Valuer); !ok || v == nil {
 			var outputFields []*page.FieldList
 			if v, ok := t.Response.Header.(Valuer); ok && v != nil {
-				list, err := c.newFieldList(v, aElem, true)
+				list, err := c.newFieldList(v, aElem, page.FIELD_LIST_HEADER, false)
 				if err != nil {
 					return nil, err
 				}
-				list.Title = "Header"
 				outputFields = append(outputFields, list)
 			}
 			if v, ok := t.Response.Body.(Valuer); ok && v != nil {
-				list, err := c.newFieldList(v, aElem, false)
+				list, err := c.newFieldList(v, aElem, page.FIELD_LIST_BODY, false)
 				if err != nil {
 					return nil, err
 				}
-				list.Title = "Body"
 				outputFields = append(outputFields, list)
 			}
 			if len(outputFields) > 0 {
-				section := new(page.FieldListArticleSection)
+				section := new(page.ArticleFieldList)
 				section.Title = "OUTPUT"
 				section.Lists = outputFields
 				aElem.Sections = append(aElem.Sections, section)
@@ -452,29 +415,33 @@ func (c *Config) newArticleElementFromTestGroup(tg *httptest.TestGroup, parent *
 		if err != nil {
 			return nil, err
 		}
-		section := &page.TextArticleSection{Text: html}
+		section := &page.ArticleText{Text: html}
 		aElem.Sections = append(aElem.Sections, section)
 	}
 	return aElem, nil
 }
 
-func (c *Config) newExampleSectionsFromTestGroup(t *httptest.Test, tg *httptest.TestGroup) (sections []page.ExampleSection, err error) {
+////////////////////////////////////////////////////////////////////////////////
+// Example Sections
+////////////////////////////////////////////////////////////////////////////////
+
+func (c *build) newExampleSectionsFromTestGroup(t *httptest.Test, tg *httptest.TestGroup) (sections []page.ExampleSection, err error) {
 	if t.DocA != nil {
 		html, err := c.newHTML(t.DocA, nil)
 		if err != nil {
 			return nil, err
 		}
-		section := &page.TextExampleSection{Text: html}
+		section := &page.ExampleText{Text: html}
 		sections = append(sections, section)
 	}
 
-	reqSection, err := c.newRequestExampleSection(t.Request, tg)
+	reqSection, err := c.newExampleRequest(t.Request, tg)
 	if err != nil {
 		return nil, err
 	}
 	sections = append(sections, reqSection)
 
-	respSection, err := c.newResponseExampleSection(t.Response, tg)
+	respSection, err := c.newExampleResponse(t.Response, tg)
 	if err != nil {
 		return nil, err
 	}
@@ -485,230 +452,14 @@ func (c *Config) newExampleSectionsFromTestGroup(t *httptest.Test, tg *httptest.
 		if err != nil {
 			return nil, err
 		}
-		section := &page.TextExampleSection{Text: html}
+		section := &page.ExampleText{Text: html}
 		sections = append(sections, section)
 	}
 	return sections, nil
 }
 
-var errNotNamedType = fmt.Errorf("httpdoc: type is not named")
-
-func (c *Config) newHTML(value interface{}, decl *types.TypeDecl) (html template.HTML, err error) {
-	switch v := value.(type) {
-	case string:
-		html = template.HTML(v)
-	case *os.File:
-		text, err := ioutil.ReadAll(v)
-		if err != nil {
-			return "", err
-		}
-		html = template.HTML(text)
-	case HTMLer:
-		text, err := v.HTML()
-		if err != nil {
-			return "", err
-		}
-		html = template.HTML(text)
-	case Valuer, interface{}:
-		if vv, ok := value.(Valuer); ok && vv != nil {
-			if value, err = vv.Value(); err != nil {
-				return "", err
-			}
-		}
-
-		// Extract documentation from the value's type.
-		d := c.src.TypeDeclOf(value)
-		if d != nil {
-			return "", errNotNamedType
-		}
-		text, err := comment.ToHTML(d.Doc)
-		if err != nil {
-			return "", err
-		}
-		html = template.HTML(text)
-
-		if decl != nil { // retain the type declaration?
-			*decl = *d
-		}
-	}
-
-	return html, nil
-}
-
-var errNotStructType = fmt.Errorf("httpdoc: type is not a struct")
-
-func (c *Config) newFieldList(value interface{}, aElem *page.ArticleElement, isInput bool) (list *page.FieldList, err error) {
-	// if this is a Valuer then get the underlying value
-	if v, ok := value.(Valuer); ok {
-		if value, err = v.Value(); err != nil {
-			return nil, err
-		}
-	}
-
-	typ := c.src.TypeOf(value)
-	if typ = getNearestStructType(typ); typ == nil {
-		return nil, errNotStructType
-	}
-
-	return c._newFieldList(typ, aElem, isInput, nil)
-}
-
-func (c *Config) _newFieldList(typ *types.Type, aElem *page.ArticleElement, isInput bool, path []string) (*page.FieldList, error) {
-	list := new(page.FieldList)
-
-	tagKey := c.FieldNameTag
-	for _, f := range typ.Fields {
-		tag := tagutil.New(f.Tag)
-		if tag.Contains(tagKey, "-") || tag.Contains("doc", "-") { // skip field?
-			continue
-		}
-		sf, ok := typ.ReflectType.FieldByName(f.Name)
-		if !ok {
-			// shouldn't happen
-			panic(fmt.Sprintf("httpdoc: reflect.Type.FieldByName(%q) failed.", f.Name))
-		}
-
-		item := new(page.FieldItem)
-
-		// the field's name
-		item.Name = f.Name
-		if name := tag.First(tagKey); name != "" {
-			item.Name = name
-		}
-
-		// the field's path
-		if len(path) > 0 {
-			item.Path = strings.Join(path, ".") + "."
-		}
-
-		// the field's id
-		item.Id = aElem.Id + "_" + item.Path + item.Name
-
-		// the field's anchor
-		item.Href = aElem.Href
-		if i := strings.IndexByte(item.Href, '#'); i > -1 {
-			item.Href = item.Href[:i]
-		}
-		item.Href = item.Href + "#" + item.Id
-
-		// "trim" pointers
-		ftype := f.Type
-		for ftype.Kind == types.KindPtr {
-			ftype = ftype.Elem
-		}
-
-		// the field's type
-		item.Type = ftype.String()
-		if c.FieldType != nil {
-			if name, ok := c.FieldType(sf); len(name) > 0 || ok {
-				item.Type = name
-			}
-		}
-
-		// the field's documentation
-		if len(f.Doc) > 0 {
-			html, err := comment.ToHTML(f.Doc)
-			if err != nil {
-				return nil, err
-			}
-			item.Doc = template.HTML(html)
-		}
-
-		// the field type's enum values
-		if len(ftype.Values) > 0 {
-			enumList, err := c.newValueListEnums(ftype)
-			if err != nil {
-				return nil, err
-			}
-			item.ValueList = enumList
-		}
-
-		// the field's sub fields
-		if stype := getNearestStructType(ftype); stype != nil && len(stype.Fields) > 0 {
-			subList, err := c._newFieldList(stype, aElem, isInput, append(path, item.Name))
-			if err != nil {
-				return nil, err
-			}
-			item.SubFields = subList.Items
-		}
-
-		// the field's source link
-		if len(c.ProjectRoot) > 0 && len(c.RepositoryURL) > 0 {
-			file := strings.TrimPrefix(f.Pos.Filename, c.ProjectRoot)
-			href := c.RepositoryURL + file + "#" + strconv.Itoa(f.Pos.Line)
-
-			item.SourceLink = new(page.SourceLink)
-			item.SourceLink.Href = href
-		}
-
-		// for input fields additionally generate validation info
-		if isInput {
-			// the field's setting
-			if label, text, ok := c.FieldSetting(sf, typ.ReflectType); ok {
-				item.SettingLabel = label
-				item.SettingText = text
-			}
-
-			// the field's validation
-			if c.FieldValidation != nil {
-				item.Validation = c.FieldValidation(sf, typ.ReflectType)
-			}
-		}
-
-		list.Items = append(list.Items, item)
-	}
-
-	return list, nil
-}
-
-func (c *Config) newValueListEnums(typ *types.Type) (*page.ValueList, error) {
-	list := new(page.ValueList)
-	list.Class = "enum"
-	list.Title = "Possible enum values"
-	list.Items = make([]*page.ValueItem, len(typ.Values))
-
-	for i, v := range typ.Values {
-		value := new(page.ValueItem)
-		value.Text = v.Value
-
-		// the internal/types package returns const values of the
-		// string kind quoted, unquote the value for display.
-		if typ.Kind == types.KindString {
-			text, err := strconv.Unquote(value.Text)
-			if err != nil {
-				return nil, err
-			}
-			value.Text = text
-		}
-
-		if len(v.Doc) > 0 {
-			html, err := comment.ToHTML(v.Doc)
-			if err != nil {
-				return nil, err
-			}
-			value.Doc = template.HTML(html)
-		}
-
-		if len(c.ProjectRoot) > 0 && len(c.RepositoryURL) > 0 {
-			file := strings.TrimPrefix(v.Pos.Filename, c.ProjectRoot)
-			href := c.RepositoryURL + file + "#" + strconv.Itoa(v.Pos.Line)
-
-			value.SourceLink = new(page.SourceLink)
-			value.SourceLink.Href = href
-		}
-
-		list.Items[i] = value
-	}
-
-	return list, nil
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Example Sections
-////////////////////////////////////////////////////////////////////////////////
-
-func (c *Config) newEndpointsExampleSection(tgs []*httptest.TestGroup) *page.EndpointsExampleSection {
-	section := new(page.EndpointsExampleSection)
+func (c *build) newExampleEndpoints(tgs []*httptest.TestGroup) *page.ExampleEndpoints {
+	section := new(page.ExampleEndpoints)
 	section.Title = "ENDPOINTS"
 
 	for _, tg := range tgs {
@@ -716,14 +467,14 @@ func (c *Config) newEndpointsExampleSection(tgs []*httptest.TestGroup) *page.End
 		item.Href = c.getHrefForTestGroup(tg, nil)
 		item.Method = tg.Endpoint.Method
 		item.Pattern = tg.Endpoint.Pattern
-		item.Tooltip = tg.Desc
+		item.Tooltip = getTestGroupDesc(tg)
 		section.Endpoints = append(section.Endpoints, item)
 	}
 
 	return section
 }
 
-func (c *Config) newObjectExampleSection(obj interface{}, mediatype, title string) (*page.ObjectExampleSection, error) {
+func (c *build) newExampleObject(obj interface{}, mediatype, title string) (*page.ExampleObject, error) {
 	// if the object is a Valuer then get the underlying value
 	if v, ok := obj.(Valuer); ok {
 		val, err := v.Value()
@@ -743,14 +494,15 @@ func (c *Config) newObjectExampleSection(obj interface{}, mediatype, title strin
 		return nil, err
 	}
 
-	section := new(page.ObjectExampleSection)
+	section := new(page.ExampleObject)
 	section.Title = title
-	section.Object = template.HTML(text)
+	section.Lang = getLangFromMediaType(mediatype)
+	section.Text = template.HTML(text)
 	return section, nil
 }
 
-func (c *Config) newRequestExampleSection(req httptest.Request, tg *httptest.TestGroup) (*page.RequestExampleSection, error) {
-	section := new(page.RequestExampleSection)
+func (c *build) newExampleRequest(req httptest.Request, tg *httptest.TestGroup) (*page.ExampleRequest, error) {
+	section := new(page.ExampleRequest)
 	section.Title = "REQUEST"
 	section.Method = tg.Endpoint.Method
 	section.Pattern = tg.Endpoint.Pattern
@@ -762,10 +514,10 @@ func (c *Config) newRequestExampleSection(req httptest.Request, tg *httptest.Tes
 	for _, st := range c.SnippetTypes {
 		switch st {
 		case SNIPP_HTTP:
-			snip := c.newHTTPCodeSnippet(*csr)
+			snip := c.newCodeSnippetHTTP(*csr)
 			section.Snippets = append(section.Snippets, snip)
 		case SNIPP_CURL:
-			snip := c.newCURLCodeSnippet(*csr)
+			snip := c.newCodeSnippetCURL(*csr)
 			section.Snippets = append(section.Snippets, snip)
 		}
 		// TODO snippets for vanilla-js, Go
@@ -774,8 +526,8 @@ func (c *Config) newRequestExampleSection(req httptest.Request, tg *httptest.Tes
 	return section, nil
 }
 
-func (c *Config) newResponseExampleSection(resp httptest.Response, tg *httptest.TestGroup) (*page.ResponseExampleSection, error) {
-	section := new(page.ResponseExampleSection)
+func (c *build) newExampleResponse(resp httptest.Response, tg *httptest.TestGroup) (*page.ExampleResponse, error) {
+	section := new(page.ExampleResponse)
 	section.Title = "RESPONSE"
 	section.Status = resp.StatusCode
 
@@ -792,21 +544,24 @@ func (c *Config) newResponseExampleSection(resp httptest.Response, tg *httptest.
 	}
 
 	if resp.Body != nil {
-		text, err := marshalBody(resp.Body, true)
+		text, mediatype, err := marshalBody(resp.Body, true)
 		if err != nil {
 			return nil, err
 		}
+
 		section.Body = template.HTML(text)
+		section.Lang = getLangFromMediaType(mediatype)
+
 	}
 
 	return section, nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// code snippets
+// Code Snippets
 ////////////////////////////////////////////////////////////////////////////////
 
-func (c *Config) newCodeSnippetRequest(ep httptest.Endpoint, req httptest.Request) (*page.CodeSnippetRequest, error) {
+func (c *build) newCodeSnippetRequest(ep httptest.Endpoint, req httptest.Request) (*page.CodeSnippetRequest, error) {
 	csr := new(page.CodeSnippetRequest)
 	csr.Method = ep.Method
 	csr.Host = trimURLScheme(c.ExampleHost)
@@ -846,7 +601,7 @@ func (c *Config) newCodeSnippetRequest(ep httptest.Endpoint, req httptest.Reques
 
 	// prep the body
 	if req.Body != nil {
-		text, err := marshalBody(req.Body, false)
+		text, _, err := marshalBody(req.Body, false)
 		if err != nil {
 			return nil, err
 		}
@@ -864,14 +619,14 @@ func (c *Config) newCodeSnippetRequest(ep httptest.Endpoint, req httptest.Reques
 	return csr, nil
 }
 
-func (c *Config) newHTTPCodeSnippet(csr page.CodeSnippetRequest) *page.HTTPCodeSnippet {
-	snip := new(page.HTTPCodeSnippet)
+func (c *build) newCodeSnippetHTTP(csr page.CodeSnippetRequest) *page.CodeSnippetHTTP {
+	snip := new(page.CodeSnippetHTTP)
 	snip.CodeSnippetRequest = csr
 	return snip
 }
 
-func (c *Config) newCURLCodeSnippet(csr page.CodeSnippetRequest) *page.CURLCodeSnippet {
-	snip := new(page.CURLCodeSnippet)
+func (c *build) newCodeSnippetCURL(csr page.CodeSnippetRequest) *page.CodeSnippetCURL {
+	snip := new(page.CodeSnippetCURL)
 	snip.CodeSnippetRequest = csr
 
 	// if the method is GET we can omit it since GET is the default cURL
@@ -884,11 +639,245 @@ func (c *Config) newCURLCodeSnippet(csr page.CodeSnippetRequest) *page.CURLCodeS
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// Misc.
+////////////////////////////////////////////////////////////////////////////////
+
+var errNotNamedType = fmt.Errorf("httpdoc: type is not named")
+
+func (c *build) newHTML(value interface{}, decl *types.TypeDecl) (html template.HTML, err error) {
+	switch v := value.(type) {
+	case string:
+		html = template.HTML(v)
+	case *os.File:
+		text, err := ioutil.ReadAll(v)
+		if err != nil {
+			return "", err
+		}
+		html = template.HTML(text)
+	case HTMLer:
+		text, err := v.HTML()
+		if err != nil {
+			return "", err
+		}
+		html = template.HTML(text)
+	case Valuer, interface{}:
+		if vv, ok := value.(Valuer); ok && vv != nil {
+			if value, err = vv.Value(); err != nil {
+				return "", err
+			}
+		}
+
+		// Extract documentation from the value's type.
+		d := c.src.TypeDeclOf(value)
+		if d == nil {
+			return "", errNotNamedType
+		}
+		text, err := comment.ToHTML(d.Doc)
+		if err != nil {
+			return "", err
+		}
+		html = template.HTML(text)
+
+		if decl != nil { // retain the type declaration?
+			*decl = *d
+		}
+	}
+
+	return html, nil
+}
+
+var errNotStructType = fmt.Errorf("httpdoc: type is not a struct")
+
+func (c *build) newFieldList(value interface{}, aElem *page.ArticleElement, class page.FieldListClass, isInput bool) (list *page.FieldList, err error) {
+	// if this is a Valuer then get the underlying value
+	if v, ok := value.(Valuer); ok {
+		if value, err = v.Value(); err != nil {
+			return nil, err
+		}
+	}
+
+	typ := c.src.TypeOf(value)
+	if typ = getNearestStructType(typ); typ == nil {
+		return nil, errNotStructType
+	}
+
+	var title, idpfx string
+	switch class {
+	case page.FIELD_LIST_PATH:
+		title = "Path"
+		idpfx = "path."
+	case page.FIELD_LIST_QUERY:
+		title = "Query"
+		idpfx = "query."
+	case page.FIELD_LIST_HEADER:
+		title = "Header"
+		idpfx = "header."
+	case page.FIELD_LIST_BODY:
+		title = "Body"
+		idpfx = "body."
+	case page.FIELD_LIST_OBJECT:
+		title = ""
+		idpfx = "obj."
+	}
+
+	list, err = c._newFieldList(typ, aElem, class, isInput, idpfx, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	list.Title = title
+	return list, nil
+}
+
+func (c *build) _newFieldList(typ *types.Type, aElem *page.ArticleElement, class page.FieldListClass, isInput bool, idpfx string, path []string) (*page.FieldList, error) {
+	list := new(page.FieldList)
+
+	tagKey := c.FieldNameTag
+	for _, f := range typ.Fields {
+		tag := tagutil.New(f.Tag)
+		if tag.Contains(tagKey, "-") || tag.Contains("doc", "-") { // skip field?
+			continue
+		}
+		sf, ok := typ.ReflectType.FieldByName(f.Name)
+		if !ok {
+			// shouldn't happen
+			panic(fmt.Sprintf("httpdoc: reflect.Type.FieldByName(%q) failed.", f.Name))
+		}
+
+		item := new(page.FieldItem)
+
+		// the field's name
+		item.Name = f.Name
+		if name := tag.First(tagKey); name != "" {
+			item.Name = name
+		}
+
+		// the field's path
+		if len(path) > 0 {
+			item.Path = strings.Join(path, ".") + "."
+		}
+
+		// the field's id
+		item.Id = aElem.Id + "." + idpfx + item.Path + item.Name
+
+		// the field's anchor
+		item.Href = aElem.Href
+		if i := strings.IndexByte(item.Href, '#'); i > -1 {
+			item.Href = item.Href[:i]
+		}
+		item.Href = item.Href + "#" + item.Id
+
+		// "trim" pointers
+		ftype := f.Type
+		for ftype.Kind == types.KindPtr {
+			ftype = ftype.Elem
+		}
+
+		// the field's type
+		item.Type = ftype.String()
+		if c.FieldType != nil {
+			if name, ok := c.FieldType(sf); len(name) > 0 || ok {
+				item.Type = name
+			}
+		}
+
+		// the field's documentation
+		if len(f.Doc) > 0 {
+			text, err := comment.ToHTML(f.Doc)
+			if err != nil {
+				return nil, err
+			}
+			item.Text = template.HTML(text)
+		}
+
+		// the field type's enum values
+		if len(ftype.Values) > 0 {
+			enumList, err := c.newEnumList(ftype)
+			if err != nil {
+				return nil, err
+			}
+			item.EnumList = enumList
+		}
+
+		// the field's sub fields
+		if stype := getNearestStructType(ftype); stype != nil && len(stype.Fields) > 0 {
+			subList, err := c._newFieldList(stype, aElem, class, isInput, idpfx, append(path, item.Name))
+			if err != nil {
+				return nil, err
+			}
+			item.SubFields = subList.Items
+		}
+
+		// the field's source link
+		if c.SourceURL != nil {
+			item.SourceLink = new(page.SourceLink)
+			item.SourceLink.Href = c.SourceURL(f.Pos.Filename, f.Pos.Line)
+		}
+
+		// for input fields additionally generate validation info
+		if isInput {
+			// the field's setting
+			if label, text, ok := c.FieldSetting(sf, typ.ReflectType); ok {
+				item.SettingLabel = label
+				item.SettingText = text
+			}
+
+			// the field's validation
+			if c.FieldValidation != nil {
+				item.Validation = c.FieldValidation(sf, typ.ReflectType)
+			}
+		}
+
+		list.Items = append(list.Items, item)
+	}
+
+	return list, nil
+}
+
+func (c *build) newEnumList(typ *types.Type) (*page.EnumList, error) {
+	list := new(page.EnumList)
+	list.Title = "Possible enum values"
+	list.Items = make([]*page.EnumItem, len(typ.Values))
+
+	for i, v := range typ.Values {
+		item := new(page.EnumItem)
+		item.Value = v.Value
+
+		// the internal/types package returns const values of the
+		// string kind quoted, unquote the item for display.
+		if typ.Kind == types.KindString {
+			value, err := strconv.Unquote(item.Value)
+			if err != nil {
+				return nil, err
+			}
+			item.Value = value
+		}
+
+		if len(v.Doc) > 0 {
+			text, err := comment.ToHTML(v.Doc)
+			if err != nil {
+				return nil, err
+			}
+			item.Text = template.HTML(text)
+		}
+
+		if c.SourceURL != nil {
+			item.SourceLink = new(page.SourceLink)
+			item.SourceLink.Href = c.SourceURL(v.Pos.Filename, v.Pos.Line)
+		}
+
+		list.Items[i] = item
+	}
+
+	return list, nil
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // helpers
 ////////////////////////////////////////////////////////////////////////////////
 
 // getIdForArticle returns a unique id value for the given Article.
-func (c *Config) getIdForArticle(a *Article, parent *Article) string {
+func (c *build) getIdForArticle(a *Article, parent *Article) string {
 	if id, ok := c.aIds[a]; ok {
 		return id
 	}
@@ -902,7 +891,7 @@ func (c *Config) getIdForArticle(a *Article, parent *Article) string {
 	}, strings.ToLower(a.Title))
 
 	if parent != nil {
-		id = c.getIdForArticle(parent, nil) + "_" + id
+		id = c.getIdForArticle(parent, nil) + "." + id
 	}
 
 	// make sure the id is unique
@@ -918,7 +907,7 @@ func (c *Config) getIdForArticle(a *Article, parent *Article) string {
 }
 
 // getIdForTestGroup returns a unique id for the given TestGroup.
-func (c *Config) getIdForTestGroup(tg *httptest.TestGroup, parent *Article) string {
+func (c *build) getIdForTestGroup(tg *httptest.TestGroup, parent *Article) string {
 	if id, ok := c.tgIds[tg]; ok {
 		return id
 	}
@@ -934,7 +923,12 @@ func (c *Config) getIdForTestGroup(tg *httptest.TestGroup, parent *Article) stri
 		}, strings.ToLower(tg.Desc))
 	} else {
 		// default to tg.Endpoint if no tg.Desc was set
-		pattern := strings.Map(func(r rune) rune {
+		method := strings.ToLower(strings.Trim(tg.Endpoint.Method, "/-"))
+		pattern := strings.ToLower(strings.Trim(tg.Endpoint.Pattern, "/-"))
+		id = method + "-" + pattern
+
+		// replace "/" with "-", and remove placeholder delimiters
+		id = strings.Map(func(r rune) rune {
 			// TODO(mkopriva): allow for handling of more complex endpoint
 			// patterns, i.e. some routers allow specifying regular expressions,
 			// or they use delimiters different from "{" and "}".
@@ -948,13 +942,11 @@ func (c *Config) getIdForTestGroup(tg *httptest.TestGroup, parent *Article) stri
 				return '-'
 			}
 			return r
-		}, tg.Endpoint.Pattern)
-
-		id = strings.ToLower(pattern + "-" + tg.Endpoint.Method)
+		}, id)
 	}
 
 	if parent != nil {
-		id = c.getIdForArticle(parent, nil) + "_" + id
+		id = c.getIdForArticle(parent, nil) + "." + id
 	}
 
 	// make sure the id is unique
@@ -970,13 +962,13 @@ func (c *Config) getIdForTestGroup(tg *httptest.TestGroup, parent *Article) stri
 }
 
 // getHrefForArticle returns an href string for the given Article.
-func (c *Config) getHrefForArticle(a *Article, parent *Article) string {
+func (c *build) getHrefForArticle(a *Article, parent *Article) string {
 	if href, ok := c.aHrefs[a]; ok {
 		return href
 	}
 
 	id := c.getIdForArticle(a, parent)
-	href := "/" + id
+	href := c.RootPath + "/" + id
 	if parent != nil {
 		href = c.getHrefForArticle(parent, nil)
 		if i := strings.IndexByte(href, '#'); i > -1 {
@@ -998,13 +990,13 @@ func (c *Config) getHrefForArticle(a *Article, parent *Article) string {
 }
 
 // getHrefForTestGroup returns an href string for the given TestGroup.
-func (c *Config) getHrefForTestGroup(tg *httptest.TestGroup, parent *Article) string {
+func (c *build) getHrefForTestGroup(tg *httptest.TestGroup, parent *Article) string {
 	if href, ok := c.tgHrefs[tg]; ok {
 		return href
 	}
 
 	id := c.getIdForTestGroup(tg, parent)
-	href := "/" + id
+	href := c.RootPath + "/" + id
 	if parent != nil {
 		href = c.getHrefForArticle(parent, nil)
 		if i := strings.IndexByte(href, '#'); i > -1 {
@@ -1023,45 +1015,6 @@ func (c *Config) getHrefForTestGroup(tg *httptest.TestGroup, parent *Article) st
 	// cache the href
 	c.tgHrefs[tg] = href
 	return href
-}
-
-func defaultFieldSetting(s reflect.StructField, t reflect.Type) (label, text string, ok bool) {
-	const (
-		required = "required"
-		optional = "optional"
-	)
-
-	tag := tagutil.New(string(s.Tag))
-	if tag.Contains("doc", required) {
-		return required, required, true
-	}
-	return optional, optional, true
-}
-
-// getNearestStructType returns the nearest struct types.Type in the hierarchy
-// of the given types.Type. If none is found, nil will be returned instead.
-func getNearestStructType(t *types.Type) *types.Type {
-	for t.Kind != types.KindString && t.Elem != nil {
-		t = t.Elem
-	}
-
-	if t.Kind == types.KindStruct {
-		return t
-	}
-	return nil
-}
-
-// getNearestNamedType returns the nearest name types.Type in the hierarchy
-// of the given types.Type. If none is found, nil will be returned instead.
-func getNearestNamedType(t *types.Type) *types.Type {
-	for len(t.Name) == 0 && t.Elem != nil {
-		t = t.Elem
-	}
-
-	if len(t.Name) > 0 {
-		return t
-	}
-	return nil
 }
 
 var errNotSupportedMediaType = fmt.Errorf("httpdoc: media type is not supported")
@@ -1111,35 +1064,37 @@ func marshalValue(value interface{}, mediatype string, withMarkup bool) (string,
 }
 
 // marshalBody
-func marshalBody(body httptest.Body, withMarkup bool) (string, error) {
-	mediatype, _, err := mime.ParseMediaType(body.Type())
+func marshalBody(body httptest.Body, withMarkup bool) (text string, mediatype string, err error) {
+	mediatype, _, err = mime.ParseMediaType(body.Type())
 	if err != nil || !isSupportedMediaType(mediatype) {
-		return "", errNotSupportedMediaType
+		return "", "", errNotSupportedMediaType
 	}
 
 	r, err := body.Reader()
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	switch mediatype {
 	case "application/json":
 		raw, err := ioutil.ReadAll(r)
 		if err != nil {
-			return "", err
+			return "", "", err
 		}
 		data, err := json.MarshalIndent(json.RawMessage(raw), "", "  ")
 		if err != nil {
-			return "", err
+			return "", "", err
 		}
+
 		if withMarkup {
-			return markup.JSON(data), nil
+			text = markup.JSON(data)
+		} else {
+			text = string(data)
 		}
-		return string(data), nil
 	case "application/xml":
 		raw, err := ioutil.ReadAll(r)
 		if err != nil {
-			return "", err
+			return "", "", err
 		}
 
 		// TODO(mkopriva): encoding/xml does not provide anything analogous
@@ -1147,11 +1102,65 @@ func marshalBody(body httptest.Body, withMarkup bool) (string, error) {
 		// neatly formatted text write your own XML formatter for bytes
 
 		if withMarkup {
-			return markup.XML(raw), nil
+			text = markup.XML(raw)
+		} else {
+			text = string(raw)
 		}
-		return string(raw), nil
 	}
 
-	panic("shouldn't reach")
-	return "", nil
+	return text, mediatype, nil
+}
+
+// getLangFromMediaType
+func getLangFromMediaType(mediatype string) string {
+	switch mediatype {
+	case "application/json":
+		return "json"
+	case "application/xml":
+		return "xml"
+	}
+	return ""
+	// TODO add support for the following:
+	// - text/csv
+	// - application/x-www-form-urlencoded
+	// - text/plain
+}
+
+// getNearestStructType returns the nearest struct types.Type in the hierarchy
+// of the given types.Type. If none is found, nil will be returned instead.
+func getNearestStructType(t *types.Type) *types.Type {
+	for t.Kind != types.KindString && t.Elem != nil {
+		t = t.Elem
+	}
+
+	if t.Kind == types.KindStruct {
+		return t
+	}
+	return nil
+}
+
+// getNearestNamedType returns the nearest name types.Type in the hierarchy
+// of the given types.Type. If none is found, nil will be returned instead.
+func getNearestNamedType(t *types.Type) *types.Type {
+	for len(t.Name) == 0 && t.Elem != nil {
+		t = t.Elem
+	}
+
+	if len(t.Name) > 0 {
+		return t
+	}
+	return nil
+}
+
+func getTestGroupDesc(tg *httptest.TestGroup) string {
+	if len(tg.Desc) > 0 {
+		return tg.Desc
+	}
+	if ep := tg.Endpoint; len(ep.Pattern) > 0 {
+		if len(ep.Method) > 0 {
+			return ep.Method + " " + ep.Pattern
+		}
+		return ep.Pattern
+	}
+	return ""
 }

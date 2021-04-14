@@ -89,3 +89,62 @@ const (
 	E1_bar E1 = "bar"
 	E1_baz E1 = "baz" // this is just a line comment
 )
+
+// This is the V1 type docs.
+type V1 struct {
+	F1 string `json:"f1"`
+	F2 int32  `json:"f2"`
+}
+
+type E2 int64
+
+const (
+	_ E2 = 1<<iota*2 - 3
+	// Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+	E2_foo
+	// Duis aute irure dolor in reprehenderit in voluptate velit esse cillum
+	// dolore eu fugiat nulla pariatur.
+	E2_bar1
+	E2_bar2
+	_
+	_
+	E2_baz E2 = 0xBadFace // this is just a line comment
+)
+
+const E2_quux E2 = 8 * (5 + 3) / (3 ^ (2 - 23)) * -1
+
+type T8 struct {
+	F1 E2
+}
+
+type H1RES struct {
+	// The content type of the response.
+	ContentType string `json:"Content-Type"`
+	// The Cookie will contain the created session id.
+	SetCookie string `json:"Set-Cookie"`
+}
+
+type H1REQ struct {
+	// The Authorization header must contain the bearer token.
+	Authorization string `json:"Authorization" doc:"required"`
+}
+
+type P1 struct {
+	// The id of the Foo to which the Bar belongs.
+	FooID int `json:"foo_id" doc:"required"`
+	// The UUID of the Bar to retrieve.
+	BarUUID string `json:"bar_uuid" doc:"required"`
+}
+
+type Q1 struct {
+	// The search string.
+	Q string `json:"q" doc:"optional"`
+	// The max number of results to return, if not present it will default to 32.
+	Limit int `json:"limit" doc:"optional"`
+}
+
+// This is an Auth type and its documentation that needs to be extracted
+// and turned into HTML for rendering.
+//
+// This is a pragraph that doesn't say anything useful.
+type A1 struct{}

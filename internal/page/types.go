@@ -25,13 +25,13 @@ type Sidebar struct {
 }
 
 type SidebarHeader struct {
-	Logo   string
-	Title  string
-	Search interface{} // TODO
+	Title   string
+	RootURL template.URL
+	LogoURL template.URL
 }
 
 type SidebarFooter struct {
-	// ...
+	SigninURL template.URL
 }
 
 type SidebarList struct {
@@ -43,6 +43,13 @@ type SidebarItem struct {
 	Text     string
 	Href     string
 	SubItems []*SidebarItem
+}
+
+func (si *SidebarItem) AnchorClass() string {
+	if len(si.SubItems) > 0 {
+		return "sidebar-item expandable"
+	}
+	return "sidebar-item"
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -57,6 +64,7 @@ type Content struct {
 
 type Header struct {
 	// ...
+	Search interface{} // TODO
 }
 
 type Footer struct {
@@ -89,17 +97,17 @@ type ArticleSection interface {
 	isArticleSection()
 }
 
-type TextArticleSection struct {
+type ArticleText struct {
 	Title string
 	Text  template.HTML
 }
 
-type AuthInfoArticleSection struct {
-	Title    string
-	AuthInfo template.HTML
+type ArticleAuthInfo struct {
+	Title string
+	Text  template.HTML
 }
 
-type FieldListArticleSection struct {
+type ArticleFieldList struct {
 	Title string
 	Lists []*FieldList
 }
@@ -116,41 +124,92 @@ type ExampleSection interface {
 	isExampleSection()
 }
 
-type TextExampleSection struct {
-	Title string
-	Text  template.HTML
-}
-
-type EndpointsExampleSection struct {
+type ExampleEndpoints struct {
 	Title     string
 	Endpoints []*EndpointItem
 }
 
-type ObjectExampleSection struct {
-	Title  string
-	Object template.HTML
+type ExampleText struct {
+	Title string
+	Text  template.HTML
 }
 
-type RequestExampleSection struct {
+type ExampleObject struct {
+	Title string
+	Lang  string
+	Text  template.HTML
+}
+
+type ExampleRequest struct {
 	Title    string
 	Method   string
 	Pattern  string
 	Snippets []CodeSnippet
 }
 
-type ResponseExampleSection struct {
+type ExampleResponse struct {
 	Title  string
 	Status int           // The HTTP response status
 	Header []HeaderItem  // The response's header
 	Body   template.HTML // The response's body
+	Lang   string        // the body's language type
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Code Snippet
+////////////////////////////////////////////////////////////////////////////////
+
+type CodeSnippet interface {
+	isCodeSnippet()
+}
+
+type CodeSnippetRequest struct {
+	Method string
+	Path   string
+	Host   string
+	URL    string
+	Header []HeaderItem
+	Body   template.HTML
+}
+
+type CodeSnippetHTTP struct {
+	CodeSnippetRequest
+}
+
+type CodeSnippetCURL struct {
+	CodeSnippetRequest
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // Fields
 ////////////////////////////////////////////////////////////////////////////////
 
+type FieldListClass uint
+
+const (
+	_ FieldListClass = iota
+	FIELD_LIST_HEADER
+	FIELD_LIST_PATH
+	FIELD_LIST_QUERY
+	FIELD_LIST_BODY
+	FIELD_LIST_OBJECT
+)
+
+var fieldListClasses = [...]string{
+	FIELD_LIST_HEADER: "header-field-list",
+	FIELD_LIST_PATH:   "path-field-list",
+	FIELD_LIST_QUERY:  "query-field-list",
+	FIELD_LIST_BODY:   "body-field-list",
+	FIELD_LIST_OBJECT: "object-field-list",
+}
+
+func (c FieldListClass) String() string {
+	return fieldListClasses[c]
+}
+
 type FieldList struct {
 	Title string
+	Class FieldListClass
 	Items []*FieldItem
 }
 
@@ -166,7 +225,7 @@ type FieldItem struct {
 	// The name of the field's type.
 	Type string
 	// The field's documentation.
-	Doc template.HTML
+	Text template.HTML
 	// A link to the source of the field.
 	SourceLink *SourceLink
 	// SettingLabel and SettingText are used to indicates whether the field
@@ -176,8 +235,8 @@ type FieldItem struct {
 	SettingLabel, SettingText string
 	// The field's validation documentation.
 	Validation template.HTML
-	// A list of values associated with the field.
-	ValueList *ValueList
+	// A list of enum values associated with the field's type.
+	EnumList *EnumList
 	// If the field's type is a struct then SubFields will hold the fields
 	// of that struct. If the field's type is not a struct then SubFields
 	// will be nil.
@@ -185,23 +244,21 @@ type FieldItem struct {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Value List
+// Enum List
 ////////////////////////////////////////////////////////////////////////////////
 
-type ValueList struct {
-	// The title to be use for the value list.
+type EnumList struct {
+	// The title to be use for the enum list.
 	Title string
-	// Class is used as a CSS class prefix for the list's elements.
-	Class string
-	Items []*ValueItem
+	Items []*EnumItem
 }
 
-type ValueItem struct {
-	// The text representation of the value.
-	Text string
-	// The value's documentation.
-	Doc template.HTML
-	// A link to the source of the value's declaration.
+type EnumItem struct {
+	// The enum's value.
+	Value string
+	// The enum's documentation text.
+	Text template.HTML
+	// A link to the source of the enum's declaration.
 	SourceLink *SourceLink
 }
 
@@ -229,41 +286,16 @@ type SourceLink struct {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Code Snippet
-////////////////////////////////////////////////////////////////////////////////
 
-type CodeSnippet interface {
-	isCodeSnippet()
-}
+func (*ArticleText) isArticleSection()      {}
+func (*ArticleAuthInfo) isArticleSection()  {}
+func (*ArticleFieldList) isArticleSection() {}
 
-type CodeSnippetRequest struct {
-	Method string
-	Path   string
-	Host   string
-	URL    string
-	Header []HeaderItem
-	Body   template.HTML
-}
+func (*ExampleText) isExampleSection()      {}
+func (*ExampleEndpoints) isExampleSection() {}
+func (*ExampleObject) isExampleSection()    {}
+func (*ExampleRequest) isExampleSection()   {}
+func (*ExampleResponse) isExampleSection()  {}
 
-type HTTPCodeSnippet struct {
-	CodeSnippetRequest
-}
-
-type CURLCodeSnippet struct {
-	CodeSnippetRequest
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-func (*TextArticleSection) isArticleSection()      {}
-func (*AuthInfoArticleSection) isArticleSection()  {}
-func (*FieldListArticleSection) isArticleSection() {}
-
-func (*TextExampleSection) isExampleSection()      {}
-func (*EndpointsExampleSection) isExampleSection() {}
-func (*ObjectExampleSection) isExampleSection()    {}
-func (*RequestExampleSection) isExampleSection()   {}
-func (*ResponseExampleSection) isExampleSection()  {}
-
-func (*HTTPCodeSnippet) isCodeSnippet() {}
-func (*CURLCodeSnippet) isCodeSnippet() {}
+func (*CodeSnippetHTTP) isCodeSnippet() {}
+func (*CodeSnippetCURL) isCodeSnippet() {}

@@ -1,25 +1,32 @@
 <div class="sidebar-container">
 	<header class="sidebar-header">
-		<h3 class="sidebar-heading"></h3>
+		<div class="sidebar-logo-container">
+			<a href="/api" class="">
+				<img src="/logo.png" alt="" class="logo">
+			</a>
+		</div>
+		<h3 class="sidebar-heading">
+			<a href="/api" class="">Example API v1</a>
+		</h3>
 	</header>
 	<nav class="sidebar">
 		<div class="sidebar-list-container">
 			<h5 class="sidebar-list-title">Endpoint Group 1</h5>
 			<ul class="sidebar-list">
 				<li class="sidebar-list-item">
-					<a href="/article-1" class="sidebar-item expandable">Article 1</a>
-					<ul class="sidebar-list-sub">
+					<a href="/api/article-1" class="sidebar-item expandable">Article 1</a>
+					<ul class="sidebar-list-child">
 						<li class="sidebar-list-item">
-							<a href="/article-1#article-1_create-a-foo" class="sidebar-item expandable">Create a Foo</a>
+							<a href="/api/article-1#article-1.create-a-foo" class="sidebar-item">Create a Foo</a>
 						</li>
 						<li class="sidebar-list-item">
-							<a href="/article-1#article-1_list-foos" class="sidebar-item expandable">List Foos</a>
+							<a href="/api/article-1#article-1.list-foos" class="sidebar-item">List Foos</a>
 						</li>
 						<li class="sidebar-list-item">
-							<a href="/article-1#article-1_get-a-foo" class="sidebar-item expandable">Get a Foo</a>
+							<a href="/api/article-1#article-1.get-a-foo" class="sidebar-item">Get a Foo</a>
 						</li>
 						<li class="sidebar-list-item">
-							<a href="/article-1#article-1_delete-a-foo" class="sidebar-item expandable">Delete a Foo</a>
+							<a href="/api/article-1#article-1.delete-a-foo" class="sidebar-item">Delete a Foo</a>
 						</li>
 					</ul>
 				</li>
@@ -27,5 +34,8 @@
 		</div>
 	</nav>
 	<footer class="sidebar-footer">
+		<div class="signin-container">
+			<a href="/signin" class="signin-link">Sign In</a>
+		</div>
 	</footer>
 </div>

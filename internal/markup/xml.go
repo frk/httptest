@@ -1,6 +1,6 @@
 package markup
 
 func XML(data []byte) string {
-	// ...
-	return ""
+	// TODO
+	return string(data)
 }

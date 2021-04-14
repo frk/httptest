@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8">
+		<title>Example API v1</title>
+	</head>
+	<body>
+		<div class="sidebar-container">
+			<header class="sidebar-header">
+				<div class="sidebar-logo-container">
+					<a href="/api" class="">
+						<img src="/logo.png" alt="" class="logo">
+					</a>
+				</div>
+				<h3 class="sidebar-heading">
+					<a href="/api" class="">Example API v1</a>
+				</h3>
+			</header>
+			<nav class="sidebar">
+				<div class="sidebar-list-container">
+					<h5 class="sidebar-list-title">Group Name</h5>
+					<ul class="sidebar-list">
+						<li class="sidebar-list-item">
+							<a href="/api/article-title" class="sidebar-item expandable">Article Title</a>
+							<ul class="sidebar-list-child">
+								<li class="sidebar-list-item">
+									<a href="/api/article-title#article-title.post-api-foos" class="sidebar-item">POST /api/foos</a>
+								</li>
+							</ul>
+						</li>
+					</ul>
+				</div>
+			</nav>
+			<footer class="sidebar-footer">
+				<div class="signin-container">
+					<a href="/signin" class="signin-link">Sign In</a>
+				</div>
+			</footer>
+		</div>
+		<div class="content-container">
+			<header class="content-header">
+			</header>
+			<main role="main">
+				<div class="article-column">
+					<article id="article-title">
+						<div class="article-content">
+							<div class="article-primary-column">
+								<section class="article-section-lead">
+									<h2 class="article-section-lead-title">
+										<a class="article-anchor" href="/api/article-title">Article Title</a>
+									</h2>
+								</section>
+							</div>
+							<div class="article-example-column">
+								<section class="example-section-endpoint-list">
+									<div class="xs-endpoint-list-container">
+										<div class="xs-endpoint-list-topbar">
+											<h3 class="xs-endpoint-list-title">ENDPOINTS</h3>
+										</div>
+										<div class="xs-endpoint-list">
+											<div class="xs-endpoint-item">
+												<a href="/api/article-title#article-title.post-api-foos">
+													<span class="xs-endpoint-method method-post"><code>POST</code></span>
+													<span class="xs-endpoint-pattern"><code>/api/foos</code></span>
+												</a>
+											</div>
+										</div>
+									</div>
+								</section>
+							</div>
+						</div>
+						<div class="article-children">
+							<article id="article-title.post-api-foos">
+								<div class="article-content">
+									<div class="article-primary-column">
+										<section class="article-section-lead">
+											<h2 class="article-section-lead-title">
+												<a class="article-anchor" href="/api/article-title#article-title.post-api-foos">POST /api/foos</a>
+											</h2>
+										</section>
+									</div>
+									<div class="article-example-column">
+									</div>
+								</div>
+							</article>
+						</div>
+					</article>
+				</div>
+			</main>
+			<footer class="content-footer">
+			</footer>
+		</div>
+	</body>
+</html>

@@ -1,8 +1,12 @@
 package httpdoc
 
 import (
+	"bytes"
+	"encoding/json"
 	"html/template"
+	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -13,20 +17,21 @@ import (
 	"github.com/frk/compare"
 	"github.com/frk/httptest"
 	"github.com/frk/httptest/internal/page"
-	//"github.com/frk/httptest/internal/testdata/httpdoc"
+	"github.com/frk/httptest/internal/testdata/httpdoc"
 	"github.com/frk/tagutil"
 )
 
-func Test(t *testing.T) {
+func TestBuild(t *testing.T) {
 	_, f, _, _ := runtime.Caller(0)
 	workdir := filepath.Dir(f)
-	rootdir, err := findRootDir(workdir)
+	srclocal, err := findRootDir(workdir)
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	repourl := "https://github.com/frk/httptest/tree/master/"
+	srcremote := "https://github.com/frk/httptest/tree/master/"
+	srclink := SourceURLFunc(srclocal, srcremote)
 
 	testdatadir := filepath.Dir(workdir) + "/internal/testdata"
 	testFile, err := os.Open(testdatadir + "/test.html")
@@ -37,16 +42,38 @@ func Test(t *testing.T) {
 	defer testFile.Close()
 
 	tests := []struct {
-		skip            bool
-		file            string
-		rootdir         string
-		repourl         string
-		typName         func(reflect.StructField) (typeName string, ok bool)
-		fieldSetting    func(reflect.StructField, reflect.Type) (label, text string, ok bool)
-		fieldValidation func(reflect.StructField, reflect.Type) (text template.HTML)
-		mode            page.TestMode
-		toc             []*ArticleGroup
+		skip bool
+		file string
+		cfg  Config
+		mode page.TestMode
+		toc  []*ArticleGroup
 	}{{
+		///////////////////////////////////////////////////////////////
+		// Page
+		/////////////////////////////////////////////////////////////////
+		file: "page_empty",
+		toc:  []*ArticleGroup{},
+	}, {
+		file: "page_empty",
+		toc:  []*ArticleGroup{{Name: "Group Name"}},
+	}, {
+		file: "page_with_article",
+		toc: []*ArticleGroup{{
+			Name:     "Group Name",
+			Articles: []*Article{{Title: "Article Title"}},
+		}},
+	}, {
+		file: "page_with_endpoint",
+		toc: []*ArticleGroup{{
+			Name: "Group Name",
+			Articles: []*Article{{
+				Title: "Article Title",
+				TestGroups: []*httptest.TestGroup{{
+					Endpoint: httptest.Endpoint{"POST", "/api/foos"},
+				}},
+			}},
+		}},
+	}, {
 		///////////////////////////////////////////////////////////////
 		// Sidebar
 		/////////////////////////////////////////////////////////////////
@@ -159,233 +186,8 @@ func Test(t *testing.T) {
 			}},
 		}},
 	}, {
-		///////////////////////////////////////////////////////////////
-		// Article Text
-		/////////////////////////////////////////////////////////////////
-		file: "article_text_from_raw_string",
-		mode: page.ArticleTest,
-		toc: []*ArticleGroup{{
-			Name: "Article Group 1",
-			Articles: []*Article{{
-				Title: "Article",
-				Text: `<div>
-				<h4>Test</h4>
-				<p>this is a raw string</p>
-				</div>`, //`
-			}},
-		}},
-	}, {
-		skip: true,
-		file: "article_from_topic_file",
-		mode: page.ArticleTest,
-		toc: []*ArticleGroup{{
-			Name: "Article Group 1",
-			Articles: []*Article{{
-				Title: "Article",
-				Text:  testFile,
-			}},
-		}},
-	}, {
-		///////////////////////////////////////////////////////////////
-		// Article "Returns"
-		/////////////////////////////////////////////////////////////////
-		skip: true,
-		file: "article_conclusion_from_topic_raw_string",
-		mode: page.ArticleTest,
-		toc: []*ArticleGroup{{
-			Name: "Article Group 1",
-			Articles: []*Article{{
-				Title: "Article",
-				Text:  `<p>this is a test article</p>`,
-				//Returns: `<div>
-				//<h4>Test</h4>
-				//<p>this is a raw string</p>
-				//</div>`, //`
-			}},
-		}},
-	}, {
-		skip: true,
-		file: "article_conclusion_from_topic_file",
-		mode: page.ArticleTest,
-		toc: []*ArticleGroup{{
-			Name: "Article Group 1",
-			Articles: []*Article{{
-				Title: "Article",
-				Text:  `<p>this is a test article</p>`,
-				//Returns: testFile,
-			}},
-		}},
-	}, {
-		/////////////////////////////////////////////////////////////////
-		// Article Fields (Attributes)
-		/////////////////////////////////////////////////////////////////
-		skip: true,
-		file: "article_field_list_attributes",
-		mode: page.FieldListTest,
-		toc: []*ArticleGroup{{
-			Articles: []*Article{{
-				Title: "Test Article",
-				//Attributes: httpdoc.T1{},
-			}},
-		}},
-	}, {
-		skip: true,
-		file: "article_field_list_attributes_with_comments",
-		mode: page.FieldListTest,
-		toc: []*ArticleGroup{{
-			Articles: []*Article{{
-				Title: "Test Article",
-				//Attributes: httpdoc.T2{},
-			}},
-		}},
-	}, {
-		skip: true,
-		file: "article_field_list_attributes_with_tag_names",
-		mode: page.FieldListTest,
-		toc: []*ArticleGroup{{
-			Articles: []*Article{{
-				Title: "Test Article",
-				//Attributes: httpdoc.T3{},
-			}},
-		}},
-	}, {
-		skip: true,
-		file: "article_field_list_attributes_with_custom_type_names",
-		mode: page.FieldListTest,
-		typName: func(f reflect.StructField) (typeName string, ok bool) {
-			name := []byte(f.Type.String())
-			i, j := 0, len(name)-1
-			for i < j {
-				name[i], name[j] = name[j], name[i]
-				i, j = i+1, j-1
-			}
-			return string(name), true
-		},
-		toc: []*ArticleGroup{{
-			Articles: []*Article{{
-				Title: "Test Article",
-				//Attributes: httpdoc.T1{},
-			}},
-		}},
-	}, {
-		skip: true,
-		file: "article_field_list_attributes_with_nested_fields_1",
-		mode: page.FieldListTest,
-		toc: []*ArticleGroup{{
-			Articles: []*Article{{
-				Title: "Test Article",
-				//Attributes: httpdoc.T4{},
-			}},
-		}},
-	}, {
-		skip: true,
-		file: "article_field_list_attributes_with_nested_fields_2",
-		mode: page.FieldListTest,
-		toc: []*ArticleGroup{{
-			Articles: []*Article{{
-				Title: "Test Article",
-				//Attributes: httpdoc.T5{},
-			}},
-		}},
-	}, {
-		skip:    true,
-		file:    "article_field_list_attributes_with_nested_fields_3",
-		rootdir: rootdir,
-		repourl: repourl,
-		mode:    page.FieldListTest,
-		toc: []*ArticleGroup{{
-			Articles: []*Article{{
-				Title: "Test Article",
-				//Attributes: httpdoc.T6{},
-			}},
-		}},
-	}, {
-		////////////////////////////////////////////////////////////////
-		// Article Fields (Parameters)
-		////////////////////////////////////////////////////////////////
-		skip: true,
-		file: "article_field_list_parameters_1",
-		mode: page.FieldListTest,
-		toc: []*ArticleGroup{{
-			Articles: []*Article{{
-				Title: "Test Article",
-				//Parameters: httpdoc.T1{},
-			}},
-		}},
-	}, {
-		skip: true,
-		file: "article_field_list_parameters_2",
-		fieldSetting: func(s reflect.StructField, t reflect.Type) (label, text string, ok bool) {
-			tag := tagutil.New(string(s.Tag))
-			if tag.Contains("set", "required") {
-				return "required", "This field is required", true
-			}
-			if tag.Contains("set", "optional") {
-				return "optional", "This field is optional", true
-			}
-			if tag.Contains("set", "conditional") {
-				return "conditional", "This field is conditional", true
-			}
-			return "", "", false
-		},
-		mode: page.FieldListTest,
-		toc: []*ArticleGroup{{
-			Articles: []*Article{{
-				Title: "Test Article",
-				//Parameters: httpdoc.T3{},
-			}},
-		}},
-	}, {
-		skip: true,
-		file: "article_field_list_parameters_3",
-		fieldValidation: func(s reflect.StructField, t reflect.Type) (text template.HTML) {
-			tag := tagutil.New(string(s.Tag))
-			if v := tag.First("validation"); len(v) > 0 {
-				vv := strings.Split(v, ":")
-				switch vv[0] {
-				case "len":
-					return template.HTML("<p>value must be of length between " +
-						"<code>" + vv[1] + "</code> and <code>" + vv[2] +
-						"</code> characters long</p>")
-				case "min":
-					return template.HTML("<p>value must be at least " +
-						"<code>" + vv[1] + "</code></p>")
-				case "max":
-					return template.HTML("<p>value must be at most " +
-						"<code>" + vv[1] + "</code></p>")
-				}
-			}
-			return ""
-		},
-		mode: page.FieldListTest,
-		toc: []*ArticleGroup{{
-			Articles: []*Article{{
-				Title: "Test Article",
-				//Parameters: httpdoc.T3{},
-			}},
-		}},
-	}, {
-		/////////////////////////////////////////////////////////////////
-		// Enum List
-		/////////////////////////////////////////////////////////////////
-		skip:    true,
-		file:    "field_enum_list",
-		rootdir: rootdir,
-		repourl: repourl,
-		mode:    page.FieldItemTest,
-		toc: []*ArticleGroup{{
-			Articles: []*Article{{
-				Title: "Test Article",
-				//Attributes: httpdoc.T7{},
-			}},
-		}},
-	}, {
-		/////////////////////////////////////////////////////////////////
-		// Example Endpoint Overview
-		/////////////////////////////////////////////////////////////////
-		skip: true,
-		file: "endpoint_overview",
-		mode: page.EndpointOverviewTest,
+		file: "content_from_endpoints",
+		mode: page.ContentTest,
 		toc: []*ArticleGroup{{
 			Name: "Endpoint Group 1",
 			Articles: []*Article{{
@@ -402,6 +204,670 @@ func Test(t *testing.T) {
 				}, {
 					Endpoint: httptest.Endpoint{"DELETE", "/api/foos"},
 					Desc:     "Delete a Foo",
+				}},
+			}},
+		}},
+	}, {
+		file: "content_from_mix",
+		mode: page.ContentTest,
+		toc: []*ArticleGroup{{
+			Name: "Endpoint Group 1",
+			Articles: []*Article{{
+				Title: "Article 1",
+				TestGroups: []*httptest.TestGroup{{
+					Endpoint: httptest.Endpoint{"POST", "/api/foos"},
+					Desc:     "Create a Foo",
+				}, {
+					Endpoint: httptest.Endpoint{"GET", "/api/foos"},
+					Desc:     "List Foos",
+				}},
+				SubArticles: []*Article{{
+					Title: "Sub Article 1",
+				}, {
+					Title: "Sub Article 2",
+					SubArticles: []*Article{{
+						Title: "Sub Sub Endpoints 1",
+						TestGroups: []*httptest.TestGroup{{
+							Endpoint: httptest.Endpoint{"GET", "/api/foos/{id}/bars"},
+							Desc:     "List FooBars",
+						}},
+					}},
+				}},
+			}},
+		}, {
+			Name: "Article Group 2",
+			Articles: []*Article{{
+				Title: "Article 3",
+			}},
+		}},
+	}, {
+		///////////////////////////////////////////////////////////////
+		// Article Text Column
+		/////////////////////////////////////////////////////////////////
+		file: "primary_column_from_Text_string",
+		mode: page.ArticlePrimaryColumnTest,
+		toc: []*ArticleGroup{{
+			Name: "Article Group 1",
+			Articles: []*Article{{
+				Title: "Article",
+				Text:  `<p>this primary-column text is from a string</p>`,
+			}},
+		}},
+	}, {
+		file: "primary_column_from_Text_file",
+		mode: page.ArticlePrimaryColumnTest,
+		toc: []*ArticleGroup{{
+			Name: "Article Group 1",
+			Articles: []*Article{{
+				Title: "Article",
+				Text:  testFile,
+			}},
+		}},
+	}, {
+		file: "primary_column_from_Text_htmler",
+		mode: page.ArticlePrimaryColumnTest,
+		toc: []*ArticleGroup{{
+			Name: "Article Group 1",
+			Articles: []*Article{{
+				Title: "Article",
+				Text:  testhtmler{},
+			}},
+		}},
+	}, {
+		file: "primary_column_from_Text_valuer",
+		mode: page.ArticlePrimaryColumnTest,
+		toc: []*ArticleGroup{{
+			Name: "Article Group 1",
+			Articles: []*Article{{
+				Title: "Article",
+				Text:  testvaluer{httpdoc.V1{}},
+			}},
+		}},
+	}, {
+		file: "primary_column_from_Text_interface{}",
+		mode: page.ArticlePrimaryColumnTest,
+		toc: []*ArticleGroup{{
+			Name: "Article Group 1",
+			Articles: []*Article{{
+				Title: "Article",
+				Text:  httpdoc.V1{},
+			}},
+		}},
+	}, {
+		file: "primary_column_from_Code_valuer",
+		mode: page.ArticlePrimaryColumnTest,
+		toc: []*ArticleGroup{{
+			Name: "Article Group 1",
+			Articles: []*Article{{
+				Title: "Article",
+				Code:  testvaluer{httpdoc.V1{}},
+			}},
+		}},
+	}, {
+		file: "primary_column_from_Code_interface{}",
+		mode: page.ArticlePrimaryColumnTest,
+		toc: []*ArticleGroup{{
+			Name: "Article Group 1",
+			Articles: []*Article{{
+				Title: "Article",
+				Code:  httpdoc.V1{},
+			}},
+		}},
+	}, {
+		///////////////////////////////////////////////////////////////
+		// Article Code Column
+		/////////////////////////////////////////////////////////////////
+		file: "example_column_from_Code_string",
+		mode: page.ArticleExampleColumnTest,
+		toc: []*ArticleGroup{{
+			Name: "Article Group 1",
+			Articles: []*Article{{
+				Title: "Article",
+				Code:  `<p>this example-column text is from a string</p>`,
+			}},
+		}},
+	}, {
+		file: "example_column_from_Code_file",
+		mode: page.ArticleExampleColumnTest,
+		toc: []*ArticleGroup{{
+			Name: "Article Group 1",
+			Articles: []*Article{{
+				Title: "Article",
+				Code:  testFile,
+			}},
+		}},
+	}, {
+		file: "example_column_from_Code_htmler",
+		mode: page.ArticleExampleColumnTest,
+		toc: []*ArticleGroup{{
+			Name: "Article Group 1",
+			Articles: []*Article{{
+				Title: "Article",
+				Code:  testhtmler{},
+			}},
+		}},
+	}, {
+		file: "example_column_from_Code_valuer",
+		mode: page.ArticleExampleColumnTest,
+		toc: []*ArticleGroup{{
+			Name: "Article Group 1",
+			Articles: []*Article{{
+				Title: "Article",
+				Code:  testvaluer{httpdoc.V1{}},
+			}},
+		}},
+	}, {
+		file: "example_column_from_Code_interface{}",
+		mode: page.ArticleExampleColumnTest,
+		toc: []*ArticleGroup{{
+			Name: "Article Group 1",
+			Articles: []*Article{{
+				Title: "Article",
+				Code:  httpdoc.V1{},
+			}},
+		}},
+	}, {
+		////////////////////////////////////////////////////////////////
+		// auth_info_from_test_request
+		////////////////////////////////////////////////////////////////
+		file: "auth_info_from_test_request_auth_htmler",
+		mode: page.ArticleAuthInfoTest,
+		toc: []*ArticleGroup{{
+			Articles: []*Article{{
+				Title: "Test Article",
+				TestGroups: []*httptest.TestGroup{{
+					Endpoint: httptest.Endpoint{"GET", "/api/foos"},
+					Tests: []*httptest.Test{{
+						Request: httptest.Request{
+							Auth: testhtmler{},
+						},
+					}},
+				}},
+			}},
+		}},
+	}, {
+		file: "auth_info_from_test_request_auth_valuer",
+		mode: page.ArticleAuthInfoTest,
+		toc: []*ArticleGroup{{
+			Articles: []*Article{{
+				Title: "Test Article",
+				TestGroups: []*httptest.TestGroup{{
+					Endpoint: httptest.Endpoint{"GET", "/api/foos"},
+					Tests: []*httptest.Test{{
+						Request: httptest.Request{
+							Auth: testvaluer{httpdoc.A1{}},
+						},
+					}},
+				}},
+			}},
+		}},
+	}, {
+		////////////////////////////////////////////////////////////////
+		// field_list_from_test_response
+		////////////////////////////////////////////////////////////////
+		file: "field_list_from_test_response_header",
+		mode: page.ArticleFieldListTest,
+		toc: []*ArticleGroup{{
+			Articles: []*Article{{
+				Title: "Test Article",
+				TestGroups: []*httptest.TestGroup{{
+					Endpoint: httptest.Endpoint{"GET", "/api/foos"},
+					Tests: []*httptest.Test{{
+						Response: httptest.Response{
+							Header: testvaluer{httpdoc.H1RES{}},
+						},
+					}},
+				}},
+			}},
+		}},
+	}, {
+		file: "field_list_from_test_response_body",
+		mode: page.ArticleFieldListTest,
+		toc: []*ArticleGroup{{
+			Articles: []*Article{{
+				Title: "Test Article",
+				TestGroups: []*httptest.TestGroup{{
+					Endpoint: httptest.Endpoint{"GET", "/api/foos"},
+					Tests: []*httptest.Test{{
+						Response: httptest.Response{
+							Body: jsonbody{httpdoc.T1{}},
+						},
+					}},
+				}},
+			}},
+		}},
+	}, {
+		file: "field_list_from_test_response",
+		mode: page.ArticleFieldListTest,
+		toc: []*ArticleGroup{{
+			Articles: []*Article{{
+				Title: "Test Article",
+				TestGroups: []*httptest.TestGroup{{
+					Endpoint: httptest.Endpoint{"GET", "/api/foos"},
+					Tests: []*httptest.Test{{
+						Response: httptest.Response{
+							Header: testvaluer{httpdoc.H1RES{}},
+							Body:   jsonbody{httpdoc.T1{}},
+						},
+					}},
+				}},
+			}},
+		}},
+	}, {
+		////////////////////////////////////////////////////////////////
+		// field_list_from_test_request
+		////////////////////////////////////////////////////////////////
+		file: "field_list_from_test_request_path",
+		mode: page.ArticleFieldListTest,
+		toc: []*ArticleGroup{{
+			Articles: []*Article{{
+				Title: "Test Article",
+				TestGroups: []*httptest.TestGroup{{
+					Endpoint: httptest.Endpoint{"GET", "/api/foos"},
+					Tests: []*httptest.Test{{
+						Request: httptest.Request{
+							Params: testvaluer{httpdoc.P1{}},
+						},
+					}},
+				}},
+			}},
+		}},
+	}, {
+		file: "field_list_from_test_request_query",
+		mode: page.ArticleFieldListTest,
+		toc: []*ArticleGroup{{
+			Articles: []*Article{{
+				Title: "Test Article",
+				TestGroups: []*httptest.TestGroup{{
+					Endpoint: httptest.Endpoint{"GET", "/api/foos"},
+					Tests: []*httptest.Test{{
+						Request: httptest.Request{
+							Query: testvaluer{httpdoc.Q1{}},
+						},
+					}},
+				}},
+			}},
+		}},
+	}, {
+		file: "field_list_from_test_request_header",
+		mode: page.ArticleFieldListTest,
+		toc: []*ArticleGroup{{
+			Articles: []*Article{{
+				Title: "Test Article",
+				TestGroups: []*httptest.TestGroup{{
+					Endpoint: httptest.Endpoint{"GET", "/api/foos"},
+					Tests: []*httptest.Test{{
+						Request: httptest.Request{
+							Header: testvaluer{httpdoc.H1REQ{}},
+						},
+					}},
+				}},
+			}},
+		}},
+	}, {
+		file: "field_list_from_test_request_body",
+		mode: page.ArticleFieldListTest,
+		toc: []*ArticleGroup{{
+			Articles: []*Article{{
+				Title: "Test Article",
+				TestGroups: []*httptest.TestGroup{{
+					Endpoint: httptest.Endpoint{"GET", "/api/foos"},
+					Tests: []*httptest.Test{{
+						Request: httptest.Request{
+							Body: jsonbody{httpdoc.T1{}},
+						},
+					}},
+				}},
+			}},
+		}},
+	}, {
+		file: "field_list_from_test_request",
+		mode: page.ArticleFieldListTest,
+		toc: []*ArticleGroup{{
+			Articles: []*Article{{
+				Title: "Test Article",
+				TestGroups: []*httptest.TestGroup{{
+					Endpoint: httptest.Endpoint{"GET", "/api/foos"},
+					Tests: []*httptest.Test{{
+						Request: httptest.Request{
+							Params: testvaluer{httpdoc.P1{}},
+							Query:  testvaluer{httpdoc.Q1{}},
+							Header: testvaluer{httpdoc.H1REQ{}},
+							Body:   jsonbody{httpdoc.T1{}},
+						},
+					}},
+				}},
+			}},
+		}},
+	}, {
+		////////////////////////////////////////////////////////////////
+		// field_list_from_test_request_and_response
+		////////////////////////////////////////////////////////////////
+		file: "field_list_from_test_request_and_response",
+		mode: page.ArticleSectionListTest,
+		toc: []*ArticleGroup{{
+			Articles: []*Article{{
+				Title: "Test Article",
+				TestGroups: []*httptest.TestGroup{{
+					Endpoint: httptest.Endpoint{"GET", "/api/foos"},
+					Tests: []*httptest.Test{{
+						Request: httptest.Request{
+							Params: testvaluer{httpdoc.P1{}},
+							Header: testvaluer{httpdoc.H1REQ{}},
+						},
+						Response: httptest.Response{
+							Header: testvaluer{httpdoc.H1RES{}},
+							Body:   jsonbody{httpdoc.T1{}},
+						},
+					}},
+				}},
+			}},
+		}},
+	}, {
+		/////////////////////////////////////////////////////////////////
+		// Field List (output)
+		/////////////////////////////////////////////////////////////////
+		file: "article_field_list_output",
+		mode: page.ArticleFieldListTest,
+		toc: []*ArticleGroup{{
+			Articles: []*Article{{
+				Title: "Test Article",
+				TestGroups: []*httptest.TestGroup{{
+					Endpoint: httptest.Endpoint{"GET", "/api/foos"}, Desc: "List Foos",
+					Tests: []*httptest.Test{{
+						Response: httptest.Response{
+							Body: jsonbody{[]httpdoc.T1{{}, {}, {}}},
+						},
+					}},
+				}},
+			}},
+		}},
+	}, {
+		file: "article_field_list_output_with_comments",
+		mode: page.ArticleFieldListTest,
+		toc: []*ArticleGroup{{
+			Articles: []*Article{{
+				Title: "Test Article",
+				TestGroups: []*httptest.TestGroup{{
+					Endpoint: httptest.Endpoint{"GET", "/api/foos/{id}"}, Desc: "Read Foo",
+					Tests: []*httptest.Test{{
+						Response: httptest.Response{
+							Body: jsonbody{httpdoc.T2{}},
+						},
+					}},
+				}},
+			}},
+		}},
+	}, {
+		file: "article_field_list_output_with_tag_names",
+		mode: page.ArticleFieldListTest,
+		toc: []*ArticleGroup{{
+			Articles: []*Article{{
+				Title: "Test Article",
+				TestGroups: []*httptest.TestGroup{{
+					Endpoint: httptest.Endpoint{"GET", "/api/foos/{id}"}, Desc: "Read Foo",
+					Tests: []*httptest.Test{{
+						Response: httptest.Response{
+							Body: jsonbody{httpdoc.T3{}},
+						},
+					}},
+				}},
+			}},
+		}},
+	}, {
+		file: "article_field_list_output_with_custom_type_names",
+		mode: page.ArticleFieldListTest,
+		cfg: Config{
+			FieldType: func(f reflect.StructField) (typeName string, ok bool) {
+				name := []byte(f.Type.String())
+				i, j := 0, len(name)-1
+				for i < j {
+					name[i], name[j] = name[j], name[i]
+					i, j = i+1, j-1
+				}
+				return string(name), true
+			},
+		},
+		toc: []*ArticleGroup{{
+			Articles: []*Article{{
+				Title: "Test Article",
+				TestGroups: []*httptest.TestGroup{{
+					Endpoint: httptest.Endpoint{"GET", "/api/foos/{id}"}, Desc: "Read Foo",
+					Tests: []*httptest.Test{{
+						Response: httptest.Response{
+							Body: jsonbody{httpdoc.T1{}},
+						},
+					}},
+				}},
+			}},
+		}},
+	}, {
+		file: "article_field_list_output_with_nested_fields_1",
+		mode: page.ArticleFieldListTest,
+		toc: []*ArticleGroup{{
+			Articles: []*Article{{
+				Title: "Test Article",
+				TestGroups: []*httptest.TestGroup{{
+					Endpoint: httptest.Endpoint{"GET", "/api/foos/{id}"}, Desc: "Read Foo",
+					Tests: []*httptest.Test{{
+						Response: httptest.Response{
+							Body: jsonbody{httpdoc.T4{}},
+						},
+					}},
+				}},
+			}},
+		}},
+	}, {
+		file: "article_field_list_output_with_nested_fields_2",
+		mode: page.ArticleFieldListTest,
+		toc: []*ArticleGroup{{
+			Articles: []*Article{{
+				Title: "Test Article",
+				TestGroups: []*httptest.TestGroup{{
+					Endpoint: httptest.Endpoint{"GET", "/api/foos/{id}"}, Desc: "Read Foo",
+					Tests: []*httptest.Test{{
+						Response: httptest.Response{
+							Body: jsonbody{httpdoc.T5{}},
+						},
+					}},
+				}},
+			}},
+		}},
+	}, {
+		file: "article_field_list_output_with_nested_fields_3",
+		cfg:  Config{SourceURL: srclink},
+		mode: page.ArticleFieldListTest,
+		toc: []*ArticleGroup{{
+			Articles: []*Article{{
+				Title: "Test Article",
+				TestGroups: []*httptest.TestGroup{{
+					Endpoint: httptest.Endpoint{"GET", "/api/foos/{id}"}, Desc: "Read Foo",
+					Tests: []*httptest.Test{{
+						Response: httptest.Response{
+							Body: jsonbody{httpdoc.T6{}},
+						},
+					}},
+				}},
+			}},
+		}},
+	}, {
+		////////////////////////////////////////////////////////////////
+		// field list (input)
+		////////////////////////////////////////////////////////////////
+		file: "article_field_list_input_1",
+		mode: page.ArticleFieldListTest,
+		toc: []*ArticleGroup{{
+			Articles: []*Article{{
+				Title: "Test Article",
+				TestGroups: []*httptest.TestGroup{{
+					Endpoint: httptest.Endpoint{"POST", "/api/foos"}, Desc: "Create a Foo",
+					Tests: []*httptest.Test{{
+						Request: httptest.Request{
+							Body: jsonbody{httpdoc.T1{}},
+						},
+					}},
+				}},
+			}},
+		}},
+	}, {
+		file: "article_field_list_input_2",
+		cfg: Config{
+			FieldSetting: func(s reflect.StructField, t reflect.Type) (label, text string, ok bool) {
+				tag := tagutil.New(string(s.Tag))
+				if tag.Contains("set", "required") {
+					return "required", "This field is required", true
+				}
+				if tag.Contains("set", "optional") {
+					return "optional", "This field is optional", true
+				}
+				if tag.Contains("set", "conditional") {
+					return "conditional", "This field is conditional", true
+				}
+				return "", "", false
+			},
+		},
+		mode: page.ArticleFieldListTest,
+		toc: []*ArticleGroup{{
+			Articles: []*Article{{
+				Title: "Test Article",
+				TestGroups: []*httptest.TestGroup{{
+					Endpoint: httptest.Endpoint{"POST", "/api/foos"}, Desc: "Create a Foo",
+					Tests: []*httptest.Test{{
+						Request: httptest.Request{
+							Body: jsonbody{httpdoc.T3{}},
+						},
+					}},
+				}},
+			}},
+		}},
+	}, {
+		file: "article_field_list_input_3",
+		cfg: Config{
+			FieldValidation: func(s reflect.StructField, t reflect.Type) (text template.HTML) {
+				tag := tagutil.New(string(s.Tag))
+				if v := tag.First("validation"); len(v) > 0 {
+					vv := strings.Split(v, ":")
+					switch vv[0] {
+					case "len":
+						return template.HTML("<p>value must be of length between " +
+							"<code>" + vv[1] + "</code> and <code>" + vv[2] +
+							"</code> characters long</p>")
+					case "min":
+						return template.HTML("<p>value must be at least " +
+							"<code>" + vv[1] + "</code></p>")
+					case "max":
+						return template.HTML("<p>value must be at most " +
+							"<code>" + vv[1] + "</code></p>")
+					}
+				}
+				return ""
+			},
+		},
+		mode: page.ArticleFieldListTest,
+		toc: []*ArticleGroup{{
+			Articles: []*Article{{
+				Title: "Test Article",
+				TestGroups: []*httptest.TestGroup{{
+					Endpoint: httptest.Endpoint{"POST", "/api/foos"}, Desc: "Create a Foo",
+					Tests: []*httptest.Test{{
+						Request: httptest.Request{
+							Body: jsonbody{httpdoc.T3{}},
+						},
+					}},
+				}},
+			}},
+		}},
+	}, {
+		/////////////////////////////////////////////////////////////////
+		// Enum List
+		/////////////////////////////////////////////////////////////////
+		file: "enum_list_1",
+		cfg:  Config{SourceURL: srclink},
+		mode: page.EnumListTest,
+		toc: []*ArticleGroup{{
+			Articles: []*Article{{
+				Title: "Test Article",
+				Code:  httpdoc.T7{},
+			}},
+		}},
+	}, {
+		file: "enum_list_2",
+		cfg:  Config{SourceURL: srclink},
+		mode: page.EnumListTest,
+		toc: []*ArticleGroup{{
+			Articles: []*Article{{
+				Title: "Test Article",
+				Code:  httpdoc.T8{},
+			}},
+		}},
+	}, {
+		/////////////////////////////////////////////////////////////////
+		// Endpoints Example
+		/////////////////////////////////////////////////////////////////
+		file: "example_endpoints",
+		mode: page.ExampleEndpointsTest,
+		toc: []*ArticleGroup{{
+			Name: "Endpoint Group 1",
+			Articles: []*Article{{
+				Title: "Article 1",
+				TestGroups: []*httptest.TestGroup{{
+					Endpoint: httptest.Endpoint{"POST", "/api/foos"},
+					Desc:     "Create a Foo",
+				}, {
+					Endpoint: httptest.Endpoint{"GET", "/api/foos"},
+					Desc:     "List Foos",
+				}, {
+					Endpoint: httptest.Endpoint{"GET", "/api/foos/{id}"},
+					Desc:     "Get a Foo",
+				}, {
+					Endpoint: httptest.Endpoint{"DELETE", "/api/foos"},
+					Desc:     "Delete a Foo",
+				}},
+			}},
+		}},
+	}, {
+		/////////////////////////////////////////////////////////////////
+		// Response Example
+		/////////////////////////////////////////////////////////////////
+		file: "example_response",
+		mode: page.ExampleResponseTest,
+		toc: []*ArticleGroup{{
+			Articles: []*Article{{
+				Title: "Test Article",
+				TestGroups: []*httptest.TestGroup{{
+					Endpoint: httptest.Endpoint{"GET", "/api/foos/{id}"}, Desc: "Read Foo",
+					Tests: []*httptest.Test{{
+						Response: httptest.Response{
+							StatusCode: 201,
+							Body: jsonbody{httpdoc.T3{
+								F1: "foo bar",
+								F2: 0.007,
+								F3: 12345,
+								F4: true,
+							}},
+						},
+					}},
+				}},
+			}},
+		}},
+	}, {
+		file: "example_response_with_header",
+		mode: page.ExampleResponseTest,
+		toc: []*ArticleGroup{{
+			Articles: []*Article{{
+				Title: "Test Article",
+				TestGroups: []*httptest.TestGroup{{
+					Endpoint: httptest.Endpoint{"GET", "/api/foos/{id}"}, Desc: "Read Foo",
+					Tests: []*httptest.Test{{
+						Response: httptest.Response{
+							StatusCode: 200,
+							Header: httptest.Header{
+								"Content-Type": {"application/json"},
+								"Set-Cookie":   {"s=11234567890", "t=0987654321"},
+							},
+							Body: jsonbody{httpdoc.T1{}},
+						},
+					}},
 				}},
 			}},
 		}},
@@ -427,18 +893,15 @@ func Test(t *testing.T) {
 				return
 			}
 
-			c := Config{
-				ProjectRoot:     tt.rootdir,
-				RepositoryURL:   tt.repourl,
-				FieldType:       tt.typName,
-				FieldSetting:    tt.fieldSetting,
-				FieldValidation: tt.fieldValidation,
-				mode:            tt.mode,
-			}
-			if err := c.Build(tt.toc); err != nil {
+			tt.cfg.normalize()
+
+			b := build{Config: tt.cfg, dir: tt.toc, mode: tt.mode}
+			if err := b.loadCallerSource(0); err != nil {
+				t.Error(err)
+			} else if err := b.run(); err != nil {
 				t.Error(err)
 			} else {
-				got := c.buf.Bytes()
+				got := b.buf.Bytes()
 				got, want = flatten(got), flatten(want)
 				if e := compare.Compare(string(got), string(want)); e != nil {
 					t.Error(e)
@@ -512,4 +975,33 @@ func isRootDir(path string) (bool, error) {
 	}
 
 	return false, nil
+}
+
+type testhtmler struct{}
+
+func (testhtmler) HTML() (HTML, error) {
+	return `<p>this text is from an httpdoc.HTMLer</p>`, nil
+}
+func (v testhtmler) SetAuth(r *http.Request) {}
+
+type testvaluer struct{ v interface{} }
+
+func (v testvaluer) Value() (Value, error)           { return v.v, nil }
+func (v testvaluer) GetHeader() http.Header          { return nil }
+func (v testvaluer) SetParams(pattern string) string { return "" }
+func (v testvaluer) GetQuery() string                { return "" }
+func (v testvaluer) SetAuth(r *http.Request)         {}
+
+type jsonbody struct{ v interface{} }
+
+func (b jsonbody) Value() (Value, error)     { return b.v, nil }
+func (b jsonbody) Type() string              { return "application/json" }
+func (b jsonbody) Compare(r io.Reader) error { return nil }
+
+func (b jsonbody) Reader() (io.Reader, error) {
+	bs, err := json.Marshal(b.v)
+	if err != nil {
+		return nil, err
+	}
+	return bytes.NewReader(bs), nil
 }

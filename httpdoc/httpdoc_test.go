@@ -565,184 +565,44 @@ func TestBuild(t *testing.T) {
 		}},
 	}, {
 		/////////////////////////////////////////////////////////////////
-		// Field List (output)
+		// field_item_from_test_response
 		/////////////////////////////////////////////////////////////////
-		file: "article_field_list_output",
-		mode: page.ArticleFieldListTest,
-		toc: []*ArticleGroup{{
-			Articles: []*Article{{
-				Title: "Test Article",
-				TestGroups: []*httptest.TestGroup{{
-					Endpoint: httptest.Endpoint{"GET", "/api/foos"}, Desc: "List Foos",
-					Tests: []*httptest.Test{{
-						Response: httptest.Response{
-							Body: jsonbody{[]httpdoc.T1{{}, {}, {}}},
-						},
-					}},
-				}},
-			}},
-		}},
-	}, {
-		file: "article_field_list_output_with_comments",
-		mode: page.ArticleFieldListTest,
-		toc: []*ArticleGroup{{
-			Articles: []*Article{{
-				Title: "Test Article",
-				TestGroups: []*httptest.TestGroup{{
-					Endpoint: httptest.Endpoint{"GET", "/api/foos/{id}"}, Desc: "Read Foo",
-					Tests: []*httptest.Test{{
-						Response: httptest.Response{
-							Body: jsonbody{httpdoc.T2{}},
-						},
-					}},
-				}},
-			}},
-		}},
-	}, {
-		file: "article_field_list_output_with_tag_names",
-		mode: page.ArticleFieldListTest,
-		toc: []*ArticleGroup{{
-			Articles: []*Article{{
-				Title: "Test Article",
-				TestGroups: []*httptest.TestGroup{{
-					Endpoint: httptest.Endpoint{"GET", "/api/foos/{id}"}, Desc: "Read Foo",
-					Tests: []*httptest.Test{{
-						Response: httptest.Response{
-							Body: jsonbody{httpdoc.T3{}},
-						},
-					}},
-				}},
-			}},
-		}},
-	}, {
-		file: "article_field_list_output_with_custom_type_names",
-		mode: page.ArticleFieldListTest,
+		file: "field_item_from_test_response",
+		mode: page.FieldItemTest,
 		cfg: Config{
+			SourceURL: srclink,
 			FieldType: func(f reflect.StructField) (typeName string, ok bool) {
-				name := []byte(f.Type.String())
-				i, j := 0, len(name)-1
-				for i < j {
-					name[i], name[j] = name[j], name[i]
-					i, j = i+1, j-1
-				}
-				return string(name), true
+				return strings.ToUpper(f.Type.Kind().String()) + "_TYPE", true
 			},
 		},
 		toc: []*ArticleGroup{{
 			Articles: []*Article{{
 				Title: "Test Article",
 				TestGroups: []*httptest.TestGroup{{
-					Endpoint: httptest.Endpoint{"GET", "/api/foos/{id}"}, Desc: "Read Foo",
+					Endpoint: httptest.Endpoint{"GET", "/api/foos"},
 					Tests: []*httptest.Test{{
 						Response: httptest.Response{
-							Body: jsonbody{httpdoc.T1{}},
+							Body: jsonbody{httpdoc.FT1{}},
 						},
 					}},
 				}},
 			}},
 		}},
 	}, {
-		file: "article_field_list_output_with_nested_fields_1",
-		mode: page.ArticleFieldListTest,
-		toc: []*ArticleGroup{{
-			Articles: []*Article{{
-				Title: "Test Article",
-				TestGroups: []*httptest.TestGroup{{
-					Endpoint: httptest.Endpoint{"GET", "/api/foos/{id}"}, Desc: "Read Foo",
-					Tests: []*httptest.Test{{
-						Response: httptest.Response{
-							Body: jsonbody{httpdoc.T4{}},
-						},
-					}},
-				}},
-			}},
-		}},
-	}, {
-		file: "article_field_list_output_with_nested_fields_2",
-		mode: page.ArticleFieldListTest,
-		toc: []*ArticleGroup{{
-			Articles: []*Article{{
-				Title: "Test Article",
-				TestGroups: []*httptest.TestGroup{{
-					Endpoint: httptest.Endpoint{"GET", "/api/foos/{id}"}, Desc: "Read Foo",
-					Tests: []*httptest.Test{{
-						Response: httptest.Response{
-							Body: jsonbody{httpdoc.T5{}},
-						},
-					}},
-				}},
-			}},
-		}},
-	}, {
-		file: "article_field_list_output_with_nested_fields_3",
-		cfg:  Config{SourceURL: srclink},
-		mode: page.ArticleFieldListTest,
-		toc: []*ArticleGroup{{
-			Articles: []*Article{{
-				Title: "Test Article",
-				TestGroups: []*httptest.TestGroup{{
-					Endpoint: httptest.Endpoint{"GET", "/api/foos/{id}"}, Desc: "Read Foo",
-					Tests: []*httptest.Test{{
-						Response: httptest.Response{
-							Body: jsonbody{httpdoc.T6{}},
-						},
-					}},
-				}},
-			}},
-		}},
-	}, {
-		////////////////////////////////////////////////////////////////
-		// field list (input)
-		////////////////////////////////////////////////////////////////
-		file: "article_field_list_input_1",
-		mode: page.ArticleFieldListTest,
-		toc: []*ArticleGroup{{
-			Articles: []*Article{{
-				Title: "Test Article",
-				TestGroups: []*httptest.TestGroup{{
-					Endpoint: httptest.Endpoint{"POST", "/api/foos"}, Desc: "Create a Foo",
-					Tests: []*httptest.Test{{
-						Request: httptest.Request{
-							Body: jsonbody{httpdoc.T1{}},
-						},
-					}},
-				}},
-			}},
-		}},
-	}, {
-		file: "article_field_list_input_2",
+		file: "field_item_from_test_request",
+		mode: page.FieldItemTest,
 		cfg: Config{
+			SourceURL: srclink,
+			FieldType: func(f reflect.StructField) (typeName string, ok bool) {
+				return strings.ToUpper(f.Type.Kind().String()) + "_TYPE", true
+			},
 			FieldSetting: func(s reflect.StructField, t reflect.Type) (label, text string, ok bool) {
 				tag := tagutil.New(string(s.Tag))
 				if tag.Contains("set", "required") {
-					return "required", "This field is required", true
-				}
-				if tag.Contains("set", "optional") {
-					return "optional", "This field is optional", true
-				}
-				if tag.Contains("set", "conditional") {
-					return "conditional", "This field is conditional", true
+					return "required", "IS_REQUIRED", true
 				}
 				return "", "", false
 			},
-		},
-		mode: page.ArticleFieldListTest,
-		toc: []*ArticleGroup{{
-			Articles: []*Article{{
-				Title: "Test Article",
-				TestGroups: []*httptest.TestGroup{{
-					Endpoint: httptest.Endpoint{"POST", "/api/foos"}, Desc: "Create a Foo",
-					Tests: []*httptest.Test{{
-						Request: httptest.Request{
-							Body: jsonbody{httpdoc.T3{}},
-						},
-					}},
-				}},
-			}},
-		}},
-	}, {
-		file: "article_field_list_input_3",
-		cfg: Config{
 			FieldValidation: func(s reflect.StructField, t reflect.Type) (text template.HTML) {
 				tag := tagutil.New(string(s.Tag))
 				if v := tag.First("validation"); len(v) > 0 {
@@ -752,26 +612,19 @@ func TestBuild(t *testing.T) {
 						return template.HTML("<p>value must be of length between " +
 							"<code>" + vv[1] + "</code> and <code>" + vv[2] +
 							"</code> characters long</p>")
-					case "min":
-						return template.HTML("<p>value must be at least " +
-							"<code>" + vv[1] + "</code></p>")
-					case "max":
-						return template.HTML("<p>value must be at most " +
-							"<code>" + vv[1] + "</code></p>")
 					}
 				}
 				return ""
 			},
 		},
-		mode: page.ArticleFieldListTest,
 		toc: []*ArticleGroup{{
 			Articles: []*Article{{
 				Title: "Test Article",
 				TestGroups: []*httptest.TestGroup{{
-					Endpoint: httptest.Endpoint{"POST", "/api/foos"}, Desc: "Create a Foo",
+					Endpoint: httptest.Endpoint{"GET", "/api/foos"},
 					Tests: []*httptest.Test{{
 						Request: httptest.Request{
-							Body: jsonbody{httpdoc.T3{}},
+							Body: jsonbody{httpdoc.FT1{}},
 						},
 					}},
 				}},

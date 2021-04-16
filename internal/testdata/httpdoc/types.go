@@ -148,3 +148,25 @@ type Q1 struct {
 //
 // This is a pragraph that doesn't say anything useful.
 type A1 struct{}
+
+type FT1 struct {
+	// Lorem ipsum dolor sit amet, consectetur **adipiscing elit**, sed do eiusmod
+	// tempor *incididunt* ut labore et dolore magna aliqua.
+	//
+	// Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi
+	//	ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit
+	//	in voluptate velit esse cillum dolore eu fugiat nulla pariatur.
+	//
+	// Excepteur `sint occaecat cupidatat non proident`, sunt in culpa qui officia
+	// deserunt mollit anim id est laborum. [test link](https://example.com).
+	Foo struct {
+		// This is just a bar.
+		Bar struct {
+			/*
+				... burn, like fabulous yellow roman candles exploding
+				like spiders across the stars ...
+			*/
+			Baz string `set:"required" validation:"len:10:128"`
+		} `json:"b_a_r"`
+	} `json:"FOO"`
+}

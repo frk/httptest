@@ -1,4 +1,4 @@
-package comment
+package godoc
 
 type (
 	TestPara0 struct{}

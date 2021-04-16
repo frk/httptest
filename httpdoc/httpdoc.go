@@ -16,7 +16,7 @@ import (
 	"strings"
 
 	"github.com/frk/httptest"
-	"github.com/frk/httptest/internal/comment"
+	"github.com/frk/httptest/internal/godoc"
 	"github.com/frk/httptest/internal/markup"
 	"github.com/frk/httptest/internal/page"
 	"github.com/frk/httptest/internal/types"
@@ -672,7 +672,7 @@ func (c *build) newHTML(value interface{}, decl *types.TypeDecl) (html template.
 		if d == nil {
 			return "", errNotNamedType
 		}
-		text, err := comment.ToHTML(d.Doc)
+		text, err := godoc.ToHTML(d.Doc)
 		if err != nil {
 			return "", err
 		}
@@ -783,7 +783,7 @@ func (c *build) _newFieldList(typ *types.Type, aElem *page.ArticleElement, class
 
 		// the field's documentation
 		if len(f.Doc) > 0 {
-			text, err := comment.ToHTML(f.Doc)
+			text, err := godoc.ToHTML(f.Doc)
 			if err != nil {
 				return nil, err
 			}
@@ -854,7 +854,7 @@ func (c *build) newEnumList(typ *types.Type) (*page.EnumList, error) {
 		}
 
 		if len(v.Doc) > 0 {
-			text, err := comment.ToHTML(v.Doc)
+			text, err := godoc.ToHTML(v.Doc)
 			if err != nil {
 				return nil, err
 			}

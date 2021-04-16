@@ -1,4 +1,4 @@
-package comment
+package godoc
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/frk/httptest/internal/testdata/comment"
+	"github.com/frk/httptest/internal/testdata/godoc"
 	"github.com/frk/httptest/internal/types"
 )
 
@@ -66,6 +66,35 @@ func TestToHTML(t *testing.T) {
 	}, {
 		comment: []string{"foo **bar *baz http://www.xyz.com** click* quux"},
 		want:    "<p>foo <strong>bar *baz <a href=\"http://www.xyz.com\">http://www.xyz.com</a></strong> click* quux</p>\n",
+	}, {
+		// notes are removed
+		comment: []string{"// foo bar", "//", "// NOTE(mkopriva): this is a note"},
+		want:    "<p>foo bar</p>\n",
+	}, {
+		// however they must be at the beginning of a comment paragraph
+		// and not part of one.
+		comment: []string{"// foo bar", "// NOTE(mkopriva): this is a note"},
+		want:    "<p>foo bar\nNOTE(mkopriva): this is a note</p>\n",
+	}, {
+		// make sure notes with empty bodies don't blow up.
+		comment: []string{"// foo bar", "//", "// NOTE(mkopriva):"},
+		want:    "<p>foo bar</p>\n",
+	}, {
+		// colon is optional
+		comment: []string{"// foo bar", "//", "// NOTE(mkopriva)"},
+		want:    "<p>foo bar</p>\n",
+	}, {
+		comment: []string{`/*
+		foo bar
+
+		NOTE(mkopriva): this is a note
+
+		BUG(mkopriva): fix this
+		more info about the bug
+
+		and more info still
+		*/`},
+		want: "<p>foo bar</p>\n",
 	}}
 
 	for _, tt := range tests {
@@ -104,34 +133,34 @@ func (tests typeDescTests) Run(t *testing.T) {
 
 func TestTypeDesc_para(t *testing.T) {
 	tests := typeDescTests{{
-		v:    comment.TestPara0{},
+		v:    godoc.TestPara0{},
 		want: "",
 	}, {
-		v:    comment.TestPara1{},
+		v:    godoc.TestPara1{},
 		want: "",
 	}, {
-		v:    comment.TestPara2{},
+		v:    godoc.TestPara2{},
 		want: "<p>line 1\nline 2</p>\n",
 	}, {
-		v:    comment.TestPara3{},
+		v:    godoc.TestPara3{},
 		want: "<p>para 1</p>\n<p>para 2</p>\n<p>para 3</p>\n",
 	}, {
-		v:    comment.TestPara4{},
+		v:    godoc.TestPara4{},
 		want: "<p>para 1\npara 2\npara 3</p>\n",
 	}, {
-		v:    comment.TestPara5{},
+		v:    godoc.TestPara5{},
 		want: "<p>comment</p>\n",
 	}, {
-		v:    comment.TestPara6{},
+		v:    godoc.TestPara6{},
 		want: "<p>comment</p>\n",
 	}, {
-		v:    comment.TestPara7{},
+		v:    godoc.TestPara7{},
 		want: "<p>comment</p>\n<p>block\ncomment</p>\n<p>another block</p>\n",
 	}, {
-		v:    comment.TestPara8{},
+		v:    godoc.TestPara8{},
 		want: "<p>comment line</p>\n<pre><code>indented line</code></pre>\n",
 	}, {
-		v:    comment.TestPara9{},
+		v:    godoc.TestPara9{},
 		want: "<p>comment line</p>\n<pre><code>indented line</code></pre>\n",
 	}}
 
@@ -140,22 +169,22 @@ func TestTypeDesc_para(t *testing.T) {
 
 func TestTypeDesc_code(t *testing.T) {
 	tests := typeDescTests{{
-		v:    comment.TestCode0{},
+		v:    godoc.TestCode0{},
 		want: "<p><code></code></p>\n",
 	}, {
-		v:    comment.TestCode1{},
+		v:    godoc.TestCode1{},
 		want: "<p><code>hello world</code></p>\n",
 	}, {
-		v:    comment.TestCode2{},
+		v:    godoc.TestCode2{},
 		want: "<p><code>&lt;code&gt;hello world&lt;/code&gt;</code></p>\n",
 	}, {
-		v:    comment.TestCode3{},
+		v:    godoc.TestCode3{},
 		want: "<p><code>hello\nworld</code></p>\n",
 	}, {
-		v:    comment.TestCode4{},
+		v:    godoc.TestCode4{},
 		want: "<p>`hello</p>\n<p>world`</p>\n",
 	}, {
-		v:    comment.TestCode5{},
+		v:    godoc.TestCode5{},
 		want: "<p><code>*hello *world</code></p>\n",
 	}}
 
@@ -164,28 +193,28 @@ func TestTypeDesc_code(t *testing.T) {
 
 func TestTypeDesc_em(t *testing.T) {
 	tests := typeDescTests{{
-		v:    comment.TestEm1{},
+		v:    godoc.TestEm1{},
 		want: "<p><em>hello world</em></p>\n",
 	}, {
-		v:    comment.TestEm2{},
+		v:    godoc.TestEm2{},
 		want: "<p><em>hello\nworld</em></p>\n",
 	}, {
-		v:    comment.TestEm3{},
+		v:    godoc.TestEm3{},
 		want: "<p>*hello</p>\n<p>world*</p>\n",
 	}, {
-		v:    comment.TestEm4{},
+		v:    godoc.TestEm4{},
 		want: "<p><em>hello <world></em></p>\n",
 	}, {
-		v:    comment.TestEm5{},
+		v:    godoc.TestEm5{},
 		want: "<p><strong>hello world</strong></p>\n",
 	}, {
-		v:    comment.TestEm6{},
+		v:    godoc.TestEm6{},
 		want: "<p>**hello world*</p>\n",
 	}, {
-		v:    comment.TestEm7{},
+		v:    godoc.TestEm7{},
 		want: "<p>**hello world</p>\n",
 	}, {
-		v:    comment.TestEm8{},
+		v:    godoc.TestEm8{},
 		want: "<p>hello <strong>world</strong></p>\n",
 	}}
 
@@ -194,11 +223,11 @@ func TestTypeDesc_em(t *testing.T) {
 
 func TestTypeDesc_anchor(t *testing.T) {
 	tests := typeDescTests{{
-		v: comment.TestAnchor1{}, want: "<p><a href=\"http://hello.world\">http://hello.world</a></p>\n",
+		v: godoc.TestAnchor1{}, want: "<p><a href=\"http://hello.world\">http://hello.world</a></p>\n",
 	}, {
-		v: comment.TestAnchor2{}, want: "<p>click here: <a href=\"https://www.example.com\">https://www.example.com</a></p>\n",
+		v: godoc.TestAnchor2{}, want: "<p>click here: <a href=\"https://www.example.com\">https://www.example.com</a></p>\n",
 	}, {
-		v: comment.TestAnchor3{}, want: "<p>click <a href=\"https://www.example.com\">here</a></p>\n",
+		v: godoc.TestAnchor3{}, want: "<p>click <a href=\"https://www.example.com\">here</a></p>\n",
 	}}
 
 	tests.Run(t)

@@ -1,7 +1,8 @@
-package comment
+package godoc
 
 import (
 	"bytes"
+	"fmt"
 	"html/template"
 	"regexp"
 	"strconv"
@@ -10,8 +11,47 @@ import (
 	"unicode/utf8"
 )
 
-func ToHTML(comment []string) (string, error) {
-	text := removeSlashes(comment)
+var _ = fmt.Println
+
+type Note struct {
+	Marker string
+	UserId string
+	Body   string
+}
+
+// CommentGroup is expected to hold the aggregated content of an ast.CommentGroup
+// value. The content should be unmodified, meaning that the comment markers "//",
+//  "/*", and "*/" are expected to be present.
+type CommentGroup []string
+
+// ToHTML converts the given CommentGroup to HTML. It is more or less a re-implementation
+// of the the standard library's go/doc.ToHTML with some minor additions and adjustments.
+// A tiny subset of Markdown is supported to allow for some extra formatting.
+//
+// A span of unindented non-blank comments is converted into a paragraph.
+//
+// A span of indented comments is converted into a <pre> block, with the common indent prefix removed.
+//
+// Text wrapped in backticks is converted into a <code> element.
+//
+// Text wrapped in a pair of single asterisks, i.e. "*foo bar*", is converted into an <em> element.
+//
+// Text wrapped in a pair of double asterisks, i.e. "**foo bar**", is converted into a <strong> element.
+//
+// Plain URLs are converted into links.
+//
+// URLs wrapped in parentheses and preceded by text delimited by square brackets
+// are converted into links with the text being the link. e.g. [an example](http://example.com/)
+// is converted into <a href="http://example.com/">an example</a>. Support for the
+// title attribute is currently not provided.
+//
+// Notes are omitted from the output. A note starts at beginning of a comment
+// with "MARKER(uid):" and is followed by the note body. The note ends at the
+// end of the comment group or at the start of another note in the same comment
+// group, whichever comes first.
+//
+func ToHTML(cg CommentGroup) (string, error) {
+	text := prepcg(cg)
 	if len(text) == 0 {
 		return "", nil
 	}
@@ -24,20 +64,20 @@ func ToHTML(comment []string) (string, error) {
 	return buf.String(), nil
 }
 
-func removeSlashes(comment []string) string {
-	if len(comment) == 0 {
+// prepcg prepares the given CommentGroup for parsing.
+func prepcg(cg CommentGroup) string {
+	if len(cg) == 0 {
 		return ""
 	}
 
 	var lines []string
-	for _, c := range comment {
+	for _, c := range cg {
 		switch c[1] {
 		case '/':
-			// remove "//" comment marker
-			c = c[2:]
+			c = c[2:] // remove "//"
 		case '*':
-			// remove "/*" and "*/" markers
-			c = reindent(c[2 : len(c)-2])
+			c = c[2 : len(c)-2] // remove "/*" and "*/"
+			c = reindent(c)
 		}
 
 		if len(c) > 0 && c[0] == ' ' {
@@ -46,23 +86,26 @@ func removeSlashes(comment []string) string {
 
 		cl := strings.Split(c, "\n")
 		for _, l := range cl {
-			lines = append(lines, trimTrailingSpace(l))
+			lines = append(lines, strings.TrimRightFunc(l, unicode.IsSpace))
 		}
 	}
 
 	n := 0
+
+	// truncate consecutive empty lines into one
 	for _, line := range lines {
 		if line != "" || n > 0 && lines[n-1] != "" {
 			lines[n] = line
 			n++
 		}
 	}
+
 	// remove last line if it's empty
 	if n > 0 && lines[n-1] == "" {
 		n--
 	}
-	lines = lines[0:n]
 
+	lines = lines[0:n]
 	return strings.Join(lines, "\n")
 }
 
@@ -123,6 +166,7 @@ const (
 	itemURL
 	itemNamedURL
 	itemIdent
+	itemNote
 
 	eof = -1 // The eof rune signals the graceful end of input.
 )
@@ -211,20 +255,43 @@ func (lx *lexer) emit(typ itemType) {
 	lx.start = lx.pos
 }
 
+// MARKER(uid), MARKER at least 2 chars, uid at least 1 char
+var rxNoteMarker = regexp.MustCompile(`^[ \t]*([A-Z][A-Z]+)\(([^)]+)\):?`)
+
 // lexParaStart scans the start of a paragraph. The position of the scanner is known
 // to be at the beginning of the input or at the end of a previous paragraph or indented block.
 func lexParaStart(lx *lexer) (fn stateFn) {
 	if lx.peek() == eof {
 		return nil
 	}
+
+	if rxNoteMarker.MatchString(lx.input[lx.start:]) {
+		return lexNote
+	}
+
 	lx.emit(itemParaStart)
 	return lexText
+}
+
+// lexNote scans a comment note. The position of the scanner is known to be at
+// the beginning of the note marker.
+func lexNote(lx *lexer) (fn stateFn) {
+	for r := lx.next(); r != eof; r = lx.next() {
+		if isNewLine(r) && isNewLine(lx.next()) {
+			if rxNoteMarker.MatchString(lx.input[lx.pos:]) {
+				lx.emit(itemNote)
+				return lexNote
+			}
+		}
+	}
+
+	lx.emit(itemNote)
+	return nil
 }
 
 const markerChars = "`*:[\n\r"
 
 // lexText scans regular text up to one of the marker characters that mark non-text items.
-// FIXME(mkopriva): seems to blow up when a comment in the form "NOTE:TEMPORARY:" is encountered.
 func lexText(lx *lexer) (fn stateFn) {
 	r := lx.next()
 	for !strings.ContainsRune(markerChars, r) && r != eof {
@@ -312,8 +379,8 @@ const (
 )
 
 var (
-	urlLeftRE    = regexp.MustCompile(`^` + urlRx)
-	protoRightRE = regexp.MustCompile(`(?:^|\b)(` + protocol + `):$`)
+	rxURLLeft    = regexp.MustCompile(`^` + urlRx)
+	rxProtoRight = regexp.MustCompile(`(?:^|\b)(` + protocol + `):$`)
 )
 
 // lexURL scans a URL. The last read rune is known to be a colon which could
@@ -321,8 +388,8 @@ var (
 // following inputs do not, together, match a valid URL the lexer will continue
 // scanning the input from where it left off.
 func lexURL(lx *lexer) stateFn {
-	if plen := len(protoRightRE.FindString(lx.input[:lx.pos])); plen > 0 {
-		if ulen := len(urlLeftRE.FindString(lx.input[lx.pos-plen:])); ulen > 0 {
+	if plen := len(rxProtoRight.FindString(lx.input[:lx.pos])); plen > 0 {
+		if ulen := len(rxURLLeft.FindString(lx.input[lx.pos-plen:])); ulen > 0 {
 			lx.pos -= plen
 			if lx.start < lx.pos {
 				lx.emit(itemText)
@@ -334,16 +401,16 @@ func lexURL(lx *lexer) stateFn {
 		}
 	}
 
-	lx.pos = lx.pos + 1
+	// lx.pos = lx.pos + 1
 	return lexText
 }
 
-var urlNamedRE = regexp.MustCompile(`\[[a-zA-Z0-9_@\- ]+\]\(` + urlRx + `\)`)
+var rxURLNamed = regexp.MustCompile(`\[[a-zA-Z0-9_@\- ]+\]\(` + urlRx + `\)`)
 
 // lexNamedURL scans a named URL. The last read rune is known to be '['.
 func lexNamedURL(lx *lexer) stateFn {
 	pos := lx.pos - 1
-	if ln := len(urlNamedRE.FindString(lx.input[pos:])); ln > 0 {
+	if ln := len(rxURLNamed.FindString(lx.input[pos:])); ln > 0 {
 		lx.pos = pos + ln
 		lx.emit(itemNamedURL)
 	}
@@ -495,6 +562,9 @@ type docparser struct {
 	lx    *lexer
 	tree  *node
 	stack []*node // tracks the nestedness of nodes
+
+	// comment notes, currently these aren't used ...
+	notes []*Note
 }
 
 // parsedoc parses the given text into a node tree.
@@ -609,7 +679,7 @@ func (p *docparser) parse(it item) int {
 		p.push(p.top().add(nodePara, it.pos, ""))
 	case itemIdent:
 		p.pop2(nodePara)
-		data := trimTrailingSpace(it.val)
+		data := strings.TrimRightFunc(it.val, unicode.IsSpace)
 		data = template.HTMLEscapeString(reindent(data))
 		p.top().add(nodePre, it.pos, data)
 	case itemText:
@@ -641,6 +711,9 @@ func (p *docparser) parse(it item) int {
 	case itemNamedURL:
 		name, url := parseNamedURL(it.val)
 		p.top()._add(&node{typ: nodeAnchor, pos: it.pos, data: name, href: url})
+	case itemNote:
+		note := parseNote(it.val)
+		p.notes = append(p.notes, note)
 	}
 	return -1
 }
@@ -661,6 +734,25 @@ func parseNamedURL(s string) (name, url string) {
 	return name, url
 }
 
+// parseNote parses the given string as a comment note.
+func parseNote(s string) (n *Note) {
+	n = new(Note)
+
+	s = strings.TrimSpace(s)
+	i := strings.IndexByte(s, '(')
+	n.Marker = s[:i]
+
+	j := strings.IndexByte(s, ')')
+	n.UserId = s[i+1 : j]
+
+	if len(s) > j+1 && s[j+1] == ':' {
+		j += 1
+	}
+	n.Body = strings.TrimSpace(s[j+1:])
+
+	return n
+}
+
 // isNewLine reports whether the given rune is a new line character or not.
 func isNewLine(r rune) bool {
 	return r == '\r' || r == '\n'
@@ -674,8 +766,4 @@ func isSpace(r rune) bool {
 // isBlank reports whether the given rune is a whitespace character.
 func isBlank(r rune) bool {
 	return isSpace(r) || isNewLine(r)
-}
-
-func trimTrailingSpace(s string) string {
-	return strings.TrimRightFunc(s, unicode.IsSpace)
 }

@@ -107,11 +107,14 @@ func (c *Config) normalize() {
 		c.RootPath = DefaultRootPath
 	}
 
+	if len(c.PageTitle) == 0 {
+		c.PageTitle = DefaultPageTitle
+	}
 	if len(c.SigninPath) == 0 {
 		c.SigninPath = DefaultSigninPath
 	}
-	if len(c.PageTitle) == 0 {
-		c.PageTitle = DefaultPageTitle
+	if len(c.ExampleHost) == 0 {
+		c.ExampleHost = DefaultExampleHost
 	}
 	if len(c.FieldNameTag) == 0 {
 		c.FieldNameTag = DefaultFieldNameTag

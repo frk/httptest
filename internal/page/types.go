@@ -137,48 +137,73 @@ type ExampleText struct {
 type ExampleObject struct {
 	Title string
 	Lang  string
-	Text  template.HTML
+	Code  template.HTML
 }
 
 type ExampleRequest struct {
 	Title    string
 	Method   string
 	Pattern  string
-	Snippets []CodeSnippet
+	Options  []*SelectOption
+	Snippets []*CodeSnippetElement
 }
 
 type ExampleResponse struct {
 	Title  string
 	Status int           // The HTTP response status
 	Header []HeaderItem  // The response's header
-	Body   template.HTML // The response's body
 	Lang   string        // the body's language type
+	Code   template.HTML // The response's body
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // Code Snippet
 ////////////////////////////////////////////////////////////////////////////////
 
+type CodeSnippetElement struct {
+	Id       string // the id of the snippet's primary element
+	Show     bool   // indicates whether or not to show this snippet
+	Lang     string // the language of the snippet's code
+	NumLines int    // the number of lines needed to render the snippet
+	Snippet  CodeSnippet
+}
+
+func (e *CodeSnippetElement) Lines() []struct{} {
+	return make([]struct{}, e.NumLines)
+}
+
 type CodeSnippet interface {
 	isCodeSnippet()
 }
 
-type CodeSnippetRequest struct {
-	Method string
-	Path   string
-	Host   string
-	URL    string
-	Header []HeaderItem
-	Body   template.HTML
+// CodeSnippetHTTP represents a raw HTTP request message.
+type CodeSnippetHTTP struct {
+	// The start line
+	Method, RequestURI, HTTPVersion string
+	// The header fields
+	Headers []HeaderItem
+	// The message body
+	Body template.HTML
 }
 
-type CodeSnippetHTTP struct {
-	CodeSnippetRequest
-}
+func (CodeSnippetHTTP) Name() string { return "HTTP" }
+func (CodeSnippetHTTP) Lang() string { return "http" }
 
 type CodeSnippetCURL struct {
-	CodeSnippetRequest
+	// The target URL
+	URL string
+	// The -X/--request option
+	X string
+	// The -H/--header options
+	H []string
+	// the -d/--data options
+	Data []CURLDataType
 }
+
+func (CodeSnippetCURL) Name() string { return "cURL" }
+func (CodeSnippetCURL) Lang() string { return "curl" }
+
+func (cs *CodeSnippetCURL) NumOpts() int { return len(cs.H) + len(cs.Data) }
 
 ////////////////////////////////////////////////////////////////////////////////
 // Fields
@@ -285,6 +310,30 @@ type SourceLink struct {
 	Text string
 }
 
+type SelectOption struct {
+	Text     string
+	Value    string
+	DataId   string
+	Selected bool
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// cURL specific types
+////////////////////////////////////////////////////////////////////////////////
+type CURLDataType interface {
+	isCURLDataType()
+}
+
+type CURLDataText string
+
+func (s CURLDataText) HTML() template.HTML { return template.HTML(s) }
+
+type CURLDataKeyValue struct {
+	Key   string
+	Value string
+}
+
+////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
 func (*ArticleText) isArticleSection()      {}
@@ -299,3 +348,6 @@ func (*ExampleResponse) isExampleSection()  {}
 
 func (*CodeSnippetHTTP) isCodeSnippet() {}
 func (*CodeSnippetCURL) isCodeSnippet() {}
+
+func (CURLDataText) isCURLDataType()     {}
+func (CURLDataKeyValue) isCURLDataType() {}

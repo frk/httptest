@@ -30,8 +30,7 @@ func TestBuild(t *testing.T) {
 		return
 	}
 
-	srcremote := "https://github.com/frk/httptest/tree/master/"
-	srclink := SourceURLFunc(srclocal, srcremote)
+	srclink := testSourceURLFunc(srclocal)
 
 	testdatadir := filepath.Dir(workdir) + "/internal/testdata"
 	testFile, err := os.Open(testdatadir + "/test.html")
@@ -680,7 +679,7 @@ func TestBuild(t *testing.T) {
 		}},
 	}, {
 		/////////////////////////////////////////////////////////////////
-		// Response Example
+		// example_response
 		/////////////////////////////////////////////////////////////////
 		file: "example_response",
 		mode: page.ExampleResponseTest,
@@ -719,6 +718,113 @@ func TestBuild(t *testing.T) {
 								"Set-Cookie":   {"s=11234567890", "t=0987654321"},
 							},
 							Body: jsonbody{httpdoc.T1{}},
+						},
+					}},
+				}},
+			}},
+		}},
+	}, {
+		/////////////////////////////////////////////////////////////////
+		// example_request
+		/////////////////////////////////////////////////////////////////
+		file: "example_request_topbar",
+		mode: page.ExampleRequestTopbarTest,
+		cfg:  Config{SnippetTypes: []SnippetType{SNIPP_HTTP, SNIPP_CURL}},
+		toc: []*ArticleGroup{{
+			Articles: []*Article{{
+				Title: "Test Article",
+				TestGroups: []*httptest.TestGroup{{
+					Endpoint: httptest.Endpoint{"POST", "/api/foos"},
+					Tests:    []*httptest.Test{{}},
+				}},
+			}},
+		}},
+	}, {
+		file: "example_request_body_http",
+		mode: page.ExampleRequestBodyTest,
+		cfg:  Config{SnippetTypes: []SnippetType{SNIPP_HTTP}},
+		toc: []*ArticleGroup{{
+			Articles: []*Article{{
+				Title: "Test Article",
+				TestGroups: []*httptest.TestGroup{{
+					Endpoint: httptest.Endpoint{"POST", "/api/foos"},
+					Tests: []*httptest.Test{{
+						Request: httptest.Request{
+							Body: jsonbody{httpdoc.T3{
+								F1: "foo bar",
+								F2: 0.007,
+								F3: 12345,
+								F4: true,
+							}},
+						},
+					}},
+				}},
+			}},
+		}},
+	}, {
+		file: "example_request_body_curl",
+		mode: page.ExampleRequestBodyTest,
+		cfg:  Config{SnippetTypes: []SnippetType{SNIPP_CURL}},
+		toc: []*ArticleGroup{{
+			Articles: []*Article{{
+				Title: "Test Article",
+				TestGroups: []*httptest.TestGroup{{
+					Endpoint: httptest.Endpoint{"POST", "/api/foos"},
+					Tests: []*httptest.Test{{
+						Request: httptest.Request{
+							Body: jsonbody{httpdoc.T3{
+								F1: "foo bar",
+								F2: 0.007,
+								F3: 12345,
+								F4: true,
+							}},
+						},
+					}},
+				}},
+			}},
+		}},
+	}, {
+		/////////////////////////////////////////////////////////////////
+		// code_snippet
+		/////////////////////////////////////////////////////////////////
+		file: "code_snippet_http",
+		mode: page.CodeSnippetHTTPTest,
+		cfg:  Config{SnippetTypes: []SnippetType{SNIPP_HTTP}},
+		toc: []*ArticleGroup{{
+			Articles: []*Article{{
+				Title: "Test Article",
+				TestGroups: []*httptest.TestGroup{{
+					Endpoint: httptest.Endpoint{"POST", "/api/foos"},
+					Tests: []*httptest.Test{{
+						Request: httptest.Request{
+							Body: jsonbody{httpdoc.T3{
+								F1: "foo bar",
+								F2: 0.007,
+								F3: 12345,
+								F4: true,
+							}},
+						},
+					}},
+				}},
+			}},
+		}},
+	}, {
+		file: "code_snippet_curl",
+		mode: page.CodeSnippetCURLTest,
+		cfg:  Config{SnippetTypes: []SnippetType{SNIPP_CURL}},
+		toc: []*ArticleGroup{{
+			Articles: []*Article{{
+				Title: "Test Article",
+				TestGroups: []*httptest.TestGroup{{
+					Endpoint: httptest.Endpoint{"POST", "/api/foos"},
+					Tests: []*httptest.Test{{
+						Request: httptest.Request{
+							Body: jsonbody{httpdoc.T3{
+								F1: "foo bar",
+								F2: 0.007,
+								F3: 12345,
+								F4: true,
+							}},
 						},
 					}},
 				}},
@@ -765,9 +871,25 @@ func TestBuild(t *testing.T) {
 }
 
 func flatten(data []byte) (out []byte) {
+	preL := bytes.Index(data, []byte("<pre"))
+	preR := bytes.Index(data, []byte("</pre>"))
+
 	out = make([]byte, len(data))
 	skipNl, skipTab, j := true, true, 0
 	for i := 0; i < len(data); i++ {
+		// keep <pre> formatting
+		if preL > -1 {
+			if i > preL && i < preR {
+				out[j] = data[i]
+				j += 1
+				continue
+			}
+			if i >= preR {
+				preL = bytes.Index(data[i:], []byte("<pre"))
+				preR = bytes.Index(data[i:], []byte("</pre>"))
+			}
+		}
+
 		if skipNl && data[i] == '\n' {
 			skipTab = true
 			continue
@@ -857,4 +979,17 @@ func (b jsonbody) Reader() (io.Reader, error) {
 		return nil, err
 	}
 	return bytes.NewReader(bs), nil
+}
+
+func testSourceURLFunc(local string) (f func(filename string, line int) (url string)) {
+	if l := len(local); l > 0 && local[l-1] == '/' {
+		local = local[:l-1]
+	}
+
+	remote := "https://github.com/frk/httptest/tree/master"
+	return func(filename string, line int) (url string) {
+		file := strings.TrimPrefix(filename, local)
+		href := remote + file + "#L7357"
+		return href
+	}
 }

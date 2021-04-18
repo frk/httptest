@@ -25,11 +25,16 @@ const (
 	ArticleAuthInfoTest    TestMode = "article_auth_info"
 	ArticleFieldListTest   TestMode = "article_field_list"
 
-	ExampleTextTest      TestMode = "example_text"
-	ExampleEndpointsTest TestMode = "example_endpoints"
-	ExampleObjectTest    TestMode = "example_object"
-	ExampleRequestTest   TestMode = "example_request"
-	ExampleResponseTest  TestMode = "example_response"
+	ExampleTextTest          TestMode = "example_text"
+	ExampleEndpointsTest     TestMode = "example_endpoints"
+	ExampleObjectTest        TestMode = "example_object"
+	ExampleResponseTest      TestMode = "example_response"
+	ExampleRequestTest       TestMode = "example_request"
+	ExampleRequestTopbarTest TestMode = "example_request_topbar"
+	ExampleRequestBodyTest   TestMode = "example_request_body"
+
+	CodeSnippetHTTPTest TestMode = "code_snippet_http"
+	CodeSnippetCURLTest TestMode = "code_snippet_curl"
 
 	FieldItemTest TestMode = "field_item"
 	EnumListTest  TestMode = "enum_list"
@@ -69,12 +74,16 @@ func Write(w io.Writer, p Page, m TestMode) error {
 		example_endpoints,
 		example_text,
 		example_object,
-		example_request,
 		example_response,
+		example_request,
+		example_request_topbar,
+		example_request_body,
 
-		code_snippet_lang_list,
 		code_snippet_http,
 		code_snippet_curl,
+
+		code_block_pre,
+		curl_data,
 	}, "")
 
 	t, err := template.New("t").Funcs(helpers).Parse(tmpl)
@@ -122,10 +131,14 @@ func Write(w io.Writer, p Page, m TestMode) error {
 			data = p.Content.Articles[0].SubArticles[0].Example.Sections[0].(*ExampleText)
 		case ExampleObjectTest:
 			data = p.Content.Articles[0].SubArticles[0].Example.Sections[0].(*ExampleObject)
-		case ExampleRequestTest:
-			data = p.Content.Articles[0].SubArticles[0].Example.Sections[0].(*ExampleRequest)
 		case ExampleResponseTest:
 			data = p.Content.Articles[0].SubArticles[0].Example.Sections[1].(*ExampleResponse)
+		case ExampleRequestTest, ExampleRequestTopbarTest, ExampleRequestBodyTest:
+			data = p.Content.Articles[0].SubArticles[0].Example.Sections[0].(*ExampleRequest)
+
+		// code snippet tests
+		case CodeSnippetHTTPTest, CodeSnippetCURLTest:
+			data = p.Content.Articles[0].SubArticles[0].Example.Sections[0].(*ExampleRequest).Snippets[0].Snippet
 
 		// single item tests
 		case FieldItemTest:
@@ -434,20 +447,10 @@ var example_object = `{{ define "example_object" -}}
 		</div>
 		<div class="xs-object-text code-block">
 			<div class="code-block-scroll">
-				<pre class="code-block-pre">
-					<code class="lang-{{ .Lang }}">
-						{{ .Text }}
-					</code>
-				</pre>
+				{{ template "code_block_pre" . }}
 			</div>
 		</div>
 	</div>
-</section>
-{{ end -}}
-` //`
-
-var example_request = `{{ define "example_request" -}}
-<section class="example-section-request">
 </section>
 {{ end -}}
 ` //`
@@ -471,13 +474,9 @@ var example_response = `{{ define "example_response" -}}
 			{{- end }}
 		</div>
 		<div class="xs-response-body code-block">
-			{{- if .Body }}
+			{{- if .Code }}
 			<div class="code-block-scroll">
-				<pre class="code-block-pre">
-					<code class="lang-{{ .Lang }}">
-						{{ .Body }}
-					</code>
-				</pre>
+				{{ template "code_block_pre" . }}
 			</div>
 			{{- end }}
 		</div>
@@ -486,27 +485,97 @@ var example_response = `{{ define "example_response" -}}
 {{ end -}}
 ` //`
 
+var example_request = `{{ define "example_request" -}}
+<section class="example-section-request">
+	<div class="xs-request-container">
+		{{ template "example_request_topbar" . }}
+		{{ template "example_request_body" . }}
+	</div>
+</section>
+{{ end -}}
+` //`
+
+var example_request_topbar = `{{ define "example_request_topbar" -}}
+<div class="xs-request-topbar">
+	<div class="xs-request-title-container">
+		<h3 class="xs-request-title">
+			<span class="xs-request-endpoint-method-{{ lower .Method }}">{{ .Method }} </span>
+			<span class="xs-request-endpoint-pattern">{{ .Pattern }}</span>
+		</h3>
+	</div>
+	<div class="xs-request-lang-select-container">
+		<select name="lang">
+		{{ range .Options -}}
+			<option value="{{ .Value }}" data-id="{{ .DataId }}"{{ if .Selected }} selected{{ end }}>{{ .Text }}</option>
+		{{ end -}}
+		</select>
+	</div>
+</div>
+{{ end -}}
+` //`
+
+var example_request_body = `{{ define "example_request_body" -}}
+<div class="xs-request-body">
+	{{ range .Snippets -}}
+	<div id="{{ .Id }}" class="code-snippet-container lang-{{ .Lang }}">
+		<div class="cs-lines-container">
+			{{ range $i, $_ := .Lines -}}
+			<div>{{ $i }}</div>
+			{{ end -}}
+		</div>
+		<div class="cs-code-container">
+		{{ if (is_code_snippet_http .Snippet) -}}
+			{{ template "code_snippet_http" .Snippet }}
+		{{ else if (is_code_snippet_curl .Snippet) -}}
+			{{ template "code_snippet_curl" .Snippet }}
+		{{ end -}}
+		</div>
+	</div>
+	{{ end -}}
+</div>
+{{ end -}}
+` //`
+
 ////////////////////////////////////////////////////////////////////////////////
 // Code Snippets
 ////////////////////////////////////////////////////////////////////////////////
 
-var code_snippet_lang_list = `{{ define "code_snippet_lang_list" -}}
-{{ range . -}}
-{{ if (is_code_snippet_http .) -}}
-	{{ template "code_snippet_http" . }}
-{{ else if (is_code_snippet_curl .) -}}
-	{{ template "code_snippet_curl" . }}
-{{ end -}}
-{{ end -}}
-{{ end -}}
-` //`
-
 var code_snippet_http = `{{ define "code_snippet_http" -}}
+<pre class="cs-pre lang-http">
+<code class="lang-http">
+<span class="token http-method-{{ lower .Method }}">{{ .Method }}</span> <span class="token http-uri">{{ .RequestURI }}</span> <span class="token http-version">{{ .HTTPVersion }}</span>
+{{ range .Headers -}}
+<span class="token http-header-key">{{ .Key }}:</span> <span class="token http-header-value">{{ .Value }}</span>
+{{ end }}
+<span class="token http-body">{{ .Body }}</span>
+</code>
+</pre>
 {{ end -}}
 ` //`
 
 var code_snippet_curl = `{{ define "code_snippet_curl" -}}
+{{ $LB := (sh_line_break .NumOpts) -}}
+<pre class="cs-pre lang-curl">
+<code class="lang-curl">
+<span class="token curl-cmd">curl</span> <span class="token curl-flag">-X</span> <span class="token curl-flag-value">{{ .X }}</span> <span class="token curl-url">"{{ .URL }}"</span>{{ call $LB }}
+{{- range .H }}
+    <span class="token curl-flag">-H</span> <span class="token curl-header-value">'{{ . }}'</span>{{ call $LB }}
+{{- end }}
+{{- range .Data }}
+    <span class="token curl-flag">-d</span> {{ template "curl_data" . }}{{ call $LB }}
+{{- end }}
+</code>
+</pre>
 {{ end -}}
+` //`
+
+var curl_data = `{{ define "curl_data" -}}
+{{- if (is_curl_data_text .) -}}
+<span class="token curl-data-text">'{{ .HTML }}'</span>
+{{- else if (is_curl_data_key_value .) -}}
+<span class="token curl-data-key">{{ .Key }}</span><span class="token curl-data-op">=</span><span class="token curl-data-value">{{ .Value }}</span>
+{{- end -}}
+{{- end -}}
 ` //`
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -606,5 +675,18 @@ var enum_list = `{{ define "enum_list" -}}
 		{{ end -}}
 	</ul>
 </div>
+{{ end -}}
+` //`
+
+////////////////////////////////////////////////////////////////////////////////
+// Misc.
+////////////////////////////////////////////////////////////////////////////////
+
+var code_block_pre = `{{ define "code_block_pre" -}}
+<pre class="code-block-pre">
+<code class="lang-{{ .Lang }}">
+{{ .Code }}
+</code>
+</pre>
 {{ end -}}
 ` //`

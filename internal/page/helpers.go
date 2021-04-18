@@ -7,6 +7,15 @@ import (
 
 var helpers = template.FuncMap{
 	"lower": strings.ToLower,
+	"sh_line_break": func(numlines int) (f func() string) {
+		return func() string {
+			if numlines > 0 {
+				numlines--
+				return ` \`
+			}
+			return ""
+		}
+	},
 
 	////////////////////////////////////////////////////////////////////////
 	// article section type assertion
@@ -76,6 +85,22 @@ var helpers = template.FuncMap{
 	"is_code_snippet_curl": func(s CodeSnippet) *CodeSnippetCURL {
 		if v, ok := s.(*CodeSnippetCURL); ok && v != nil {
 			return v
+		}
+		return nil
+	},
+
+	////////////////////////////////////////////////////////////////////////
+	// curl data type assertion
+	////////////////////////////////////////////////////////////////////////
+	"is_curl_data_text": func(t CURLDataType) CURLDataText {
+		if v, ok := t.(CURLDataText); ok && len(v) > 0 {
+			return v
+		}
+		return ""
+	},
+	"is_curl_data_key_value": func(t CURLDataType) *CURLDataKeyValue {
+		if v, ok := t.(CURLDataKeyValue); ok {
+			return &v
 		}
 		return nil
 	},

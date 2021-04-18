@@ -37,18 +37,14 @@ type build struct {
 	// buffer to write to
 	buf bytes.Buffer
 
-	// set of already generated ids
-	ids map[string]int
-	// cache of Article ids
-	aIds map[*Article]string
-	// cache of TestGroup ids
-	tgIds map[*httptest.TestGroup]string
-	// set of already generated hrefs
-	hrefs map[string]int
-	// cache of Article hrefs
-	aHrefs map[*Article]string
-	// cache of TestGroup hrefs
-	tgHrefs map[*httptest.TestGroup]string
+	ids   map[string]int                 // set of already generated ids
+	aIds  map[*Article]string            // cache of Article specific ids
+	tgIds map[*httptest.TestGroup]string // cache of TestGroup specific ids
+	csIds map[page.CodeSnippet]string    // cache of CodeSnippet specific ids
+
+	hrefs   map[string]int                 // set of already generated hrefs
+	aHrefs  map[*Article]string            // cache of Article specific hrefs
+	tgHrefs map[*httptest.TestGroup]string // cache of TestGroup specific hrefs
 
 	// utilized by tests
 	mode page.TestMode
@@ -73,6 +69,7 @@ func (c *build) run() error {
 	c.ids = make(map[string]int)
 	c.aIds = make(map[*Article]string)
 	c.tgIds = make(map[*httptest.TestGroup]string)
+	c.csIds = make(map[page.CodeSnippet]string)
 	c.hrefs = make(map[string]int)
 	c.aHrefs = make(map[*Article]string)
 	c.tgHrefs = make(map[*httptest.TestGroup]string)
@@ -494,36 +491,62 @@ func (c *build) newExampleObject(obj interface{}, mediatype, title string) (*pag
 		return nil, err
 	}
 
-	section := new(page.ExampleObject)
-	section.Title = title
-	section.Lang = getLangFromMediaType(mediatype)
-	section.Text = template.HTML(text)
-	return section, nil
+	xo := new(page.ExampleObject)
+	xo.Title = title
+	xo.Lang = getLangFromMediaType(mediatype)
+	xo.Code = template.HTML(text)
+	return xo, nil
 }
 
 func (c *build) newExampleRequest(req httptest.Request, tg *httptest.TestGroup) (*page.ExampleRequest, error) {
-	section := new(page.ExampleRequest)
-	section.Title = "REQUEST"
-	section.Method = tg.Endpoint.Method
-	section.Pattern = tg.Endpoint.Pattern
+	xr := new(page.ExampleRequest)
+	xr.Title = "REQUEST"
+	xr.Method = tg.Endpoint.Method
+	xr.Pattern = tg.Endpoint.Pattern
 
-	csr, err := c.newCodeSnippetRequest(tg.Endpoint, req)
-	if err != nil {
-		return nil, err
-	}
-	for _, st := range c.SnippetTypes {
-		switch st {
+	xr.Options = make([]*page.SelectOption, len(c.SnippetTypes))
+	xr.Snippets = make([]*page.CodeSnippetElement, len(c.SnippetTypes))
+	for i, st := range c.SnippetTypes {
+		var snip page.CodeSnippet
+		var name, lang string
+		var numlines int
+
+		switch st { // TODO snippets for vanilla-js, Go
 		case SNIPP_HTTP:
-			snip := c.newCodeSnippetHTTP(*csr)
-			section.Snippets = append(section.Snippets, snip)
+			cs, nl, err := c.newCodeSnippetHTTP(req, tg)
+			if err != nil {
+				return nil, err
+			}
+			snip = cs
+			name, lang = cs.Name(), cs.Lang()
+			numlines = nl
 		case SNIPP_CURL:
-			snip := c.newCodeSnippetCURL(*csr)
-			section.Snippets = append(section.Snippets, snip)
+			cs, nl, err := c.newCodeSnippetCURL(req, tg)
+			if err != nil {
+				return nil, err
+			}
+			snip = cs
+			name, lang = cs.Name(), cs.Lang()
+			numlines = nl
 		}
-		// TODO snippets for vanilla-js, Go
+
+		elem := new(page.CodeSnippetElement)
+		elem.Id = c.getIdForCodeSnippet(snip, tg, lang)
+		elem.Show = (i == 0)
+		elem.Lang = lang
+		elem.Snippet = snip
+		elem.NumLines = numlines
+		xr.Snippets[i] = elem
+
+		opt := new(page.SelectOption)
+		opt.Text = name
+		opt.Value = lang
+		opt.DataId = elem.Id
+		opt.Selected = elem.Show
+		xr.Options[i] = opt
 	}
 
-	return section, nil
+	return xr, nil
 }
 
 func (c *build) newExampleResponse(resp httptest.Response, tg *httptest.TestGroup) (*page.ExampleResponse, error) {
@@ -544,13 +567,13 @@ func (c *build) newExampleResponse(resp httptest.Response, tg *httptest.TestGrou
 	}
 
 	if resp.Body != nil {
-		text, mediatype, err := marshalBody(resp.Body, true)
+		text, mediatype, _, err := marshalBody(resp.Body, true)
 		if err != nil {
 			return nil, err
 		}
 
-		section.Body = template.HTML(text)
 		section.Lang = getLangFromMediaType(mediatype)
+		section.Code = template.HTML(text)
 
 	}
 
@@ -561,81 +584,94 @@ func (c *build) newExampleResponse(resp httptest.Response, tg *httptest.TestGrou
 // Code Snippets
 ////////////////////////////////////////////////////////////////////////////////
 
-func (c *build) newCodeSnippetRequest(ep httptest.Endpoint, req httptest.Request) (*page.CodeSnippetRequest, error) {
-	csr := new(page.CodeSnippetRequest)
-	csr.Method = ep.Method
-	csr.Host = trimURLScheme(c.ExampleHost)
+func (c *build) newCodeSnippetHTTP(req httptest.Request, tg *httptest.TestGroup) (*page.CodeSnippetHTTP, int, error) {
+	cs := new(page.CodeSnippetHTTP)
+	numlines := 0
 
-	// prepare the URL's path
-	csr.Path = ep.Pattern
-	if req.Params != nil {
-		csr.Path = req.Params.SetParams(csr.Path)
-	}
-	if req.Query != nil {
-		csr.Path += "?" + req.Query.GetQuery()
-	}
-	if len(csr.Path) > 0 && csr.Path[0] != '/' {
-		csr.Path = "/" + csr.Path
+	// The message start-line
+	cs.Method = tg.Endpoint.Method
+	cs.RequestURI = getRequestPath(req, tg.Endpoint)
+	cs.HTTPVersion = "HTTP/1.1"
+	numlines += 1
+
+	// the message body
+	if req.Body != nil {
+		text, _, nl, err := marshalBody(req.Body, false)
+		if err != nil {
+			return nil, 0, err
+		}
+		cs.Body = template.HTML(text)
+		numlines += nl
 	}
 
-	// the target URL
-	csr.URL = c.ExampleHost + csr.Path
-
-	// headers
+	// the message headers
+	cs.Headers = []page.HeaderItem{{Key: "Host", Value: trimURLScheme(c.ExampleHost)}}
+	if req.Body != nil {
+		h1 := page.HeaderItem{Key: "Content-Type", Value: req.Body.Type()}
+		h2 := page.HeaderItem{Key: "Content-Length", Value: strconv.Itoa(len(cs.Body))}
+		cs.Headers = append(cs.Headers, h1, h2)
+	}
 	if req.Header != nil {
 		for key, values := range req.Header.GetHeader() {
-			// if body's present the content type and length
-			// will be set automatically so skip them here.
+			// if the body is present the content type and length
+			// headers were already set above, so skip them here.
 			if req.Body != nil && (key == "Content-Type" || key == "Content-Length") {
 				continue
 			}
 
 			for _, val := range values {
-				item := page.HeaderItem{}
-				item.Key = key
-				item.Value = val
-				csr.Header = append(csr.Header, item)
+				cs.Headers = append(cs.Headers, page.HeaderItem{Key: key, Value: val})
+			}
+		}
+	}
+	numlines += len(cs.Headers) + 1 // +1 for the new line that separates the headers from the body
+
+	// finish off by sorting the message headers, if any are present
+	if len(cs.Headers) > 0 {
+		sort.Sort(&headerSorter{cs.Headers})
+	}
+	return cs, numlines, nil
+}
+
+func (c *build) newCodeSnippetCURL(req httptest.Request, tg *httptest.TestGroup) (*page.CodeSnippetCURL, int, error) {
+	cs := new(page.CodeSnippetCURL)
+	numlines := 0
+
+	// the target URL
+	cs.URL = c.ExampleHost + getRequestPath(req, tg.Endpoint)
+	// the -X option
+	cs.X = tg.Endpoint.Method
+	numlines += 1
+
+	// the -H options
+	if req.Body != nil {
+		cs.H = append(cs.H, fmt.Sprintf("Content-Type: %s", req.Body.Type()))
+		numlines += 1
+	}
+	if req.Header != nil {
+		for key, values := range req.Header.GetHeader() {
+			// if the body is present the content type header was
+			// already set above, so skip it here
+			if req.Body != nil && key == "Content-Type" {
+				continue
+			}
+			for _, val := range values {
+				cs.H = append(cs.H, fmt.Sprintf("%s: %s", key, val))
+				numlines += 1
 			}
 		}
 	}
 
-	// prep the body
+	// the -d/--data options
 	if req.Body != nil {
-		text, _, err := marshalBody(req.Body, false)
+		text, _, nl, err := marshalBody(req.Body, false)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
-
-		h1 := page.HeaderItem{Key: "Content-Type", Value: req.Body.Type()}
-		h2 := page.HeaderItem{Key: "Content-Length", Value: strconv.Itoa(len(text))}
-		csr.Header = append(csr.Header, h1, h2)
-		csr.Body = template.HTML(text)
+		cs.Data = append(cs.Data, page.CURLDataText(text))
+		numlines += nl
 	}
-
-	// finally sort the headers, if any are present
-	if len(csr.Header) > 0 {
-		sort.Sort(&headerSorter{csr.Header})
-	}
-	return csr, nil
-}
-
-func (c *build) newCodeSnippetHTTP(csr page.CodeSnippetRequest) *page.CodeSnippetHTTP {
-	snip := new(page.CodeSnippetHTTP)
-	snip.CodeSnippetRequest = csr
-	return snip
-}
-
-func (c *build) newCodeSnippetCURL(csr page.CodeSnippetRequest) *page.CodeSnippetCURL {
-	snip := new(page.CodeSnippetCURL)
-	snip.CodeSnippetRequest = csr
-
-	// if the method is GET we can omit it since GET is the default cURL
-	// method and is seldom if ever used explicitly with the -X option
-	if strings.ToUpper(snip.Method) == "GET" {
-		snip.Method = ""
-	}
-
-	return snip
+	return cs, numlines, nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -961,6 +997,26 @@ func (c *build) getIdForTestGroup(tg *httptest.TestGroup, parent *Article) strin
 	return id
 }
 
+// getIdForCodeSnippet returns a unique id for the given CodeSnippet.
+func (c *build) getIdForCodeSnippet(cs page.CodeSnippet, tg *httptest.TestGroup, lang string) string {
+	if id, ok := c.csIds[cs]; ok {
+		return id
+	}
+
+	id := c.getIdForTestGroup(tg, nil) + ".cs-lang-" + lang
+
+	// make sure the id is unique
+	count := c.ids[id]
+	c.ids[id] = count + 1
+	if count > 0 {
+		id += "-" + strconv.Itoa(count+1)
+	}
+
+	// cache the id
+	c.csIds[cs] = id
+	return id
+}
+
 // getHrefForArticle returns an href string for the given Article.
 func (c *build) getHrefForArticle(a *Article, parent *Article) string {
 	if href, ok := c.aHrefs[a]; ok {
@@ -1064,27 +1120,28 @@ func marshalValue(value interface{}, mediatype string, withMarkup bool) (string,
 }
 
 // marshalBody
-func marshalBody(body httptest.Body, withMarkup bool) (text string, mediatype string, err error) {
+func marshalBody(body httptest.Body, withMarkup bool) (text string, mediatype string, numlines int, err error) {
 	mediatype, _, err = mime.ParseMediaType(body.Type())
 	if err != nil || !isSupportedMediaType(mediatype) {
-		return "", "", errNotSupportedMediaType
+		return "", "", 0, errNotSupportedMediaType
 	}
 
 	r, err := body.Reader()
 	if err != nil {
-		return "", "", err
+		return "", "", 0, err
 	}
 
 	switch mediatype {
 	case "application/json":
 		raw, err := ioutil.ReadAll(r)
 		if err != nil {
-			return "", "", err
+			return "", "", 0, err
 		}
 		data, err := json.MarshalIndent(json.RawMessage(raw), "", "  ")
 		if err != nil {
-			return "", "", err
+			return "", "", 0, err
 		}
+		numlines = 1 + bytes.Count(data, []byte{'\n'})
 
 		if withMarkup {
 			text = markup.JSON(data)
@@ -1094,12 +1151,13 @@ func marshalBody(body httptest.Body, withMarkup bool) (text string, mediatype st
 	case "application/xml":
 		raw, err := ioutil.ReadAll(r)
 		if err != nil {
-			return "", "", err
+			return "", "", 0, err
 		}
-
 		// TODO(mkopriva): encoding/xml does not provide anything analogous
 		// to `json.MarshalIndent(json.RawMessage(raw), "", "  ")` so to get
 		// neatly formatted text write your own XML formatter for bytes
+
+		numlines = 1 + bytes.Count(raw, []byte{'\n'})
 
 		if withMarkup {
 			text = markup.XML(raw)
@@ -1108,7 +1166,7 @@ func marshalBody(body httptest.Body, withMarkup bool) (text string, mediatype st
 		}
 	}
 
-	return text, mediatype, nil
+	return text, mediatype, numlines, nil
 }
 
 // getLangFromMediaType
@@ -1163,4 +1221,18 @@ func getTestGroupDesc(tg *httptest.TestGroup) string {
 		return ep.Pattern
 	}
 	return ""
+}
+
+func getRequestPath(req httptest.Request, ep httptest.Endpoint) (path string) {
+	path = ep.Pattern
+	if req.Params != nil {
+		path = req.Params.SetParams(path)
+	}
+	if req.Query != nil {
+		path += "?" + req.Query.GetQuery()
+	}
+	if len(path) > 0 && path[0] != '/' {
+		path = "/" + path
+	}
+	return path
 }

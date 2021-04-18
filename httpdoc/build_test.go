@@ -21,7 +21,7 @@ import (
 	"github.com/frk/tagutil"
 )
 
-func TestBuild(t *testing.T) {
+func Test_build(t *testing.T) {
 	_, f, _, _ := runtime.Caller(0)
 	workdir := filepath.Dir(f)
 	srclocal, err := findRootDir(workdir)
@@ -44,7 +44,7 @@ func TestBuild(t *testing.T) {
 		skip bool
 		file string
 		cfg  Config
-		mode page.TestMode
+		wt   writeTest
 		toc  []*ArticleGroup
 	}{{
 		///////////////////////////////////////////////////////////////
@@ -77,7 +77,7 @@ func TestBuild(t *testing.T) {
 		// Sidebar
 		/////////////////////////////////////////////////////////////////
 		file: "sidebar_from_articles",
-		mode: page.SidebarTest,
+		wt:   wt_sidebar,
 		toc: []*ArticleGroup{{
 			Name: "Article Group 1",
 			Articles: []*Article{{
@@ -101,7 +101,7 @@ func TestBuild(t *testing.T) {
 		}},
 	}, {
 		file: "sidebar_from_endpoints",
-		mode: page.SidebarTest,
+		wt:   wt_sidebar,
 		toc: []*ArticleGroup{{
 			Name: "Endpoint Group 1",
 			Articles: []*Article{{
@@ -123,7 +123,7 @@ func TestBuild(t *testing.T) {
 		}},
 	}, {
 		file: "sidebar_from_mix",
-		mode: page.SidebarTest,
+		wt:   wt_sidebar,
 		toc: []*ArticleGroup{{
 			Name: "Endpoint Group 1",
 			Articles: []*Article{{
@@ -162,7 +162,7 @@ func TestBuild(t *testing.T) {
 		// Content
 		/////////////////////////////////////////////////////////////////
 		file: "content_from_articles",
-		mode: page.ContentTest,
+		wt:   wt_content,
 		toc: []*ArticleGroup{{
 			Name: "Article Group 1",
 			Articles: []*Article{{
@@ -186,7 +186,7 @@ func TestBuild(t *testing.T) {
 		}},
 	}, {
 		file: "content_from_endpoints",
-		mode: page.ContentTest,
+		wt:   wt_content,
 		toc: []*ArticleGroup{{
 			Name: "Endpoint Group 1",
 			Articles: []*Article{{
@@ -208,7 +208,7 @@ func TestBuild(t *testing.T) {
 		}},
 	}, {
 		file: "content_from_mix",
-		mode: page.ContentTest,
+		wt:   wt_content,
 		toc: []*ArticleGroup{{
 			Name: "Endpoint Group 1",
 			Articles: []*Article{{
@@ -244,7 +244,7 @@ func TestBuild(t *testing.T) {
 		// Article Text Column
 		/////////////////////////////////////////////////////////////////
 		file: "primary_column_from_Text_string",
-		mode: page.ArticlePrimaryColumnTest,
+		wt:   wt_article_primary_column,
 		toc: []*ArticleGroup{{
 			Name: "Article Group 1",
 			Articles: []*Article{{
@@ -254,7 +254,7 @@ func TestBuild(t *testing.T) {
 		}},
 	}, {
 		file: "primary_column_from_Text_file",
-		mode: page.ArticlePrimaryColumnTest,
+		wt:   wt_article_primary_column,
 		toc: []*ArticleGroup{{
 			Name: "Article Group 1",
 			Articles: []*Article{{
@@ -264,7 +264,7 @@ func TestBuild(t *testing.T) {
 		}},
 	}, {
 		file: "primary_column_from_Text_htmler",
-		mode: page.ArticlePrimaryColumnTest,
+		wt:   wt_article_primary_column,
 		toc: []*ArticleGroup{{
 			Name: "Article Group 1",
 			Articles: []*Article{{
@@ -274,7 +274,7 @@ func TestBuild(t *testing.T) {
 		}},
 	}, {
 		file: "primary_column_from_Text_valuer",
-		mode: page.ArticlePrimaryColumnTest,
+		wt:   wt_article_primary_column,
 		toc: []*ArticleGroup{{
 			Name: "Article Group 1",
 			Articles: []*Article{{
@@ -284,7 +284,7 @@ func TestBuild(t *testing.T) {
 		}},
 	}, {
 		file: "primary_column_from_Text_interface{}",
-		mode: page.ArticlePrimaryColumnTest,
+		wt:   wt_article_primary_column,
 		toc: []*ArticleGroup{{
 			Name: "Article Group 1",
 			Articles: []*Article{{
@@ -294,7 +294,7 @@ func TestBuild(t *testing.T) {
 		}},
 	}, {
 		file: "primary_column_from_Code_valuer",
-		mode: page.ArticlePrimaryColumnTest,
+		wt:   wt_article_primary_column,
 		toc: []*ArticleGroup{{
 			Name: "Article Group 1",
 			Articles: []*Article{{
@@ -304,7 +304,7 @@ func TestBuild(t *testing.T) {
 		}},
 	}, {
 		file: "primary_column_from_Code_interface{}",
-		mode: page.ArticlePrimaryColumnTest,
+		wt:   wt_article_primary_column,
 		toc: []*ArticleGroup{{
 			Name: "Article Group 1",
 			Articles: []*Article{{
@@ -317,7 +317,7 @@ func TestBuild(t *testing.T) {
 		// Article Code Column
 		/////////////////////////////////////////////////////////////////
 		file: "example_column_from_Code_string",
-		mode: page.ArticleExampleColumnTest,
+		wt:   wt_article_example_column,
 		toc: []*ArticleGroup{{
 			Name: "Article Group 1",
 			Articles: []*Article{{
@@ -327,7 +327,7 @@ func TestBuild(t *testing.T) {
 		}},
 	}, {
 		file: "example_column_from_Code_file",
-		mode: page.ArticleExampleColumnTest,
+		wt:   wt_article_example_column,
 		toc: []*ArticleGroup{{
 			Name: "Article Group 1",
 			Articles: []*Article{{
@@ -337,7 +337,7 @@ func TestBuild(t *testing.T) {
 		}},
 	}, {
 		file: "example_column_from_Code_htmler",
-		mode: page.ArticleExampleColumnTest,
+		wt:   wt_article_example_column,
 		toc: []*ArticleGroup{{
 			Name: "Article Group 1",
 			Articles: []*Article{{
@@ -347,7 +347,7 @@ func TestBuild(t *testing.T) {
 		}},
 	}, {
 		file: "example_column_from_Code_valuer",
-		mode: page.ArticleExampleColumnTest,
+		wt:   wt_article_example_column,
 		toc: []*ArticleGroup{{
 			Name: "Article Group 1",
 			Articles: []*Article{{
@@ -357,7 +357,7 @@ func TestBuild(t *testing.T) {
 		}},
 	}, {
 		file: "example_column_from_Code_interface{}",
-		mode: page.ArticleExampleColumnTest,
+		wt:   wt_article_example_column,
 		toc: []*ArticleGroup{{
 			Name: "Article Group 1",
 			Articles: []*Article{{
@@ -370,7 +370,7 @@ func TestBuild(t *testing.T) {
 		// auth_info_from_test_request
 		////////////////////////////////////////////////////////////////
 		file: "auth_info_from_test_request_auth_htmler",
-		mode: page.ArticleAuthInfoTest,
+		wt:   wt_article_auth_info,
 		toc: []*ArticleGroup{{
 			Articles: []*Article{{
 				Title: "Test Article",
@@ -386,7 +386,7 @@ func TestBuild(t *testing.T) {
 		}},
 	}, {
 		file: "auth_info_from_test_request_auth_valuer",
-		mode: page.ArticleAuthInfoTest,
+		wt:   wt_article_auth_info,
 		toc: []*ArticleGroup{{
 			Articles: []*Article{{
 				Title: "Test Article",
@@ -405,7 +405,7 @@ func TestBuild(t *testing.T) {
 		// field_list_from_test_response
 		////////////////////////////////////////////////////////////////
 		file: "field_list_from_test_response_header",
-		mode: page.ArticleFieldListTest,
+		wt:   wt_article_field_list,
 		toc: []*ArticleGroup{{
 			Articles: []*Article{{
 				Title: "Test Article",
@@ -421,7 +421,7 @@ func TestBuild(t *testing.T) {
 		}},
 	}, {
 		file: "field_list_from_test_response_body",
-		mode: page.ArticleFieldListTest,
+		wt:   wt_article_field_list,
 		toc: []*ArticleGroup{{
 			Articles: []*Article{{
 				Title: "Test Article",
@@ -437,7 +437,7 @@ func TestBuild(t *testing.T) {
 		}},
 	}, {
 		file: "field_list_from_test_response",
-		mode: page.ArticleFieldListTest,
+		wt:   wt_article_field_list,
 		toc: []*ArticleGroup{{
 			Articles: []*Article{{
 				Title: "Test Article",
@@ -457,7 +457,7 @@ func TestBuild(t *testing.T) {
 		// field_list_from_test_request
 		////////////////////////////////////////////////////////////////
 		file: "field_list_from_test_request_path",
-		mode: page.ArticleFieldListTest,
+		wt:   wt_article_field_list,
 		toc: []*ArticleGroup{{
 			Articles: []*Article{{
 				Title: "Test Article",
@@ -473,7 +473,7 @@ func TestBuild(t *testing.T) {
 		}},
 	}, {
 		file: "field_list_from_test_request_query",
-		mode: page.ArticleFieldListTest,
+		wt:   wt_article_field_list,
 		toc: []*ArticleGroup{{
 			Articles: []*Article{{
 				Title: "Test Article",
@@ -489,7 +489,7 @@ func TestBuild(t *testing.T) {
 		}},
 	}, {
 		file: "field_list_from_test_request_header",
-		mode: page.ArticleFieldListTest,
+		wt:   wt_article_field_list,
 		toc: []*ArticleGroup{{
 			Articles: []*Article{{
 				Title: "Test Article",
@@ -505,7 +505,7 @@ func TestBuild(t *testing.T) {
 		}},
 	}, {
 		file: "field_list_from_test_request_body",
-		mode: page.ArticleFieldListTest,
+		wt:   wt_article_field_list,
 		toc: []*ArticleGroup{{
 			Articles: []*Article{{
 				Title: "Test Article",
@@ -521,7 +521,7 @@ func TestBuild(t *testing.T) {
 		}},
 	}, {
 		file: "field_list_from_test_request",
-		mode: page.ArticleFieldListTest,
+		wt:   wt_article_field_list,
 		toc: []*ArticleGroup{{
 			Articles: []*Article{{
 				Title: "Test Article",
@@ -543,7 +543,7 @@ func TestBuild(t *testing.T) {
 		// field_list_from_test_request_and_response
 		////////////////////////////////////////////////////////////////
 		file: "field_list_from_test_request_and_response",
-		mode: page.ArticleSectionListTest,
+		wt:   wt_article_section_list,
 		toc: []*ArticleGroup{{
 			Articles: []*Article{{
 				Title: "Test Article",
@@ -567,7 +567,7 @@ func TestBuild(t *testing.T) {
 		// field_item_from_test_response
 		/////////////////////////////////////////////////////////////////
 		file: "field_item_from_test_response",
-		mode: page.FieldItemTest,
+		wt:   wt_field_item,
 		cfg: Config{
 			SourceURL: srclink,
 			FieldType: func(f reflect.StructField) (typeName string, ok bool) {
@@ -589,7 +589,7 @@ func TestBuild(t *testing.T) {
 		}},
 	}, {
 		file: "field_item_from_test_request",
-		mode: page.FieldItemTest,
+		wt:   wt_field_item,
 		cfg: Config{
 			SourceURL: srclink,
 			FieldType: func(f reflect.StructField) (typeName string, ok bool) {
@@ -635,7 +635,7 @@ func TestBuild(t *testing.T) {
 		/////////////////////////////////////////////////////////////////
 		file: "enum_list_1",
 		cfg:  Config{SourceURL: srclink},
-		mode: page.EnumListTest,
+		wt:   wt_enum_list,
 		toc: []*ArticleGroup{{
 			Articles: []*Article{{
 				Title: "Test Article",
@@ -645,7 +645,7 @@ func TestBuild(t *testing.T) {
 	}, {
 		file: "enum_list_2",
 		cfg:  Config{SourceURL: srclink},
-		mode: page.EnumListTest,
+		wt:   wt_enum_list,
 		toc: []*ArticleGroup{{
 			Articles: []*Article{{
 				Title: "Test Article",
@@ -657,7 +657,7 @@ func TestBuild(t *testing.T) {
 		// Endpoints Example
 		/////////////////////////////////////////////////////////////////
 		file: "example_endpoints",
-		mode: page.ExampleEndpointsTest,
+		wt:   wt_example_endpoints,
 		toc: []*ArticleGroup{{
 			Name: "Endpoint Group 1",
 			Articles: []*Article{{
@@ -682,7 +682,7 @@ func TestBuild(t *testing.T) {
 		// example_response
 		/////////////////////////////////////////////////////////////////
 		file: "example_response",
-		mode: page.ExampleResponseTest,
+		wt:   wt_example_response,
 		toc: []*ArticleGroup{{
 			Articles: []*Article{{
 				Title: "Test Article",
@@ -704,7 +704,7 @@ func TestBuild(t *testing.T) {
 		}},
 	}, {
 		file: "example_response_with_header",
-		mode: page.ExampleResponseTest,
+		wt:   wt_example_response,
 		toc: []*ArticleGroup{{
 			Articles: []*Article{{
 				Title: "Test Article",
@@ -728,7 +728,7 @@ func TestBuild(t *testing.T) {
 		// example_request
 		/////////////////////////////////////////////////////////////////
 		file: "example_request_topbar",
-		mode: page.ExampleRequestTopbarTest,
+		wt:   wt_example_request_topbar,
 		cfg:  Config{SnippetTypes: []SnippetType{SNIPP_HTTP, SNIPP_CURL}},
 		toc: []*ArticleGroup{{
 			Articles: []*Article{{
@@ -741,7 +741,7 @@ func TestBuild(t *testing.T) {
 		}},
 	}, {
 		file: "example_request_body_http",
-		mode: page.ExampleRequestBodyTest,
+		wt:   wt_example_request_body,
 		cfg:  Config{SnippetTypes: []SnippetType{SNIPP_HTTP}},
 		toc: []*ArticleGroup{{
 			Articles: []*Article{{
@@ -763,54 +763,7 @@ func TestBuild(t *testing.T) {
 		}},
 	}, {
 		file: "example_request_body_curl",
-		mode: page.ExampleRequestBodyTest,
-		cfg:  Config{SnippetTypes: []SnippetType{SNIPP_CURL}},
-		toc: []*ArticleGroup{{
-			Articles: []*Article{{
-				Title: "Test Article",
-				TestGroups: []*httptest.TestGroup{{
-					Endpoint: httptest.Endpoint{"POST", "/api/foos"},
-					Tests: []*httptest.Test{{
-						Request: httptest.Request{
-							Body: jsonbody{httpdoc.T3{
-								F1: "foo bar",
-								F2: 0.007,
-								F3: 12345,
-								F4: true,
-							}},
-						},
-					}},
-				}},
-			}},
-		}},
-	}, {
-		/////////////////////////////////////////////////////////////////
-		// code_snippet
-		/////////////////////////////////////////////////////////////////
-		file: "code_snippet_http",
-		mode: page.CodeSnippetHTTPTest,
-		cfg:  Config{SnippetTypes: []SnippetType{SNIPP_HTTP}},
-		toc: []*ArticleGroup{{
-			Articles: []*Article{{
-				Title: "Test Article",
-				TestGroups: []*httptest.TestGroup{{
-					Endpoint: httptest.Endpoint{"POST", "/api/foos"},
-					Tests: []*httptest.Test{{
-						Request: httptest.Request{
-							Body: jsonbody{httpdoc.T3{
-								F1: "foo bar",
-								F2: 0.007,
-								F3: 12345,
-								F4: true,
-							}},
-						},
-					}},
-				}},
-			}},
-		}},
-	}, {
-		file: "code_snippet_curl",
-		mode: page.CodeSnippetCURLTest,
+		wt:   wt_example_request_body,
 		cfg:  Config{SnippetTypes: []SnippetType{SNIPP_CURL}},
 		toc: []*ArticleGroup{{
 			Articles: []*Article{{
@@ -852,15 +805,21 @@ func TestBuild(t *testing.T) {
 				return
 			}
 
+			// build
+			tt.cfg.srcdir = workdir
 			tt.cfg.normalize()
-
-			b := build{Config: tt.cfg, dir: tt.toc, mode: tt.mode}
-			if err := b.loadCallerSource(0); err != nil {
+			b := build{Config: tt.cfg, dir: tt.toc}
+			if err := b.run(); err != nil {
 				t.Error(err)
-			} else if err := b.run(); err != nil {
+				return
+			}
+
+			// write
+			var buf bytes.Buffer
+			if err := write_wt(&buf, b.page, tt.wt); err != nil {
 				t.Error(err)
 			} else {
-				got := b.buf.Bytes()
+				got := buf.Bytes()
 				got, want = flatten(got), flatten(want)
 				if e := compare.Compare(string(got), string(want)); e != nil {
 					t.Error(e)
@@ -992,4 +951,68 @@ func testSourceURLFunc(local string) (f func(filename string, line int) (url str
 		href := remote + file + "#L7357"
 		return href
 	}
+}
+
+type writeTest string
+
+const (
+	wt_sidebar writeTest = "sidebar"
+	wt_content writeTest = "content"
+
+	wt_article_primary_column writeTest = "article_primary_column"
+	wt_article_example_column writeTest = "article_example_column"
+
+	wt_article_section_list writeTest = "article_section_list"
+	wt_article_auth_info    writeTest = "article_auth_info"
+	wt_article_field_list   writeTest = "article_field_list"
+
+	wt_example_endpoints      writeTest = "example_endpoints"
+	wt_example_response       writeTest = "example_response"
+	wt_example_request_topbar writeTest = "example_request_topbar"
+	wt_example_request_body   writeTest = "example_request_body"
+
+	wt_field_item writeTest = "field_item"
+	wt_enum_list  writeTest = "enum_list"
+)
+
+// It is expected that the part of the Page identified by the writeTest
+// flag has been properly initialized by the test, if not the program may crash.
+func write_wt(w io.Writer, p page.Page, wt writeTest) error {
+	name := string(wt)
+	data := interface{}(p)
+
+	switch wt {
+	case wt_sidebar:
+		data = p.Sidebar
+	case wt_content:
+		data = p.Content
+	case wt_article_primary_column, wt_article_example_column:
+		data = p.Content.Articles[0]
+
+	// article section tests
+	case wt_article_section_list:
+		data = p.Content.Articles[0].SubArticles[0].Sections
+	case wt_article_auth_info:
+		data = p.Content.Articles[0].SubArticles[0].Sections[0].(*page.ArticleAuthInfo)
+	case wt_article_field_list:
+		data = p.Content.Articles[0].SubArticles[0].Sections[0].(*page.ArticleFieldList)
+
+	// example section tests
+	case wt_example_endpoints:
+		data = p.Content.Articles[0].Example.Sections[0].(*page.ExampleEndpoints)
+	case wt_example_response:
+		data = p.Content.Articles[0].SubArticles[0].Example.Sections[1].(*page.ExampleResponse)
+	case wt_example_request_topbar, wt_example_request_body:
+		data = p.Content.Articles[0].SubArticles[0].Example.Sections[0].(*page.ExampleRequest)
+
+	// single item tests
+	case wt_field_item:
+		data = p.Content.Articles[0].SubArticles[0].Sections[0].(*page.ArticleFieldList).Lists[0].Items[0]
+	case wt_enum_list:
+		data = p.Content.Articles[0].Sections[0].(*page.ArticleFieldList).Lists[0].Items[0].EnumList
+	default:
+		return page.T.Execute(w, p)
+	}
+
+	return page.T.ExecuteTemplate(w, name, data)
 }

@@ -2,156 +2,53 @@ package page
 
 import (
 	"html/template"
-	"io"
 	"strings"
 )
 
-type TestMode string
+var T = template.Must(template.New("t").Funcs(helpers).Parse(strings.Join([]string{
+	page_root,
 
-const (
-	SidebarTest       TestMode = "sidebar"
-	SidebarHeaderTest TestMode = "sidebar_header"
-	SidebarFooterTest TestMode = "sidebar_footer"
-	SidebarListsTest  TestMode = "sidebar_lists"
+	sidebar,
+	sidebar_header,
+	sidebar_footer,
+	sidebar_lists,
+	sidebar_item,
 
-	ContentTest TestMode = "content"
+	content,
+	content_header,
+	content_footer,
+	content_articles,
 
-	ArticleTest              TestMode = "article"
-	ArticlePrimaryColumnTest TestMode = "article_primary_column"
-	ArticleExampleColumnTest TestMode = "article_example_column"
+	article,
+	article_primary_column,
+	article_example_column,
+	article_section_list,
+	article_lead,
+	article_text,
+	article_auth_info,
+	article_field_list,
 
-	ArticleSectionListTest TestMode = "article_section_list"
-	ArticleTextTest        TestMode = "article_text"
-	ArticleAuthInfoTest    TestMode = "article_auth_info"
-	ArticleFieldListTest   TestMode = "article_field_list"
+	field_list,
+	field_item,
+	field_children,
 
-	ExampleTextTest          TestMode = "example_text"
-	ExampleEndpointsTest     TestMode = "example_endpoints"
-	ExampleObjectTest        TestMode = "example_object"
-	ExampleResponseTest      TestMode = "example_response"
-	ExampleRequestTest       TestMode = "example_request"
-	ExampleRequestTopbarTest TestMode = "example_request_topbar"
-	ExampleRequestBodyTest   TestMode = "example_request_body"
+	enum_list,
 
-	CodeSnippetHTTPTest TestMode = "code_snippet_http"
-	CodeSnippetCURLTest TestMode = "code_snippet_curl"
+	example_section_list,
+	example_endpoints,
+	example_text,
+	example_object,
+	example_response,
+	example_request,
+	example_request_topbar,
+	example_request_body,
 
-	FieldItemTest TestMode = "field_item"
-	EnumListTest  TestMode = "enum_list"
-)
+	code_snippet_http,
+	code_snippet_curl,
 
-func Write(w io.Writer, p Page, m TestMode) error {
-	tmpl := strings.Join([]string{
-		page_root,
-
-		sidebar,
-		sidebar_header,
-		sidebar_footer,
-		sidebar_lists,
-		sidebar_item,
-
-		content,
-		content_header,
-		content_footer,
-		content_articles,
-
-		article,
-		article_primary_column,
-		article_example_column,
-		article_section_list,
-		article_lead,
-		article_text,
-		article_auth_info,
-		article_field_list,
-
-		field_list,
-		field_item,
-		field_children,
-
-		enum_list,
-
-		example_section_list,
-		example_endpoints,
-		example_text,
-		example_object,
-		example_response,
-		example_request,
-		example_request_topbar,
-		example_request_body,
-
-		code_snippet_http,
-		code_snippet_curl,
-
-		code_block_pre,
-		curl_data,
-	}, "")
-
-	t, err := template.New("t").Funcs(helpers).Parse(tmpl)
-	if err != nil {
-		return err
-	}
-
-	// NOTE(mkopriva): This is used purely for testing. If a non-zero TestMode
-	// flag is passed in it is assumed that Write was executed inside a test.
-	//
-	// It is expected that the part of the Page identified by the TestMode
-	// flag has been properly initialized by the test, if not the program may crash.
-	if len(m) > 0 {
-		name := string(m)
-		data := interface{}(p)
-
-		switch m {
-		case SidebarTest:
-			data = p.Sidebar
-		case SidebarHeaderTest:
-			data = p.Sidebar.Header
-		case SidebarFooterTest:
-			data = p.Sidebar.Footer
-		case SidebarListsTest:
-			data = p.Sidebar.Lists
-		case ContentTest:
-			data = p.Content
-		case ArticleTest, ArticlePrimaryColumnTest, ArticleExampleColumnTest:
-			data = p.Content.Articles[0]
-
-		// article section tests
-		case ArticleSectionListTest:
-			data = p.Content.Articles[0].SubArticles[0].Sections
-		case ArticleTextTest:
-			data = p.Content.Articles[0].SubArticles[0].Sections[0].(*ArticleText)
-		case ArticleAuthInfoTest:
-			data = p.Content.Articles[0].SubArticles[0].Sections[0].(*ArticleAuthInfo)
-		case ArticleFieldListTest:
-			data = p.Content.Articles[0].SubArticles[0].Sections[0].(*ArticleFieldList)
-
-		// example section tests
-		case ExampleEndpointsTest:
-			data = p.Content.Articles[0].Example.Sections[0].(*ExampleEndpoints)
-		case ExampleTextTest:
-			data = p.Content.Articles[0].SubArticles[0].Example.Sections[0].(*ExampleText)
-		case ExampleObjectTest:
-			data = p.Content.Articles[0].SubArticles[0].Example.Sections[0].(*ExampleObject)
-		case ExampleResponseTest:
-			data = p.Content.Articles[0].SubArticles[0].Example.Sections[1].(*ExampleResponse)
-		case ExampleRequestTest, ExampleRequestTopbarTest, ExampleRequestBodyTest:
-			data = p.Content.Articles[0].SubArticles[0].Example.Sections[0].(*ExampleRequest)
-
-		// code snippet tests
-		case CodeSnippetHTTPTest, CodeSnippetCURLTest:
-			data = p.Content.Articles[0].SubArticles[0].Example.Sections[0].(*ExampleRequest).Snippets[0].Snippet
-
-		// single item tests
-		case FieldItemTest:
-			data = p.Content.Articles[0].SubArticles[0].Sections[0].(*ArticleFieldList).Lists[0].Items[0]
-		case EnumListTest:
-			data = p.Content.Articles[0].Sections[0].(*ArticleFieldList).Lists[0].Items[0].EnumList
-		}
-
-		return t.ExecuteTemplate(w, name, data)
-	}
-
-	return t.Execute(w, p)
-}
+	code_block_pre,
+	curl_data,
+}, "")))
 
 ////////////////////////////////////////////////////////////////////////////////
 // Page

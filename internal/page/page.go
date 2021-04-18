@@ -11,6 +11,10 @@ import (
 type Page struct {
 	Title   string
 	Sidebar Sidebar
+	// NOTE(mkopriva): The code that's writing the Page into files relies on
+	// the Content field to be a non-pointer. If it later needs to be changed
+	// to a pointer, then the page-writing code needs to be updated to create
+	// a shallow copy of the pointed-to Content.
 	Content Content
 }
 

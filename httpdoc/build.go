@@ -190,14 +190,25 @@ func (b *build) buildProgram() error {
 		b.prog.PkgName = b.Config.OutputName
 	}
 
-	// listening port
+	// root path & listening port
+	b.prog.RootPath = b.Config.RootPath
 	b.prog.ListenAddr = ":" + strconv.Itoa(b.Config.TCPListenPort)
 
 	// handlers
+	if len(b.page.Content.Articles) > 0 {
+		// TODO(mkopriva): currently this is using the 0th article
+		// to create the index page handler, while also creating the
+		// article-specific handler... doesn't feel right, give it
+		// more thought and refactor
+		a := b.page.Content.Articles[0]
+		b.prog.IndexHandler.Name = "_Handler"
+		b.prog.IndexHandler.Path = b.prog.RootPath
+		b.prog.IndexHandler.File = a.Id + ".html"
+	}
 	for _, a := range b.page.Content.Articles {
 		h := program.Handler{}
 		h.Name = getCamelCaseArticleId(a.Id) + "Handler"
-		h.Path = "/" + a.Id
+		h.Path = b.prog.RootPath + "/" + a.Id
 		h.File = a.Id + ".html"
 
 		b.prog.Handlers = append(b.prog.Handlers, h)
@@ -619,7 +630,7 @@ func (c *build) newCodeSnippetHTTP(req httptest.Request, tg *httptest.TestGroup)
 			return nil, 0, err
 		}
 		cs.Body = template.HTML(text)
-		numlines += nl
+		numlines += nl + 1 // +1 for the new line that separates the headers from the body
 	}
 
 	// the message headers
@@ -642,7 +653,7 @@ func (c *build) newCodeSnippetHTTP(req httptest.Request, tg *httptest.TestGroup)
 			}
 		}
 	}
-	numlines += len(cs.Headers) + 1 // +1 for the new line that separates the headers from the body
+	numlines += len(cs.Headers)
 
 	// finish off by sorting the message headers, if any are present
 	if len(cs.Headers) > 0 {

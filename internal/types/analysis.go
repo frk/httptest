@@ -76,7 +76,7 @@ type analysis struct {
 
 func typeInfo(a *analysis, rt reflect.Type, rv reflect.Value, rts []reflect.Type) *Type {
 	kind := rt.Kind()
-	if kind == reflect.Ptr && rv.IsValid() {
+	if kind == reflect.Ptr && rv.IsValid() && rv.CanInterface() {
 		if typ, ok := a.ptrs[rv.Interface()]; ok {
 			return typ
 		}
@@ -97,7 +97,7 @@ func typeInfo(a *analysis, rt reflect.Type, rv reflect.Value, rts []reflect.Type
 	typ.Kind = reflectKindToKind[rt.Kind()]
 	typ.PkgPath = rt.PkgPath()
 
-	if kind == reflect.Ptr && rv.IsValid() {
+	if kind == reflect.Ptr && rv.IsValid() && rv.CanInterface() {
 		a.ptrs[rv.Interface()] = typ
 	}
 	if !rv.IsValid() {

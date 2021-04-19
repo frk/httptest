@@ -60,10 +60,13 @@ var page_root = `
 	<head>
 		<meta charset="UTF-8">
 		<title>{{ .Title }}</title>
+		<link rel="stylesheet" href="/assets/css/main.css">
 	</head>
 	<body>
 		{{ template "sidebar" .Sidebar }}
 		{{ template "content" .Content }}
+
+		<script src="/assets/js/main.js"></script>
 	</body>
 </html>
 ` //`
@@ -497,9 +500,9 @@ var field_item = `{{ define "field_item" -}}
 <li id="{{ .Id }}" class="field-item">
 	<h3 class="field-heading">
 		<a class="field-anchor" href="{{ .Href }}">¶</a>
-		{{- with .Path }}
+		{{ with .Path -}}
 		<span class="field-path">{{ . }}</span>
-		{{- end }}
+		{{- end -}}
 		<span class="field-name">{{ .Name }}</span>
 		<span class="field-type">{{ .Type }}</span>
 		{{- if .SettingText }}

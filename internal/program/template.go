@@ -9,6 +9,7 @@ var T = template.Must(template.New("t").Parse(strings.Join([]string{
 	prog_file,
 	func_new,
 	type_handler,
+	index_handler,
 	must_get_files_dir,
 }, "")))
 
@@ -16,6 +17,7 @@ var prog_file = `package {{ .PkgName }}
 
 import (
 	"html/template"
+	"log"
 	"net/http"
 	{{- if .IsExecutable }}
 	"os"
@@ -46,6 +48,8 @@ func main() {
 
 {{ template "type_handler" . }}
 
+{{ template "index_handler" . }}
+
 {{ template "must_get_files_dir" . }}
 ` //`
 
@@ -54,11 +58,14 @@ func New() http.Handler {
 	mux := http.NewServeMux()
 
 	// initialize handlers
+	{{ .IndexHandler.Name }} := indexHandler("{{ .IndexHandler.File }}")
 	{{- range .Handlers }}
 	{{ .Name }} := newHandler("{{ .File }}")
 	{{- end }}
 
 	// register handlers
+	mux.Handle("/", {{ .IndexHandler.Name }})
+	mux.Handle("{{ .IndexHandler.Path }}", {{ .IndexHandler.Name }})
 	{{- range .Handlers }}
 	mux.Handle("{{ .Path }}", {{ .Name }})
 	{{- end }}
@@ -93,6 +100,30 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 {{ end -}}
 ` //`
 
+var index_handler = `{{ define "index_handler" -}}
+func indexHandler(filename string) http.Handler {
+	t, err := template.ParseFiles(filepath.Join(htmldir, filename))
+	if err != nil {
+		panic(err)
+	}
+	h := &handler{t: t}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "{{ .RootPath }}" {
+			if r.URL.Path != "/" {
+				http.NotFound(w, r)
+				return
+			}
+
+			http.Redirect(w, r, "{{ .RootPath }}", http.StatusFound)
+			return
+		}
+		h.ServeHTTP(w, r)
+	})
+}
+{{ end -}}
+` //`
+
 var must_get_files_dir = `{{ define "must_get_files_dir" -}}
 {{ if .IsExecutable -}}
 func mustGetFilesDir() string {
@@ -100,7 +131,7 @@ func mustGetFilesDir() string {
 	if err != nil {
 		panic(err)
 	}
-	return filepath.Join(x, "files")
+	return filepath.Join(filepath.Dir(x), "files")
 }
 {{ else -}}
 func mustGetFilesDir() string {

@@ -34,6 +34,8 @@ type write struct {
 	page page.Page
 	prog program.Program
 
+	dperm    os.FileMode
+	fperm    os.FileMode
 	outdir   string
 	tempdir  string
 	filesdir string
@@ -62,11 +64,23 @@ func (w *write) run() error {
 		return err
 	}
 
+	// remove old, if exits
+	if err := os.RemoveAll(w.outdir); err != nil {
+		return err
+	}
 	return os.Rename(w.tempdir, w.outdir)
 }
 
 func (w *write) init() error {
 	w.outdir = filepath.Join(w.Config.OutputDir, w.Config.OutputName)
+
+	// use the destination dir's file mode for the rest of the files
+	fi, err := os.Stat(w.Config.OutputDir)
+	if err != nil {
+		return err
+	}
+	w.dperm = fi.Mode().Perm()
+	w.fperm = w.dperm &^ 0111
 
 	// initialize directory structure
 	tempdir, err := ioutil.TempDir(w.OutputDir, "httpdoc_*")
@@ -81,7 +95,7 @@ func (w *write) init() error {
 	w.jsdir = filepath.Join(w.filesdir, "js")
 	dirs := []string{w.filesdir, w.htmldir, w.cssdir, w.jsdir}
 	for _, d := range dirs {
-		if err := os.Mkdir(d, 0755); err != nil {
+		if err := os.Mkdir(d, w.dperm); err != nil {
 			return err
 		}
 	}
@@ -109,16 +123,19 @@ func (w *write) writeArticles() error {
 		p.Content.Articles = []*page.ArticleElement{aElem}
 
 		filename := filepath.Join(w.htmldir, aElem.Id+".html")
-		f, err := os.OpenFile(filename, os.O_CREATE, 0755)
+		f, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY, w.fperm)
 		if err != nil {
+			fmt.Println("os.OpenFile")
 			return err
 		}
 		defer f.Close()
 
 		if err := page.T.Execute(f, p); err != nil {
+			fmt.Println("page.T.Execute")
 			return err
 		}
 		if err := f.Sync(); err != nil {
+			fmt.Println("f.Sync")
 			return err
 		}
 	}
@@ -128,7 +145,7 @@ func (w *write) writeArticles() error {
 func (w *write) writeProgram() error {
 	// create the go source file for the program and write the contents to it
 	srcfile := filepath.Join(w.tempdir, w.Config.OutputName+".go")
-	f, err := os.OpenFile(srcfile, os.O_CREATE, 0755)
+	f, err := os.OpenFile(srcfile, os.O_CREATE|os.O_WRONLY, w.fperm)
 	if err != nil {
 		return err
 	}
@@ -176,7 +193,7 @@ func (w *write) copyAssets() error {
 		}
 		defer from.Close()
 
-		to, err := os.OpenFile(f.to, os.O_CREATE, 0755)
+		to, err := os.OpenFile(f.to, os.O_CREATE|os.O_WRONLY, w.fperm)
 		if err != nil {
 			return err
 		}

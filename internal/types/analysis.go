@@ -167,7 +167,7 @@ func typeInfo(a *analysis, rt reflect.Type, rv reflect.Value, rts []reflect.Type
 			sf.Tag = string(ft.Tag)
 			sf.Type = typeInfo(a, ft.Type, fv, rts)
 			sf.IsEmbedded = ft.Anonymous
-			sf.IsExported = len(ft.PkgPath) > 0
+			sf.IsExported = len(ft.PkgPath) == 0
 			typ.Fields[i] = sf
 			typ.hasiface = (typ.hasiface || sf.Type.hasiface)
 		}

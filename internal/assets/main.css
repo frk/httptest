@@ -14,6 +14,10 @@ ul {
 	list-style-type:none;
 }
 
+/*******************************************************************************
+ * Sidebar
+ ******************************************************************************/
+
 .sidebar-container {
 	width: 280px;
 	height: 100%;
@@ -53,6 +57,10 @@ ul {
 	line-height: 18px;
 }
 
+/*******************************************************************************
+ * Content
+ ******************************************************************************/
+
 .content-container {
 	position: absolute;
 	top: 0;
@@ -64,5 +72,30 @@ ul {
 	background: #fff;
 	outline: none !important;
 	overflow-x: hidden;
+}
+
+/*******************************************************************************
+ * Articles
+ ******************************************************************************/
+article {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+}
+
+.article-content {
+	display: flex;
+	flex-direction: row;
+	width: 100%;
+	max-width: 1264px;
+	padding: 5vw;
+}
+
+.article-primary-column {
+	width: 600px;
+}
+
+.article-example-column {
+	width: 600px;
 }
 

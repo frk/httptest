@@ -802,7 +802,25 @@ func (c *build) _newFieldList(typ *types.Type, aElem *page.ArticleElement, class
 		tag := tagutil.New(f.Tag)
 		if tag.Contains(tagKey, "-") || tag.Contains("doc", "-") { // skip field?
 			continue
+		} else if !f.IsExported && (!f.IsEmbedded || !f.Type.CanSelectFields()) {
+			// Nothing to do here if: The field is unexported and not embedded,
+			// or, unexported, embedded, but has not fields to promote.
+			continue
 		}
+
+		// If this is an embedded field that promotes fields to the parent
+		// then unpack those fields directly, rather than as sub-fields.
+		if f.IsEmbedded && f.Type.CanSelectFields() {
+			if stype := getNearestStructType(f.Type); stype != nil && len(stype.Fields) > 0 {
+				subList, err := c._newFieldList(stype, aElem, class, isInput, idpfx, path)
+				if err != nil {
+					return nil, err
+				}
+				list.Items = append(list.Items, subList.Items...)
+			}
+			continue
+		}
+
 		sf, ok := typ.ReflectType.FieldByName(f.Name)
 		if !ok {
 			// shouldn't happen
@@ -866,7 +884,12 @@ func (c *build) _newFieldList(typ *types.Type, aElem *page.ArticleElement, class
 
 		// the field's sub fields
 		if stype := getNearestStructType(ftype); stype != nil && len(stype.Fields) > 0 {
-			subList, err := c._newFieldList(stype, aElem, class, isInput, idpfx, append(path, item.Name))
+			itemName := item.Name
+			if ftype.Kind == types.KindSlice || ftype.Kind == types.KindArray {
+				itemName += "[]"
+			}
+
+			subList, err := c._newFieldList(stype, aElem, class, isInput, idpfx, append(path, itemName))
 			if err != nil {
 				return nil, err
 			}
@@ -1243,7 +1266,7 @@ func getCamelCaseArticleId(id string) string {
 // getNearestStructType returns the nearest struct types.Type in the hierarchy
 // of the given types.Type. If none is found, nil will be returned instead.
 func getNearestStructType(t *types.Type) *types.Type {
-	for t.Kind != types.KindString && t.Elem != nil {
+	for t.Kind != types.KindStruct && t.Elem != nil {
 		t = t.Elem
 	}
 

@@ -113,6 +113,17 @@ func (t *Type) String() string {
 	return "<unknown>"
 }
 
+// CanSelectFields reports whether a value of Type t can be used in a field selector expression.
+func (t *Type) CanSelectFields() bool {
+	if t.Kind == KindStruct {
+		return len(t.Fields) > 0
+	}
+	if t.Kind == KindPtr && t.Elem.Kind == KindStruct {
+		return len(t.Elem.Fields) > 0
+	}
+	return false
+}
+
 // StructField describes a single struct field.
 type StructField struct {
 	// Name of the field.

@@ -35,7 +35,7 @@ type Config struct {
 	//
 	// If a Test instance has its own SetupAndTeardown, then that will be
 	// used instead of this one.
-	SetupAndTeardown func(ep Endpoint, t *Test) (teardown func() error, err error)
+	SetupAndTeardown func(e E, t *Test) (teardown func() error, err error)
 
 	mu sync.RWMutex
 	// The number of passed tests.
@@ -58,6 +58,8 @@ func (c *Config) run(t testing_T, tgs []*TestGroup) {
 			continue
 		}
 
+		method, pattern := tg.E.Split()
+
 		t.Run(tg.Desc, func(t testing_T) {
 			for i, tt := range tg.Tests {
 				if tt.Skip {
@@ -72,11 +74,13 @@ func (c *Config) run(t testing_T, tgs []*TestGroup) {
 					}
 
 					ts := &tstate{
-						host: c.HostURL,
-						ep:   tg.Endpoint,
-						sat:  sat,
-						i:    i,
-						tt:   tt,
+						host:    c.HostURL,
+						method:  method,
+						pattern: pattern,
+						e:       tg.E,
+						sat:     sat,
+						i:       i,
+						tt:      tt,
 					}
 					if err := runtest(ts, c.client()); err != nil {
 						t.Error(err)
@@ -122,18 +126,20 @@ func (c *Config) LogReport() {
 
 // The tstate type holds the state of a test.
 type tstate struct {
-	host string
-	ep   Endpoint
-	sat  func(ep Endpoint, t *Test) (teardown func() error, err error) `cmp:"-"`
-	i    int
-	tt   *Test          `cmp:"+"`
-	req  *http.Request  `cmp:"+"`
-	res  *http.Response `cmp:"+"`
+	host    string
+	method  string
+	pattern string
+	e       E
+	sat     func(e E, t *Test) (teardown func() error, err error) `cmp:"-"`
+	i       int
+	tt      *Test          `cmp:"+"`
+	req     *http.Request  `cmp:"+"`
+	res     *http.Response `cmp:"+"`
 }
 
 func runtest(s *tstate, c *http.Client) (e error) {
 	if s.sat != nil {
-		teardown, err := s.sat(s.ep, s.tt)
+		teardown, err := s.sat(s.e, s.tt)
 		if err != nil {
 			return &testError{code: errTestSetup, s: s, err: err}
 		}
@@ -167,7 +173,7 @@ func runtest(s *tstate, c *http.Client) (e error) {
 
 // initrequest initializes an http request from the test's Request value.
 func initrequest(s *tstate) error {
-	method, path := s.ep.Method, s.ep.Pattern
+	method, path := s.method, s.pattern
 
 	if s.tt.Request.Params != nil {
 		path = s.tt.Request.Params.SetParams(path)

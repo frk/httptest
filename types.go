@@ -8,23 +8,47 @@ import (
 	"strings"
 )
 
-// An Endpoint describes an API endpoint.
-type Endpoint struct {
-	// The endpoint's HTTP method (or verb).
-	Method string
-	// The endpoint's URL path pattern.
-	Pattern string
+// The E string type represents the endpoint to be tested, it is expected to be
+// of the format "METHOD PATTERN", i.e. the endpoint's HTTP method, followed by
+// a single space which, in turn, is followed by the endpoint's URL path pattern.
+// For example: "GET /foo/{id}/bar".
+//
+// If the value provided by the user doesn't match the prescribed format the
+// package will try to default to some sensible value however the result of
+// that may not be what the user expects. It is therefore the user's
+// responsibility to provide the value in the expected format.
+type E string
+
+func (e E) String() string {
+	m, p := e.Split()
+	return m + " " + p
 }
 
-// String returns the result of concatenating the Endpoint's fields.
-func (e Endpoint) String() string {
-	return e.Method + " " + e.Pattern
+// Split splits the endpoint into two strings, the method and the pattern, and returns them.
+func (e E) Split() (method, pattern string) {
+	s := strings.TrimSpace(string(e))
+	if i := strings.IndexByte(s, ' '); i > -1 {
+		method = strings.TrimSpace(s[:i])
+		pattern = strings.TrimSpace(s[i+1:])
+	} else {
+		// If there is no space at which to split the string assume it
+		// is either empty, or it contains only a pattern and no method.
+		// Default to GET either way.
+		method = "GET"
+	}
+
+	// If the pattern is empty or doesn't start with a slash, prefix it with one.
+	if len(pattern) == 0 || pattern[0] != '/' {
+		pattern = "/" + pattern
+	}
+
+	return method, pattern
 }
 
 // A TestGroup is a set of tests to be executed against a specific endpoint.
 type TestGroup struct {
 	// The endpoint to be tested.
-	Endpoint Endpoint
+	E E
 	// The list of tests that will be executed against the endpoint.
 	Tests []*Test
 	// Indicates that the TestGroup should be skipped by the test runner.
@@ -84,7 +108,7 @@ type Test struct {
 	// The setup function is the first one in the chain and it is invoked
 	// before a test is executed. The teardown, returned by the setup, is
 	// the second one in the chain and it is invoked after the test is executed.
-	SetupAndTeardown func(ep Endpoint, t *Test) (teardown func() error, err error)
+	SetupAndTeardown func(e E, t *Test) (teardown func() error, err error)
 	// Indicates that the Test should be skipped by the test runner.
 	Skip bool
 	// A short description of the test.

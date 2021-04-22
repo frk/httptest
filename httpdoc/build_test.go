@@ -68,7 +68,7 @@ func Test_build(t *testing.T) {
 			Articles: []*Article{{
 				Title: "Article Title",
 				TestGroups: []*httptest.TestGroup{{
-					Endpoint: httptest.Endpoint{"POST", "/api/foos"},
+					E: "POST /api/foos",
 				}},
 			}},
 		}},
@@ -107,17 +107,17 @@ func Test_build(t *testing.T) {
 			Articles: []*Article{{
 				Title: "Article 1",
 				TestGroups: []*httptest.TestGroup{{
-					Endpoint: httptest.Endpoint{"POST", "/api/foos"},
-					Desc:     "Create a Foo",
+					E:    "POST /api/foos",
+					Desc: "Create a Foo",
 				}, {
-					Endpoint: httptest.Endpoint{"GET", "/api/foos"},
-					Desc:     "List Foos",
+					E:    "GET /api/foos",
+					Desc: "List Foos",
 				}, {
-					Endpoint: httptest.Endpoint{"GET", "/api/foos/{id}"},
-					Desc:     "Get a Foo",
+					E:    "GET /api/foos/{id}",
+					Desc: "Get a Foo",
 				}, {
-					Endpoint: httptest.Endpoint{"DELETE", "/api/foos"},
-					Desc:     "Delete a Foo",
+					E:    "DELETE /api/foos",
+					Desc: "Delete a Foo",
 				}},
 			}},
 		}},
@@ -129,11 +129,11 @@ func Test_build(t *testing.T) {
 			Articles: []*Article{{
 				Title: "Article 1",
 				TestGroups: []*httptest.TestGroup{{
-					Endpoint: httptest.Endpoint{"POST", "/api/foos"},
-					Desc:     "Create a Foo",
+					E:    "POST /api/foos",
+					Desc: "Create a Foo",
 				}, {
-					Endpoint: httptest.Endpoint{"GET", "/api/foos"},
-					Desc:     "List Foos",
+					E:    "GET /api/foos",
+					Desc: "List Foos",
 				}},
 				SubArticles: []*Article{{
 					Title: "Sub Article 1",
@@ -142,11 +142,11 @@ func Test_build(t *testing.T) {
 					SubArticles: []*Article{{
 						Title: "Sub Sub Endpoints 1",
 						TestGroups: []*httptest.TestGroup{{
-							Endpoint: httptest.Endpoint{"POST", "/api/foos/{id}/bars"},
-							Desc:     "Create a FooBar",
+							E:    "POST /api/foos/{id}/bars",
+							Desc: "Create a FooBar",
 						}, {
-							Endpoint: httptest.Endpoint{"GET", "/api/foos/{id}/bars"},
-							Desc:     "List FooBars",
+							E:    "GET /api/foos/{id}/bars",
+							Desc: "List FooBars",
 						}},
 					}},
 				}},
@@ -192,17 +192,17 @@ func Test_build(t *testing.T) {
 			Articles: []*Article{{
 				Title: "Article 1",
 				TestGroups: []*httptest.TestGroup{{
-					Endpoint: httptest.Endpoint{"POST", "/api/foos"},
-					Desc:     "Create a Foo",
+					E:    "POST /api/foos",
+					Desc: "Create a Foo",
 				}, {
-					Endpoint: httptest.Endpoint{"GET", "/api/foos"},
-					Desc:     "List Foos",
+					E:    "GET /api/foos",
+					Desc: "List Foos",
 				}, {
-					Endpoint: httptest.Endpoint{"GET", "/api/foos/{id}"},
-					Desc:     "Get a Foo",
+					E:    "GET /api/foos/{id}",
+					Desc: "Get a Foo",
 				}, {
-					Endpoint: httptest.Endpoint{"DELETE", "/api/foos"},
-					Desc:     "Delete a Foo",
+					E:    "DELETE /api/foos",
+					Desc: "Delete a Foo",
 				}},
 			}},
 		}},
@@ -214,11 +214,11 @@ func Test_build(t *testing.T) {
 			Articles: []*Article{{
 				Title: "Article 1",
 				TestGroups: []*httptest.TestGroup{{
-					Endpoint: httptest.Endpoint{"POST", "/api/foos"},
-					Desc:     "Create a Foo",
+					E:    "POST /api/foos",
+					Desc: "Create a Foo",
 				}, {
-					Endpoint: httptest.Endpoint{"GET", "/api/foos"},
-					Desc:     "List Foos",
+					E:    "GET /api/foos",
+					Desc: "List Foos",
 				}},
 				SubArticles: []*Article{{
 					Title: "Sub Article 1",
@@ -227,8 +227,8 @@ func Test_build(t *testing.T) {
 					SubArticles: []*Article{{
 						Title: "Sub Sub Endpoints 1",
 						TestGroups: []*httptest.TestGroup{{
-							Endpoint: httptest.Endpoint{"GET", "/api/foos/{id}/bars"},
-							Desc:     "List FooBars",
+							E:    "GET /api/foos/{id}/bars",
+							Desc: "List FooBars",
 						}},
 					}},
 				}},
@@ -375,7 +375,7 @@ func Test_build(t *testing.T) {
 			Articles: []*Article{{
 				Title: "Test Article",
 				TestGroups: []*httptest.TestGroup{{
-					Endpoint: httptest.Endpoint{"GET", "/api/foos"},
+					E: "GET /api/foos",
 					Tests: []*httptest.Test{{
 						Request: httptest.Request{
 							Auth: testhtmler{},
@@ -391,7 +391,7 @@ func Test_build(t *testing.T) {
 			Articles: []*Article{{
 				Title: "Test Article",
 				TestGroups: []*httptest.TestGroup{{
-					Endpoint: httptest.Endpoint{"GET", "/api/foos"},
+					E: "GET /api/foos",
 					Tests: []*httptest.Test{{
 						Request: httptest.Request{
 							Auth: testvaluer{httpdoc.A1{}},
@@ -410,7 +410,7 @@ func Test_build(t *testing.T) {
 			Articles: []*Article{{
 				Title: "Test Article",
 				TestGroups: []*httptest.TestGroup{{
-					Endpoint: httptest.Endpoint{"GET", "/api/foos"},
+					E: "GET /api/foos",
 					Tests: []*httptest.Test{{
 						Response: httptest.Response{
 							Header: testvaluer{httpdoc.H1RES{}},
@@ -426,7 +426,7 @@ func Test_build(t *testing.T) {
 			Articles: []*Article{{
 				Title: "Test Article",
 				TestGroups: []*httptest.TestGroup{{
-					Endpoint: httptest.Endpoint{"GET", "/api/foos"},
+					E: "GET /api/foos",
 					Tests: []*httptest.Test{{
 						Response: httptest.Response{
 							Body: jsonbody{httpdoc.T1{}},
@@ -442,7 +442,7 @@ func Test_build(t *testing.T) {
 			Articles: []*Article{{
 				Title: "Test Article",
 				TestGroups: []*httptest.TestGroup{{
-					Endpoint: httptest.Endpoint{"GET", "/api/foos"},
+					E: "GET /api/foos",
 					Tests: []*httptest.Test{{
 						Response: httptest.Response{
 							Header: testvaluer{httpdoc.H1RES{}},
@@ -462,7 +462,7 @@ func Test_build(t *testing.T) {
 			Articles: []*Article{{
 				Title: "Test Article",
 				TestGroups: []*httptest.TestGroup{{
-					Endpoint: httptest.Endpoint{"GET", "/api/foos"},
+					E: "GET /api/foos",
 					Tests: []*httptest.Test{{
 						Request: httptest.Request{
 							Params: testvaluer{httpdoc.P1{}},
@@ -478,7 +478,7 @@ func Test_build(t *testing.T) {
 			Articles: []*Article{{
 				Title: "Test Article",
 				TestGroups: []*httptest.TestGroup{{
-					Endpoint: httptest.Endpoint{"GET", "/api/foos"},
+					E: "GET /api/foos",
 					Tests: []*httptest.Test{{
 						Request: httptest.Request{
 							Query: testvaluer{httpdoc.Q1{}},
@@ -494,7 +494,7 @@ func Test_build(t *testing.T) {
 			Articles: []*Article{{
 				Title: "Test Article",
 				TestGroups: []*httptest.TestGroup{{
-					Endpoint: httptest.Endpoint{"GET", "/api/foos"},
+					E: "GET /api/foos",
 					Tests: []*httptest.Test{{
 						Request: httptest.Request{
 							Header: testvaluer{httpdoc.H1REQ{}},
@@ -510,7 +510,7 @@ func Test_build(t *testing.T) {
 			Articles: []*Article{{
 				Title: "Test Article",
 				TestGroups: []*httptest.TestGroup{{
-					Endpoint: httptest.Endpoint{"GET", "/api/foos"},
+					E: "GET /api/foos",
 					Tests: []*httptest.Test{{
 						Request: httptest.Request{
 							Body: jsonbody{httpdoc.T1{}},
@@ -526,7 +526,7 @@ func Test_build(t *testing.T) {
 			Articles: []*Article{{
 				Title: "Test Article",
 				TestGroups: []*httptest.TestGroup{{
-					Endpoint: httptest.Endpoint{"GET", "/api/foos"},
+					E: "GET /api/foos",
 					Tests: []*httptest.Test{{
 						Request: httptest.Request{
 							Params: testvaluer{httpdoc.P1{}},
@@ -548,7 +548,7 @@ func Test_build(t *testing.T) {
 			Articles: []*Article{{
 				Title: "Test Article",
 				TestGroups: []*httptest.TestGroup{{
-					Endpoint: httptest.Endpoint{"GET", "/api/foos"},
+					E: "GET /api/foos",
 					Tests: []*httptest.Test{{
 						Request: httptest.Request{
 							Params: testvaluer{httpdoc.P1{}},
@@ -578,7 +578,7 @@ func Test_build(t *testing.T) {
 			Articles: []*Article{{
 				Title: "Test Article",
 				TestGroups: []*httptest.TestGroup{{
-					Endpoint: httptest.Endpoint{"GET", "/api/foos"},
+					E: "GET /api/foos",
 					Tests: []*httptest.Test{{
 						Response: httptest.Response{
 							Body: jsonbody{httpdoc.FT1{}},
@@ -620,7 +620,7 @@ func Test_build(t *testing.T) {
 			Articles: []*Article{{
 				Title: "Test Article",
 				TestGroups: []*httptest.TestGroup{{
-					Endpoint: httptest.Endpoint{"GET", "/api/foos"},
+					E: "GET /api/foos",
 					Tests: []*httptest.Test{{
 						Request: httptest.Request{
 							Body: jsonbody{httpdoc.FT1{}},
@@ -663,17 +663,17 @@ func Test_build(t *testing.T) {
 			Articles: []*Article{{
 				Title: "Article 1",
 				TestGroups: []*httptest.TestGroup{{
-					Endpoint: httptest.Endpoint{"POST", "/api/foos"},
-					Desc:     "Create a Foo",
+					E:    "POST /api/foos",
+					Desc: "Create a Foo",
 				}, {
-					Endpoint: httptest.Endpoint{"GET", "/api/foos"},
-					Desc:     "List Foos",
+					E:    "GET /api/foos",
+					Desc: "List Foos",
 				}, {
-					Endpoint: httptest.Endpoint{"GET", "/api/foos/{id}"},
-					Desc:     "Get a Foo",
+					E:    "GET /api/foos/{id}",
+					Desc: "Get a Foo",
 				}, {
-					Endpoint: httptest.Endpoint{"DELETE", "/api/foos"},
-					Desc:     "Delete a Foo",
+					E:    "DELETE /api/foos",
+					Desc: "Delete a Foo",
 				}},
 			}},
 		}},
@@ -687,7 +687,7 @@ func Test_build(t *testing.T) {
 			Articles: []*Article{{
 				Title: "Test Article",
 				TestGroups: []*httptest.TestGroup{{
-					Endpoint: httptest.Endpoint{"GET", "/api/foos/{id}"}, Desc: "Read Foo",
+					E: "GET /api/foos/{id}", Desc: "Read Foo",
 					Tests: []*httptest.Test{{
 						Response: httptest.Response{
 							StatusCode: 201,
@@ -709,7 +709,7 @@ func Test_build(t *testing.T) {
 			Articles: []*Article{{
 				Title: "Test Article",
 				TestGroups: []*httptest.TestGroup{{
-					Endpoint: httptest.Endpoint{"GET", "/api/foos/{id}"}, Desc: "Read Foo",
+					E: "GET /api/foos/{id}", Desc: "Read Foo",
 					Tests: []*httptest.Test{{
 						Response: httptest.Response{
 							StatusCode: 200,
@@ -734,8 +734,8 @@ func Test_build(t *testing.T) {
 			Articles: []*Article{{
 				Title: "Test Article",
 				TestGroups: []*httptest.TestGroup{{
-					Endpoint: httptest.Endpoint{"POST", "/api/foos"},
-					Tests:    []*httptest.Test{{}},
+					E:     "POST /api/foos",
+					Tests: []*httptest.Test{{}},
 				}},
 			}},
 		}},
@@ -747,7 +747,7 @@ func Test_build(t *testing.T) {
 			Articles: []*Article{{
 				Title: "Test Article",
 				TestGroups: []*httptest.TestGroup{{
-					Endpoint: httptest.Endpoint{"POST", "/api/foos"},
+					E: "POST /api/foos",
 					Tests: []*httptest.Test{{
 						Request: httptest.Request{
 							Body: jsonbody{httpdoc.T3{
@@ -769,7 +769,7 @@ func Test_build(t *testing.T) {
 			Articles: []*Article{{
 				Title: "Test Article",
 				TestGroups: []*httptest.TestGroup{{
-					Endpoint: httptest.Endpoint{"POST", "/api/foos"},
+					E: "POST /api/foos",
 					Tests: []*httptest.Test{{
 						Request: httptest.Request{
 							Body: jsonbody{httpdoc.T3{

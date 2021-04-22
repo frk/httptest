@@ -46,7 +46,7 @@ func (e *testError) TestIndex() string {
 }
 
 func (e *testError) EndpointString() string {
-	return e.s.ep.String()
+	return e.s.e.String()
 }
 
 func (e *testError) RequestHeader() string {

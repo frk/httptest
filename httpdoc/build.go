@@ -489,10 +489,12 @@ func (c *build) newExampleEndpoints(tgs []*httptest.TestGroup) *page.ExampleEndp
 	section.Title = "ENDPOINTS"
 
 	for _, tg := range tgs {
+		method, pattern := tg.E.Split()
+
 		item := new(page.EndpointItem)
 		item.Href = c.getHrefForTestGroup(tg, nil)
-		item.Method = tg.Endpoint.Method
-		item.Pattern = tg.Endpoint.Pattern
+		item.Method = method
+		item.Pattern = pattern
 		item.Tooltip = getTestGroupDesc(tg)
 		section.Endpoints = append(section.Endpoints, item)
 	}
@@ -528,10 +530,11 @@ func (c *build) newExampleObject(obj interface{}, mediatype, title string) (*pag
 }
 
 func (c *build) newExampleRequest(req httptest.Request, tg *httptest.TestGroup) (*page.ExampleRequest, error) {
+	method, pattern := tg.E.Split()
 	xr := new(page.ExampleRequest)
 	xr.Title = "REQUEST"
-	xr.Method = tg.Endpoint.Method
-	xr.Pattern = tg.Endpoint.Pattern
+	xr.Method = method
+	xr.Pattern = pattern
 
 	xr.Options = make([]*page.SelectOption, len(c.SnippetTypes))
 	xr.Snippets = make([]*page.CodeSnippetElement, len(c.SnippetTypes))
@@ -616,10 +619,11 @@ func (c *build) newExampleResponse(resp httptest.Response, tg *httptest.TestGrou
 func (c *build) newCodeSnippetHTTP(req httptest.Request, tg *httptest.TestGroup) (*page.CodeSnippetHTTP, int, error) {
 	cs := new(page.CodeSnippetHTTP)
 	numlines := 0
+	method, pattern := tg.E.Split()
 
 	// The message start-line
-	cs.Method = tg.Endpoint.Method
-	cs.RequestURI = getRequestPath(req, tg.Endpoint)
+	cs.Method = method
+	cs.RequestURI = getRequestPath(req, pattern)
 	cs.HTTPVersion = "HTTP/1.1"
 	numlines += 1
 
@@ -665,11 +669,12 @@ func (c *build) newCodeSnippetHTTP(req httptest.Request, tg *httptest.TestGroup)
 func (c *build) newCodeSnippetCURL(req httptest.Request, tg *httptest.TestGroup) (*page.CodeSnippetCURL, int, error) {
 	cs := new(page.CodeSnippetCURL)
 	numlines := 0
+	method, pattern := tg.E.Split()
 
 	// the target URL
-	cs.URL = c.ExampleHost + getRequestPath(req, tg.Endpoint)
+	cs.URL = c.ExampleHost + getRequestPath(req, pattern)
 	// the -X option
-	cs.X = tg.Endpoint.Method
+	cs.X = method
 	numlines += 1
 
 	// the -H options
@@ -1010,9 +1015,11 @@ func (c *build) getIdForTestGroup(tg *httptest.TestGroup, parent *Article) strin
 			return '-'
 		}, strings.ToLower(tg.Desc))
 	} else {
-		// default to tg.Endpoint if no tg.Desc was set
-		method := strings.ToLower(strings.Trim(tg.Endpoint.Method, "/-"))
-		pattern := strings.ToLower(strings.Trim(tg.Endpoint.Pattern, "/-"))
+		method, pattern := tg.E.Split()
+
+		// default to tg.E if no tg.Desc was set
+		method = strings.ToLower(strings.Trim(method, "/-"))
+		pattern = strings.ToLower(strings.Trim(pattern, "/-"))
 		id = method + "-" + pattern
 
 		// replace "/" with "-", and remove placeholder delimiters
@@ -1293,17 +1300,14 @@ func getTestGroupDesc(tg *httptest.TestGroup) string {
 	if len(tg.Desc) > 0 {
 		return tg.Desc
 	}
-	if ep := tg.Endpoint; len(ep.Pattern) > 0 {
-		if len(ep.Method) > 0 {
-			return ep.Method + " " + ep.Pattern
-		}
-		return ep.Pattern
+	if len(tg.E) > 0 {
+		return tg.E.String()
 	}
 	return ""
 }
 
-func getRequestPath(req httptest.Request, ep httptest.Endpoint) (path string) {
-	path = ep.Pattern
+func getRequestPath(req httptest.Request, pattern string) (path string) {
+	path = pattern
 	if req.Params != nil {
 		path = req.Params.SetParams(path)
 	}

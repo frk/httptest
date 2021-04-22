@@ -29,6 +29,8 @@ func Test_Config_Run(t *testing.T) {
 
 	host := "http://localhost:3456"
 	tests := []struct {
+		onlyme bool
+
 		name     string
 		tgs      []*TestGroup
 		handler  http.Handler
@@ -37,7 +39,7 @@ func Test_Config_Run(t *testing.T) {
 		rt       http.RoundTripper
 	}{{
 		// make sure that the request is sent to the correct endpoint #1
-		name: "ep_test_1", tgs: []*TestGroup{{Endpoint: Endpoint{"POST", "/v1/foo"}, Tests: []*Test{{
+		name: "ep_test_1", tgs: []*TestGroup{{E: "POST /v1/foo", Tests: []*Test{{
 			Request:  Request{},
 			Response: Response{StatusCode: 200},
 		}}}},
@@ -48,7 +50,7 @@ func Test_Config_Run(t *testing.T) {
 		}),
 	}, {
 		// make sure that the request is sent to the correct endpoint #2
-		name: "ep_test_2", tgs: []*TestGroup{{Endpoint: Endpoint{"GET", "/v1/bar/baz"}, Tests: []*Test{{
+		name: "ep_test_2", tgs: []*TestGroup{{E: "GET /v1/bar/baz", Tests: []*Test{{
 			Request:  Request{},
 			Response: Response{StatusCode: 200},
 		}}}},
@@ -59,7 +61,7 @@ func Test_Config_Run(t *testing.T) {
 		}),
 	}, {
 		// make sure that the Request.Params are correctly inserted into the http.Request's path
-		name: "params_test", tgs: []*TestGroup{{Endpoint: Endpoint{"GET", "/v1/foo/{id}/bar/{some_string}/baz/{boolean}"}, Tests: []*Test{{
+		name: "params_test", tgs: []*TestGroup{{E: "GET /v1/foo/{id}/bar/{some_string}/baz/{boolean}", Tests: []*Test{{
 			Request:  Request{Params: Params{"id": 87654, "some_string": "xyz", "boolean": true}},
 			Response: Response{StatusCode: 200},
 		}}}},
@@ -70,7 +72,7 @@ func Test_Config_Run(t *testing.T) {
 		}),
 	}, {
 		// make sure that the Request.Query is correctly used to set the http.Request's query parameters
-		name: "query_test", tgs: []*TestGroup{{Endpoint: Endpoint{"GET", "/v1/foo"}, Tests: []*Test{{
+		name: "query_test", tgs: []*TestGroup{{E: "GET /v1/foo", Tests: []*Test{{
 			Request:  Request{Query: Query{"q": {"term"}, "page": {"4"}, "max": {"25"}}},
 			Response: Response{StatusCode: 200},
 		}}}},
@@ -83,7 +85,7 @@ func Test_Config_Run(t *testing.T) {
 		}),
 	}, {
 		// make sure that the Request.Header is correctly added to the http.Request's Header
-		name: "header_test", tgs: []*TestGroup{{Endpoint: Endpoint{"GET", "/v1/foo"}, Tests: []*Test{{
+		name: "header_test", tgs: []*TestGroup{{E: "GET /v1/foo", Tests: []*Test{{
 			Request:  Request{Header: Header{"A": {"Foo", "Bar"}, "B": {"BAZ"}}},
 			Response: Response{StatusCode: 200},
 		}}}},
@@ -98,7 +100,7 @@ func Test_Config_Run(t *testing.T) {
 		}),
 	}, {
 		// make sure that the Request.Body is correctly sent as the http.Request's Body #1
-		name: "body_test_1", tgs: []*TestGroup{{Endpoint: Endpoint{"POST", "/v1/foo"}, Tests: []*Test{{
+		name: "body_test_1", tgs: []*TestGroup{{E: "POST /v1/foo", Tests: []*Test{{
 			Request:  Request{Body: fakebody{typ: "text/plain", val: `foo bar baz`}},
 			Response: Response{StatusCode: 200},
 		}}}},
@@ -114,7 +116,7 @@ func Test_Config_Run(t *testing.T) {
 		}),
 	}, {
 		// make sure that the Request.Body is correctly sent as the http.Request's Body #2
-		name: "body_test_2", tgs: []*TestGroup{{Endpoint: Endpoint{"POST", "/v1/foo"}, Tests: []*Test{{
+		name: "body_test_2", tgs: []*TestGroup{{E: "POST /v1/foo", Tests: []*Test{{
 			Request:  Request{Body: fakebody{typ: "application/json", val: `[123,"foo","bar"]`}},
 			Response: Response{StatusCode: 200},
 		}}}},
@@ -129,39 +131,44 @@ func Test_Config_Run(t *testing.T) {
 			}
 		}),
 	}, {
+		onlyme: true,
 		// make sure the error from Request.Body.Reader is returned
-		name: "request_body_reader", tgs: []*TestGroup{{Endpoint: Endpoint{"POST", "/v1/foo"}, Tests: []*Test{{
+		name: "request_body_reader", tgs: []*TestGroup{{E: "POST /v1/foo", Tests: []*Test{{
 			Request: Request{Body: fakebody{}},
 		}}}},
 		handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}),
-		want: []interface{}{&testError{code: errRequestBodyReader, s: &tstate{host: host, ep: Endpoint{"POST", "/v1/foo"}, tt: &Test{}},
+		want: []interface{}{&testError{code: errRequestBodyReader, s: &tstate{
+			host: host, method: "POST", pattern: "/v1/foo", e: "POST /v1/foo", tt: &Test{}},
 			err: errors.New("dummy")}},
 	}, {
 		// make sure the error from http.NewRequest is returned
-		name: "http_new_request", tgs: []*TestGroup{{Endpoint: Endpoint{"世界", "/v1/foo"}, Tests: []*Test{{}}}},
+		name: "http_new_request", tgs: []*TestGroup{{E: "世界 /v1/foo", Tests: []*Test{{}}}},
 		handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}),
-		want: []interface{}{&testError{code: errRequestNew, s: &tstate{host: host, ep: Endpoint{"世界", "/v1/foo"}, tt: &Test{}},
+		want: []interface{}{&testError{code: errRequestNew, s: &tstate{
+			host: host, method: "世界", pattern: "/v1/foo", e: "世界 /v1/foo", tt: &Test{}},
 			err: errors.New("dummy")}},
 	}, {
 		// make sure the error from http.Client.Do is returned
-		name: "http_client_do", tgs: []*TestGroup{{Endpoint: Endpoint{"POST", "/v1/foo"}, Tests: []*Test{{}}}},
+		name: "http_client_do", tgs: []*TestGroup{{E: "POST /v1/foo", Tests: []*Test{{}}}},
 		handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}),
-		want: []interface{}{&testError{code: errRequestSend, s: &tstate{host: host, ep: Endpoint{"POST", "/v1/foo"}, tt: &Test{}, req: &http.Request{}},
+		want: []interface{}{&testError{code: errRequestSend, s: &tstate{
+			host: host, method: "POST", pattern: "/v1/foo", e: "POST /v1/foo", tt: &Test{}, req: &http.Request{}},
 			err: errors.New("dummy")}},
 		rt: errorTransport{},
 	}, {
 		// make sure the test fails if response status code is not as expected
-		name: "response_status_mismatch", tgs: []*TestGroup{{Endpoint: Endpoint{"POST", "/v1/foo"}, Tests: []*Test{{
+		name: "response_status_mismatch", tgs: []*TestGroup{{E: "POST /v1/foo", Tests: []*Test{{
 			Response: Response{StatusCode: 200},
 		}}}},
 		handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(500)
 		}),
 		want: []interface{}{&testError{code: errResponseStatus,
-			s: &tstate{host: host, ep: Endpoint{"POST", "/v1/foo"}, tt: &Test{}, req: &http.Request{}, res: &http.Response{}}}},
+			s: &tstate{host: host, method: "POST", pattern: "/v1/foo", e: "POST /v1/foo",
+				tt: &Test{}, req: &http.Request{}, res: &http.Response{}}}},
 	}, {
 		// make sure the test fails if response header is not as expected
-		name: "response_header_mismatch", tgs: []*TestGroup{{Endpoint: Endpoint{"POST", "/v1/foo"}, Tests: []*Test{{
+		name: "response_header_mismatch", tgs: []*TestGroup{{E: "POST /v1/foo", Tests: []*Test{{
 			Response: Response{StatusCode: 200, Header: Header{"A": {"foo"}, "B": {"bar"}, "C": {"baz"}}},
 		}}}},
 		handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -169,61 +176,74 @@ func Test_Config_Run(t *testing.T) {
 			w.Header().Set("B", "bar")
 		}),
 		want: []interface{}{errorList{
-			&testError{code: errResponseHeader, s: &tstate{host: host, ep: Endpoint{"POST", "/v1/foo"}, tt: &Test{}, req: &http.Request{}, res: &http.Response{}}, hkey: "A"},
-			&testError{code: errResponseHeader, s: &tstate{host: host, ep: Endpoint{"POST", "/v1/foo"}, tt: &Test{}, req: &http.Request{}, res: &http.Response{}}, hkey: "C"},
+			&testError{code: errResponseHeader, s: &tstate{host: host,
+				method: "POST", pattern: "/v1/foo", e: "POST /v1/foo",
+				tt: &Test{}, req: &http.Request{}, res: &http.Response{}}, hkey: "A"},
+			&testError{code: errResponseHeader, s: &tstate{host: host,
+				method: "POST", pattern: "/v1/foo", e: "POST /v1/foo",
+				tt: &Test{}, req: &http.Request{}, res: &http.Response{}}, hkey: "C"},
 		}},
 	}, {
 		// make sure the test fails if response body is not as expected
-		name: "response_body_mismatch", tgs: []*TestGroup{{Endpoint: Endpoint{"POST", "/v1/foo"}, Tests: []*Test{{
+		name: "response_body_mismatch", tgs: []*TestGroup{{E: "POST /v1/foo", Tests: []*Test{{
 			Response: Response{StatusCode: 200, Body: fakebody{typ: "application/json", val: `{"A":"foo","B":123}`, err: errors.New("dummy")}},
 		}}}},
 		handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// ...
 		}),
 		want: []interface{}{errorList{
-			&testError{code: errResponseBody, s: &tstate{host: host, ep: Endpoint{"POST", "/v1/foo"}, tt: &Test{}, req: &http.Request{}, res: &http.Response{}}, err: errors.New("dummy")},
+			&testError{code: errResponseBody, s: &tstate{host: host,
+				method: "POST", pattern: "/v1/foo", e: "POST /v1/foo",
+				tt: &Test{}, req: &http.Request{}, res: &http.Response{}}, err: errors.New("dummy")},
 		}},
 	}, {
 		// make sure the error from the setup function is returned
-		name: "setup_error", tgs: []*TestGroup{{Endpoint: Endpoint{"POST", "/v1/foo"}, Tests: []*Test{{
-			SetupAndTeardown: func(ep Endpoint, t *Test) (teardown func() error, err error) {
+		name: "setup_error", tgs: []*TestGroup{{E: "POST /v1/foo", Tests: []*Test{{
+			SetupAndTeardown: func(e E, t *Test) (teardown func() error, err error) {
 				return nil, errors.New("setup fail")
 			},
 		}}}},
 		handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}),
 		want: []interface{}{
-			&testError{code: errTestSetup, s: &tstate{host: host, ep: Endpoint{"POST", "/v1/foo"}, tt: &Test{}}, err: errors.New("setup fail")},
+			&testError{code: errTestSetup, s: &tstate{host: host,
+				method: "POST", pattern: "/v1/foo", e: "POST /v1/foo",
+				tt: &Test{}}, err: errors.New("setup fail")},
 		},
 	}, {
 		// make sure the error from the teardown function is returned
-		name: "teardown_error", tgs: []*TestGroup{{Endpoint: Endpoint{"POST", "/v1/foo"}, Tests: []*Test{{
-			SetupAndTeardown: func(ep Endpoint, t *Test) (teardown func() error, err error) {
+		name: "teardown_error", tgs: []*TestGroup{{E: "POST /v1/foo", Tests: []*Test{{
+			SetupAndTeardown: func(e E, t *Test) (teardown func() error, err error) {
 				return func() error { return errors.New("teardown fail") }, nil
 			},
 			Response: Response{StatusCode: 200},
 		}}}},
 		handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}),
 		want: []interface{}{
-			&testError{code: errTestTeardown, s: &tstate{host: host, ep: Endpoint{"POST", "/v1/foo"}, tt: &Test{},
+			&testError{code: errTestTeardown, s: &tstate{host: host,
+				method: "POST", pattern: "/v1/foo", e: "POST /v1/foo", tt: &Test{},
 				req: &http.Request{}, res: &http.Response{}}, err: errors.New("teardown fail")},
 		},
 	}, {
 		// make sure the error from the test takes precedence over the error from teardown
-		name: "test_error_over_teardown_error", tgs: []*TestGroup{{Endpoint: Endpoint{"POST", "/v1/foo"}, Tests: []*Test{{
-			SetupAndTeardown: func(ep Endpoint, t *Test) (teardown func() error, err error) {
+		name: "test_error_over_teardown_error", tgs: []*TestGroup{{E: "POST /v1/foo", Tests: []*Test{{
+			SetupAndTeardown: func(e E, t *Test) (teardown func() error, err error) {
 				return func() error { return errors.New("teardown fail") }, nil
 			},
 			Response: Response{StatusCode: 234},
 		}}}},
 		handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}),
 		want: []interface{}{
-			&testError{code: errResponseStatus, s: &tstate{host: host, ep: Endpoint{"POST", "/v1/foo"}, tt: &Test{},
+			&testError{code: errResponseStatus, s: &tstate{host: host,
+				method: "POST", pattern: "/v1/foo", e: "POST /v1/foo", tt: &Test{},
 				req: &http.Request{}, res: &http.Response{}}},
 		},
 	}}
 
 	cmp := compare.Config{ObserveFieldTag: "cmp", IgnoreArrayOrder: true}
 	for _, tt := range tests {
+		if !tt.onlyme {
+			continue
+		}
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.rt != nil {
 				conf.Client = &http.Client{Transport: tt.rt}

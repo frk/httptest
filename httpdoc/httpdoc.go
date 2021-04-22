@@ -28,15 +28,21 @@ var (
 
 type Config struct {
 	// The name of the resulting package or executable.
+	//
 	// If left empty, it will default to DefaultOutputName.
 	OutputName string
+
 	// The directory into which the resulting package or executable should
-	// be written. If left empty, the result will be written to the directory
-	// in which the client program, the one calling httpdoc.Compile, lives.
+	// be written.
+	//
+	// If left empty, the result will be written to the directory in which
+	// the client program, the one calling httpdoc.Compile, lives.
 	OutputDir string
+
 	// If set to true, httpdoc will generate an importable package instead
 	// of a compiled executable.
 	OutputPackage bool
+
 	// An optional map of users and their passwords.
 	Users map[string]string
 	// The title for the generated web page.

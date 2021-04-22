@@ -399,8 +399,10 @@ var example_request_topbar = `{{ define "example_request_topbar" -}}
 <div class="xs-request-topbar">
 	<div class="xs-request-title-container">
 		<h3 class="xs-request-title">
-			<span class="xs-request-endpoint-method-{{ lower .Method }}">{{ .Method }} </span>
-			<span class="xs-request-endpoint-pattern">{{ .Pattern }}</span>
+			<code>
+				<span class="xs-request-endpoint-method-{{ lower .Method }}">{{ .Method }} </span>
+				<span class="xs-request-endpoint-pattern">{{ .Pattern }}</span>
+			</code>
 		</h3>
 	</div>
 	<div class="xs-request-lang-select-container">
@@ -442,13 +444,11 @@ var example_request_body = `{{ define "example_request_body" -}}
 
 var code_snippet_http = `{{ define "code_snippet_http" -}}
 <pre class="cs-pre lang-http">
-<code class="lang-http">
-<span class="token http-method-{{ lower .Method }}">{{ .Method }}</span> <span class="token http-uri">{{ .RequestURI }}</span> <span class="token http-version">{{ .HTTPVersion }}</span>
+<code class="lang-http"><span class="token http-method-{{ lower .Method }}">{{ .Method }}</span> <span class="token http-uri">{{ .RequestURI }}</span> <span class="token http-version">{{ .HTTPVersion }}</span>
 {{ range .Headers -}}
 <span class="token http-header-key">{{ .Key }}:</span> <span class="token http-header-value">{{ .Value }}</span>
 {{ end }}
-<span class="token http-body">{{ .Body }}</span>
-</code>
+<span class="token http-body">{{ .Body }}</span></code>
 </pre>
 {{ end -}}
 ` //`
@@ -456,15 +456,13 @@ var code_snippet_http = `{{ define "code_snippet_http" -}}
 var code_snippet_curl = `{{ define "code_snippet_curl" -}}
 {{ $LB := (sh_line_break .NumOpts) -}}
 <pre class="cs-pre lang-curl">
-<code class="lang-curl">
-<span class="token curl-cmd">curl</span> <span class="token curl-flag">-X</span> <span class="token curl-flag-value">{{ .X }}</span> <span class="token curl-url">"{{ .URL }}"</span>{{ call $LB }}
+<code class="lang-curl"><span class="token curl-cmd">curl</span> <span class="token curl-flag">-X</span> <span class="token curl-flag-value">{{ .X }}</span> <span class="token curl-url">"{{ .URL }}"</span>{{ call $LB }}
 {{- range .H }}
     <span class="token curl-flag">-H</span> <span class="token curl-header-value">'{{ . }}'</span>{{ call $LB }}
 {{- end }}
 {{- range .Data }}
     <span class="token curl-flag">-d</span> {{ template "curl_data" . }}{{ call $LB }}
-{{- end }}
-</code>
+{{- end }}</code>
 </pre>
 {{ end -}}
 ` //`
@@ -584,9 +582,7 @@ var enum_list = `{{ define "enum_list" -}}
 
 var code_block_pre = `{{ define "code_block_pre" -}}
 <pre class="code-block-pre">
-<code class="lang-{{ .Lang }}">
-{{ .Code }}
-</code>
+<code class="lang-{{ .Lang }}">{{ .Code }}</code>
 </pre>
 {{ end -}}
 ` //`

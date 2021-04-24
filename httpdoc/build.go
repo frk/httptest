@@ -94,10 +94,6 @@ func (c *build) buildSidebar() error {
 	}
 	c.page.Sidebar.Header.Banner = banner
 
-	// TODO remove the signin from the footer and movee it to the
-	// top right corner of th main header
-	c.page.Sidebar.Footer.SigninURL = template.URL(c.SigninPath)
-
 	lists := []*page.SidebarList{}
 	for _, g := range c.dir {
 		if len(g.Articles) == 0 {

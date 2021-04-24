@@ -103,11 +103,6 @@ var sidebar_header = `{{ define "sidebar_header" -}}
 
 var sidebar_footer = `{{ define "sidebar_footer" -}}
 <footer class="sidebar-footer">
-	{{- with .SigninURL }}
-	<div class="signin-container">
-		<a href="{{ . }}" class="signin-link">Sign In</a>
-	</div>
-	{{- end }}
 </footer>
 {{ end -}}
 ` //`
@@ -128,11 +123,15 @@ var sidebar_lists = `{{ define "sidebar_lists" -}}
 {{ end -}}
 ` //`
 
+// NOTE(mkopriva): The correlated JavaScript relies on the structure of the
+// sidebar_item DOM. Specifically it expects that the ul.sidebar-item-subitems
+// is a direct child of the li.sidebar-list-item element. If the sidebar_item
+// DOM is changed the JavaScript will most probably have to be changed too.
 var sidebar_item = `{{ define "sidebar_item" -}}
-<li class="sidebar-list-item">
-	<a href="{{ .Href }}" class="{{ .AnchorClass }}">{{ .Text }}</a>
+<li class="{{ .ListItemClass }}">
+	<a href="{{ .Href }}" class="sidebar-item">{{ .Text }}</a>
 	{{- if .SubItems }}
-	<ul class="sidebar-list-child">
+	<ul class="sidebar-item-subitems hidden">
 		{{ range .SubItems }}{{ template "sidebar_item" . }}{{ end -}}
 	</ul>
 	{{- end }}

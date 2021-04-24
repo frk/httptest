@@ -33,7 +33,7 @@ type SidebarHeader struct {
 }
 
 type SidebarFooter struct {
-	SigninURL template.URL
+	// TODO
 }
 
 type SidebarList struct {
@@ -47,11 +47,11 @@ type SidebarItem struct {
 	SubItems []*SidebarItem
 }
 
-func (si *SidebarItem) AnchorClass() string {
+func (si *SidebarItem) ListItemClass() string {
 	if len(si.SubItems) > 0 {
-		return "sidebar-item expandable"
+		return "sidebar-list-item has-subitems"
 	}
-	return "sidebar-item"
+	return "sidebar-list-item"
 }
 
 type SidebarBanner interface {
@@ -79,7 +79,8 @@ type Content struct {
 
 type Header struct {
 	// ...
-	Search interface{} // TODO
+	SigninURL template.URL // TODO
+	Search    interface{}  // TODO
 }
 
 type Footer struct {

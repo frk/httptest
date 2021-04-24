@@ -4,6 +4,7 @@
 	--ff-mono: Consolas,Menlo,Monaco,Lucida Console,Liberation Mono,DejaVu Sans Mono,Bitstream Vera Sans Mono,Courier New,monospace,sans-serif;
 
 	/* primary */
+	--cp-navy10: #f5faff;
 	--cp-navy100: #97c7f6;
 	--cp-navy200: #84baed;
 	--cp-navy300: #59a1e4;
@@ -14,6 +15,8 @@
 	--cp-navy800: #063562;
 	--cp-navy900: #042e56;
 
+	
+	--cp-grey50: #e1e6ec;
 	--cp-grey100: #d0d8e0;
 	--cp-grey200: #c6cdd4;
 	--cp-grey300: #b1b8be;
@@ -27,7 +30,7 @@
 	--cp-primary: var(--cp-navy500);
 
 	--sidebar-header-heigth: 80px;
-	--sidebar-footer-heigth: 60px;
+	--sidebar-footer-heigth: 40px;
 
 	/* TODO
 	 * - needs accents
@@ -67,6 +70,10 @@ a {
 	text-decoration: none;
 }
 
+.hidden {
+	display: none;
+}
+
 /*******************************************************************************
  * Sidebar
  ******************************************************************************/
@@ -80,6 +87,10 @@ a {
 	top: 0;
 	bottom: 0;
 	z-index: 3;
+
+	border-right-style: dashed;
+	border-width: 1px;
+	border-color: var(--cp-grey50);
 }
 
 .sidebar-header {
@@ -122,30 +133,51 @@ a {
 
 .sidebar-list-title {
 	margin: 0;
-	padding-left: 24px;
-	padding-top: 10px;
+	padding-left: 20px;
+	padding-top: 25px;
 	padding-bottom: 10px;
 	padding-right: 10px;
+
+	color: var(--cp-grey400);
+	font-family: var(--ff-mono);
+	font-weight: 500;
+	font-size: 12px;
+	letter-spacing: 0.04em;
+	user-select: none;
+	pointer-events: none;
+}
+
+.sidebar-list-item {
+	margin-left: 8px;
+	margin-right: 3px;
+	border-radius: 8px;
+}
+
+.sidebar-list-item.active {
+	background-color: var(--cp-navy10);
+}
+
+.sidebar-list-item.active > .sidebar-item {
+	color: var(--cp-navy600);
 }
 
 .sidebar-item {
 	display: block;
-	color: #697386;
-	text-decoration: none;
-}
-
-.sidebar-item:hover {
 	color: black;
-}
-
-.sidebar-list > .sidebar-list-item > .sidebar-item {
+	font-family: var(--ff-sans);
+	font-size: 13px;
+	font-weight: 450;
+	text-decoration: none;
 	padding: 4px 4px 4px 24px;
 	line-height: 20px;
 }
 
-.sidebar-list-child > .sidebar-list-item > .sidebar-item {
-	padding: 4px 4px 4px 28px;
-	line-height: 18px;
+.sidebar-item:hover {
+	color: var(--cp-navy500);
+}
+
+.sidebar-item-subitems {
+	padding-left: 8px;
 }
 
 /*******************************************************************************
@@ -187,18 +219,18 @@ article {
 }
 
 .article-section-lead-title {
-	font-size: 24px;
+	font-size: 28px;
 	line-height: 40px;
 	font-weight: 500;
-	color: #2a2f45;
 	margin: 0;
 	display: flex;
 	align-items: center;
 	flex-wrap: wrap;
+	font-family: var(--ff-serif);
+	text-decoration: none;
 }
 
 .article-section-lead-title > a {
-	text-decoration: none;
 	color: black;
 }
 
@@ -435,3 +467,4 @@ article {
 	font-size: 13px;
 	line-height: 17px;
 }
+

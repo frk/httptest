@@ -29,9 +29,7 @@ type Sidebar struct {
 }
 
 type SidebarHeader struct {
-	Title   string
-	RootURL template.URL
-	LogoURL template.URL
+	Banner SidebarBanner
 }
 
 type SidebarFooter struct {
@@ -54,6 +52,19 @@ func (si *SidebarItem) AnchorClass() string {
 		return "sidebar-item expandable"
 	}
 	return "sidebar-item"
+}
+
+type SidebarBanner interface {
+	isSidbarBanner()
+}
+
+type SidebarBannerTitle struct {
+	Text string
+	URL  template.URL
+}
+
+type SidebarBannerHTML struct {
+	Text template.HTML
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -339,6 +350,9 @@ type CURLDataKeyValue struct {
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
+
+func (*SidebarBannerTitle) isSidbarBanner() {}
+func (*SidebarBannerHTML) isSidbarBanner()  {}
 
 func (*ArticleText) isArticleSection()      {}
 func (*ArticleAuthInfo) isArticleSection()  {}

@@ -27,27 +27,48 @@ var (
 )
 
 type Config struct {
+	////////////////////////////////////////////////////////////////////////
+	// Output specific configuration
+	////////////////////////////////////////////////////////////////////////
+
 	// The name of the resulting package or executable.
 	//
-	// If left empty, it will default to DefaultOutputName.
+	// If empty, it will default to DefaultOutputName.
 	OutputName string
-
 	// The directory into which the resulting package or executable should
 	// be written.
 	//
-	// If left empty, the result will be written to the directory in which
+	// If empty, the result will be written to the directory in which
 	// the client program, the one calling httpdoc.Compile, lives.
 	OutputDir string
-
-	// If set to true, httpdoc will generate an importable package instead
-	// of a compiled executable.
+	// If set to true, httpdoc will generate the source code of the
+	// program as an importable package.
+	//
+	// When false, httpdoc will generate and compile the program to
+	// produce an executable.
 	OutputPackage bool
 
-	// An optional map of users and their passwords.
-	Users map[string]string
+	////////////////////////////////////////////////////////////////////////
+	// Page specific configuration
+	////////////////////////////////////////////////////////////////////////
+
 	// The title for the generated web page.
-	// If left empty it will default to DefaultPageTitle.
+	//
+	// If empty, it will default to DefaultPageTitle.
 	PageTitle string
+
+	// The HTML content for the page's sidebar banner. It is the user's
+	// responsibility to ensure that the enclosed content is valid and
+	// safe HTML as it will be included verbatim in the template output.
+	//
+	// If empty, the value of the PageTitle field will be used in the
+	// sidebar's banner as a heading.
+	SidebarBannerHTML template.HTML
+
+	////////////////////////////////////////////////////////////////////////
+	// Server specific configuration
+	////////////////////////////////////////////////////////////////////////
+
 	// The root of the path for the documentation and the links within it.
 	// If left empty it will default to DefaultRootPath.
 	RootPath string
@@ -57,6 +78,14 @@ type Config struct {
 	// The TCP port which the resulting program should listen on.
 	// If left unset, it will default to DefaultTCPListenPort.
 	TCPListenPort int
+
+	// An optional map of users and their passwords.
+	Users map[string]string
+
+	////////////////////////////////////////////////////////////////////////
+	//
+	////////////////////////////////////////////////////////////////////////
+
 	// The host which will be used in example snippets. If no host
 	// is provided it will default to the value of DefaultExampleHost.
 	ExampleHost string

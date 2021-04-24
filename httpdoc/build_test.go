@@ -21,24 +21,25 @@ import (
 	"github.com/frk/tagutil"
 )
 
-func Test_build(t *testing.T) {
+var test_file_dir string
+var test_data_dir string
+
+func init() {
 	_, f, _, _ := runtime.Caller(0)
-	workdir := filepath.Dir(f)
-	srclocal, err := findRootDir(workdir)
+	test_file_dir = filepath.Dir(f)
+	test_data_dir = filepath.Dir(test_file_dir) + "/internal/testdata"
+}
+
+func Test_build(t *testing.T) {
+	defer closefiles()
+
+	srclocal, err := findRootDir(test_file_dir)
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
 	srclink := testSourceURLFunc(srclocal)
-
-	testdatadir := filepath.Dir(workdir) + "/internal/testdata"
-	testFile, err := os.Open(testdatadir + "/test.html")
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	defer testFile.Close()
 
 	tests := []struct {
 		skip bool
@@ -159,6 +160,23 @@ func Test_build(t *testing.T) {
 		}},
 	}, {
 		///////////////////////////////////////////////////////////////
+		// Sidebar Header
+		/////////////////////////////////////////////////////////////////
+		file: "sidebar_header_banner_from_page_title",
+		wt:   wt_sidebar_header,
+		cfg: Config{
+			PageTitle: "The Page's Title",
+		},
+		toc: []*ArticleGroup{},
+	}, {
+		file: "sidebar_header_banner_from_html",
+		wt:   wt_sidebar_header,
+		cfg: Config{
+			SidebarBannerHTML: "<h1>The Page's Banner</h1>",
+		},
+		toc: []*ArticleGroup{},
+	}, {
+		///////////////////////////////////////////////////////////////
 		// Content
 		/////////////////////////////////////////////////////////////////
 		file: "content_from_articles",
@@ -259,7 +277,7 @@ func Test_build(t *testing.T) {
 			Name: "Article Group 1",
 			Articles: []*Article{{
 				Title: "Article",
-				Text:  testFile,
+				Text:  openfile("test.html"),
 			}},
 		}},
 	}, {
@@ -332,7 +350,7 @@ func Test_build(t *testing.T) {
 			Name: "Article Group 1",
 			Articles: []*Article{{
 				Title: "Article",
-				Code:  testFile,
+				Code:  openfile("test.html"),
 			}},
 		}},
 	}, {
@@ -791,22 +809,15 @@ func Test_build(t *testing.T) {
 		}
 
 		t.Run(tt.file, func(t *testing.T) {
-			defer func() {
-				// move the file cursor back to the beginning
-				// so it can be reused by multiple tests
-				if _, err := testFile.Seek(0, 0); err != nil {
-					t.Errorf("testFile.Seek(0, 0) fail: %v", err)
-				}
-			}()
 
-			want, err := ioutil.ReadFile(testdatadir + "/httpdoc/" + tt.file + ".html")
+			want, err := ioutil.ReadFile(test_data_dir + "/httpdoc/" + tt.file + ".html")
 			if err != nil {
 				t.Error(err)
 				return
 			}
 
 			// build
-			tt.cfg.srcdir = workdir
+			tt.cfg.srcdir = test_file_dir
 			tt.cfg.normalize()
 			b := build{Config: tt.cfg, dir: tt.toc}
 			if err := b.run(); err != nil {
@@ -911,6 +922,24 @@ func isRootDir(path string) (bool, error) {
 	return false, nil
 }
 
+var openfiles []*os.File
+
+func openfile(filename string) *os.File {
+	filename = filepath.Join(test_data_dir, filename)
+	f, err := os.Open(filename)
+	if err != nil {
+		panic(err)
+	}
+	openfiles = append(openfiles, f)
+	return f
+}
+
+func closefiles() {
+	for _, f := range openfiles {
+		f.Close()
+	}
+}
+
 type testhtmler struct{}
 
 func (testhtmler) HTML() (HTML, error) {
@@ -956,7 +985,9 @@ func testSourceURLFunc(local string) (f func(filename string, line int) (url str
 type writeTest string
 
 const (
-	wt_sidebar writeTest = "sidebar"
+	wt_sidebar        writeTest = "sidebar"
+	wt_sidebar_header writeTest = "sidebar_header"
+
 	wt_content writeTest = "content"
 
 	wt_article_primary_column writeTest = "article_primary_column"
@@ -984,6 +1015,8 @@ func write_wt(w io.Writer, p page.Page, wt writeTest) error {
 	switch wt {
 	case wt_sidebar:
 		data = p.Sidebar
+	case wt_sidebar_header:
+		data = p.Sidebar.Header
 	case wt_content:
 		data = p.Content
 	case wt_article_primary_column, wt_article_example_column:

@@ -18,6 +18,22 @@ var helpers = template.FuncMap{
 	},
 
 	////////////////////////////////////////////////////////////////////////
+	// sidebar banner type assertion
+	////////////////////////////////////////////////////////////////////////
+	"is_sidebar_banner_title": func(s SidebarBanner) *SidebarBannerTitle {
+		if v, ok := s.(*SidebarBannerTitle); ok && v != nil {
+			return v
+		}
+		return nil
+	},
+	"is_sidebar_banner_html": func(s SidebarBanner) *SidebarBannerHTML {
+		if v, ok := s.(*SidebarBannerHTML); ok && v != nil {
+			return v
+		}
+		return nil
+	},
+
+	////////////////////////////////////////////////////////////////////////
 	// article section type assertion
 	////////////////////////////////////////////////////////////////////////
 	"is_article_text": func(s ArticleSection) *ArticleText {

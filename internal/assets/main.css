@@ -1,7 +1,44 @@
 :root {
-	--fsans: Arial,"Helvetica Neue",Helvetica,sans-serif;
-	--fserif: Georgia,Times New Roman,Times,serif;
-	--fmono: Consolas,Menlo,Monaco,Lucida Console,Liberation Mono,DejaVu Sans Mono,Bitstream Vera Sans Mono,Courier New,monospace,sans-serif;
+	--ff-sans: -apple-system,"Helvetica Neue",Helvetica,Arial,sans-serif;
+	--ff-serif: Georgia,Times New Roman,Times,serif;
+	--ff-mono: Consolas,Menlo,Monaco,Lucida Console,Liberation Mono,DejaVu Sans Mono,Bitstream Vera Sans Mono,Courier New,monospace,sans-serif;
+
+	/* primary */
+	--cp-navy100: #97c7f6;
+	--cp-navy200: #84baed;
+	--cp-navy300: #59a1e4;
+	--cp-navy400: #3e8ed9;
+	--cp-navy500: #0a6cc9;
+	--cp-navy600: #0759a7;
+	--cp-navy700: #0d457a;
+	--cp-navy800: #063562;
+	--cp-navy900: #042e56;
+
+	--cp-grey100: #d0d8e0;
+	--cp-grey200: #c6cdd4;
+	--cp-grey300: #b1b8be;
+	--cp-grey400: #9ea4a9;
+	--cp-grey500: #8b9196;
+	--cp-grey600: #7b7f84;
+	--cp-grey700: #686c6f;
+	--cp-grey800: #545759;
+	--cp-grey900: #3f4143;
+
+	--cp-primary: var(--cp-navy500);
+
+	--sidebar-header-heigth: 80px;
+	--sidebar-footer-heigth: 60px;
+
+	/* TODO
+	 * - needs accents
+	 * - types, (or maybe i'll use one of the blues for types...)
+	 * - the field setting (required/optional/....)
+	 * - an alert (red) color to stress
+	 * - monokai for the code snippets, including object samples
+	 * - colors for endpoint lists?
+	 * - colors for HTTP methods in endpoint lists and snippets?
+	 * */
+
 }
 
 body {
@@ -17,6 +54,19 @@ ul {
 	list-style-type:none;
 }
 
+article {
+	font-family: var(--ff-sans);
+	font-weight: 400;
+	font-size: 15px;
+	line-height: 1.5;
+	letter-spacing: 0.003em;
+}
+
+a {
+	color: var(--cp-primary);
+	text-decoration: none;
+}
+
 /*******************************************************************************
  * Sidebar
  ******************************************************************************/
@@ -30,6 +80,44 @@ ul {
 	top: 0;
 	bottom: 0;
 	z-index: 3;
+}
+
+.sidebar-header {
+	position: absolute;
+	top: 0;
+	left: 0;
+	text-align: center;
+	word-wrap: break-word;
+	z-index: 100;
+	margin: 0 auto;
+	width: 100%;
+	height: var(--sidebar-header-heigth);
+}
+
+.sidebar-banner-box {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	height: 100%;
+	overflow: hidden;
+}
+
+.sidebar {
+	position: absolute;
+	width: 100%;
+	top: var(--sidebar-header-heigth);
+	bottom: var(--sidebar-footer-heigth);
+	overflow-y: auto;
+}
+
+.sidebar-footer {
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	z-index: 100;
+	margin: 0 auto;
+	width: 100%;
+	height: var(--sidebar-footer-heigth);
 }
 
 .sidebar-list-title {

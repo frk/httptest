@@ -85,18 +85,18 @@ var sidebar = `{{ define "sidebar" -}}
 ` //`
 
 var sidebar_header = `{{ define "sidebar_header" -}}
-{{ $root_url := .RootURL -}}
 <header class="sidebar-header">
-	{{- with .LogoURL }}
-	<div class="sidebar-logo-container">
-		<a href="{{ $root_url }}" class="">
-			<img src="{{ . }}" alt="" class="logo">
-		</a>
+	<div class="sidebar-banner-box">
+		{{- with (is_sidebar_banner_title .Banner) }}
+		<h3 class="sidebar-heading">
+			<a href="{{ .URL }}" class="">{{ .Text }}</a>
+		</h3>
+		{{- end }}
+
+		{{- with (is_sidebar_banner_html .Banner) }}
+			{{ .Text }}
+		{{- end }}
 	</div>
-	{{- end }}
-	<h3 class="sidebar-heading">
-		<a href="{{ $root_url }}" class="">{{ .Title }}</a>
-	</h3>
 </header>
 {{ end -}}
 ` //`

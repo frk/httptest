@@ -87,9 +87,15 @@ func (c *build) run() error {
 
 func (c *build) buildSidebar() error {
 	c.page.Title = c.PageTitle
-	c.page.Sidebar.Header.Title = c.PageTitle
-	c.page.Sidebar.Header.RootURL = template.URL(c.RootPath)
-	c.page.Sidebar.Header.LogoURL = template.URL(c.logoURL)
+
+	banner, err := c.newSidebarBanner()
+	if err != nil {
+		return err
+	}
+	c.page.Sidebar.Header.Banner = banner
+
+	// TODO remove the signin from the footer and movee it to the
+	// top right corner of th main header
 	c.page.Sidebar.Footer.SigninURL = template.URL(c.SigninPath)
 
 	lists := []*page.SidebarList{}
@@ -110,6 +116,19 @@ func (c *build) buildSidebar() error {
 	}
 	c.page.Sidebar.Lists = lists
 	return nil
+}
+
+func (c *build) newSidebarBanner() (page.SidebarBanner, error) {
+	if text := c.Config.SidebarBannerHTML; len(text) > 0 {
+		banner := new(page.SidebarBannerHTML)
+		banner.Text = text
+		return banner, nil
+	}
+
+	banner := new(page.SidebarBannerTitle)
+	banner.Text = c.PageTitle
+	banner.URL = template.URL(c.RootPath)
+	return banner, nil
 }
 
 var errNoArticleTitle = fmt.Errorf("httpdoc: Article.Title is required.")
@@ -283,22 +302,22 @@ func (c *build) newArticleElementFromArticle(a *Article, parent *Article) (*page
 	aElem.Title = a.Title
 
 	if a.Text != nil {
-		html, err := c.newHTML(a.Text, nil)
+		text, err := c.newHTML(a.Text, nil)
 		if err != nil {
 			return nil, err
 		}
-		aElem.Text = html
+		aElem.Text = text
 	}
 
 	if a.Code != nil {
 		switch v := a.Code.(type) {
 		case string, *os.File, HTMLer:
-			html, err := c.newHTML(a.Code, nil)
+			text, err := c.newHTML(a.Code, nil)
 			if err != nil {
 				return nil, err
 			}
 
-			s := &page.ExampleText{Text: html}
+			s := &page.ExampleText{Text: text}
 			aElem.Example.Sections = append(aElem.Example.Sections, s)
 		case Valuer, interface{}:
 			s, err := c.newExampleObject(v, a.Type, a.Title)
@@ -332,11 +351,11 @@ func (c *build) newArticleElementFromTestGroup(tg *httptest.TestGroup, parent *A
 
 	if tg.DocA != nil {
 		var decl types.TypeDecl
-		html, err := c.newHTML(tg.DocA, &decl)
+		text, err := c.newHTML(tg.DocA, &decl)
 		if err != nil {
 			return nil, err
 		}
-		aElem.Text = html
+		aElem.Text = text
 
 		// With TestGroup.DocA, if the value was a named type, assume that
 		// that type is directly related to the endpoint, e.g. it could be
@@ -361,11 +380,11 @@ func (c *build) newArticleElementFromTestGroup(tg *httptest.TestGroup, parent *A
 		// auth info
 		switch v := t.Request.Auth.(type) {
 		case HTMLer, Valuer:
-			html, err := c.newHTML(v, nil)
+			text, err := c.newHTML(v, nil)
 			if err != nil {
 				return nil, err
 			}
-			section := &page.ArticleAuthInfo{Text: html}
+			section := &page.ArticleAuthInfo{Text: text}
 			section.Title = "Auth"
 			aElem.Sections = append(aElem.Sections, section)
 		}
@@ -437,11 +456,11 @@ func (c *build) newArticleElementFromTestGroup(tg *httptest.TestGroup, parent *A
 	}
 
 	if tg.DocB != nil {
-		html, err := c.newHTML(tg.DocB, nil)
+		text, err := c.newHTML(tg.DocB, nil)
 		if err != nil {
 			return nil, err
 		}
-		section := &page.ArticleText{Text: html}
+		section := &page.ArticleText{Text: text}
 		aElem.Sections = append(aElem.Sections, section)
 	}
 	return aElem, nil
@@ -453,11 +472,11 @@ func (c *build) newArticleElementFromTestGroup(tg *httptest.TestGroup, parent *A
 
 func (c *build) newExampleSectionsFromTestGroup(t *httptest.Test, tg *httptest.TestGroup) (sections []page.ExampleSection, err error) {
 	if t.DocA != nil {
-		html, err := c.newHTML(t.DocA, nil)
+		text, err := c.newHTML(t.DocA, nil)
 		if err != nil {
 			return nil, err
 		}
-		section := &page.ExampleText{Text: html}
+		section := &page.ExampleText{Text: text}
 		sections = append(sections, section)
 	}
 
@@ -474,11 +493,11 @@ func (c *build) newExampleSectionsFromTestGroup(t *httptest.Test, tg *httptest.T
 	sections = append(sections, respSection)
 
 	if t.DocB != nil {
-		html, err := c.newHTML(t.DocB, nil)
+		text, err := c.newHTML(t.DocB, nil)
 		if err != nil {
 			return nil, err
 		}
-		section := &page.ExampleText{Text: html}
+		section := &page.ExampleText{Text: text}
 		sections = append(sections, section)
 	}
 	return sections, nil
@@ -714,22 +733,24 @@ func (c *build) newCodeSnippetCURL(req httptest.Request, tg *httptest.TestGroup)
 
 var errNotNamedType = fmt.Errorf("httpdoc: type is not named")
 
-func (c *build) newHTML(value interface{}, decl *types.TypeDecl) (html template.HTML, err error) {
+func (c *build) newHTML(value interface{}, decl *types.TypeDecl) (_ template.HTML, err error) {
+	var text string
+
 	switch v := value.(type) {
 	case string:
-		html = template.HTML(v)
+		text = v
 	case *os.File:
-		text, err := ioutil.ReadAll(v)
+		out, err := ioutil.ReadAll(v)
 		if err != nil {
 			return "", err
 		}
-		html = template.HTML(text)
+		text = string(out)
 	case HTMLer:
-		text, err := v.HTML()
+		out, err := v.HTML()
 		if err != nil {
 			return "", err
 		}
-		html = template.HTML(text)
+		text = string(out)
 	case Valuer, interface{}:
 		if vv, ok := value.(Valuer); ok && vv != nil {
 			if value, err = vv.Value(); err != nil {
@@ -742,18 +763,16 @@ func (c *build) newHTML(value interface{}, decl *types.TypeDecl) (html template.
 		if d == nil {
 			return "", errNotNamedType
 		}
-		text, err := godoc.ToHTML(d.Doc)
-		if err != nil {
+		if text, err = godoc.ToHTML(d.Doc); err != nil {
 			return "", err
 		}
-		html = template.HTML(text)
 
-		if decl != nil { // retain the type declaration?
+		if decl != nil { // retain type declaration?
 			*decl = *d
 		}
 	}
 
-	return html, nil
+	return template.HTML(text), nil
 }
 
 var errNotStructType = fmt.Errorf("httpdoc: type is not a struct")

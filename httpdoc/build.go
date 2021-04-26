@@ -181,6 +181,12 @@ func (c *build) buildContent() error {
 			continue
 		}
 
+		if g.LoadExpanded {
+			for _, a := range g.Articles {
+				a.LoadExpanded = true
+			}
+		}
+
 		list, err := c.newArticleElementListFromArticles(g.Articles, nil)
 		if err != nil {
 			return err
@@ -296,6 +302,7 @@ func (c *build) newArticleElementFromArticle(a *Article, parent *Article) (*page
 	aElem.Id = c.getIdForArticle(a, parent)
 	aElem.Href = c.getHrefForArticle(a, parent)
 	aElem.Title = a.Title
+	aElem.Expanded = a.LoadExpanded
 
 	if a.Text != nil {
 		text, err := c.newHTML(a.Text, nil)

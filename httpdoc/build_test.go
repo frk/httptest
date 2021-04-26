@@ -59,8 +59,9 @@ func Test_build(t *testing.T) {
 	}, {
 		file: "page_with_article",
 		toc: []*ArticleGroup{{
-			Name:     "Group Name",
-			Articles: []*Article{{Title: "Article Title"}},
+			Name:         "Group Name",
+			Articles:     []*Article{{Title: "Article Title"}},
+			LoadExpanded: true,
 		}},
 	}, {
 		file: "page_with_endpoint",
@@ -72,6 +73,7 @@ func Test_build(t *testing.T) {
 					E: "POST /api/foos",
 				}},
 			}},
+			LoadExpanded: true,
 		}},
 	}, {
 		///////////////////////////////////////////////////////////////
@@ -196,11 +198,13 @@ func Test_build(t *testing.T) {
 			}, {
 				Title: "Article 2",
 			}},
+			LoadExpanded: true,
 		}, {
 			Name: "Article Group 2",
 			Articles: []*Article{{
 				Title: "Article 3",
 			}},
+			LoadExpanded: true,
 		}},
 	}, {
 		file: "content_from_endpoints",
@@ -223,6 +227,7 @@ func Test_build(t *testing.T) {
 					Desc: "Delete a Foo",
 				}},
 			}},
+			LoadExpanded: true,
 		}},
 	}, {
 		file: "content_from_mix",
@@ -251,11 +256,13 @@ func Test_build(t *testing.T) {
 					}},
 				}},
 			}},
+			LoadExpanded: true,
 		}, {
 			Name: "Article Group 2",
 			Articles: []*Article{{
 				Title: "Article 3",
 			}},
+			LoadExpanded: true,
 		}},
 	}, {
 		///////////////////////////////////////////////////////////////

@@ -180,18 +180,20 @@ var content_articles = `{{ define "content_articles" -}}
 ////////////////////////////////////////////////////////////////////////////////
 
 var article = `{{ define "article" -}}
-<article id="{{ .Id }}">
+<article id="{{ .Id }}" class="{{ .Class }}">
 	<div class="article-content">
 		{{ template "article_primary_column" . }}
 		{{ template "article_example_column" . }}
 	</div>
 
+	{{- if .Expanded }}
 	{{- with .SubArticles }}
 	<div class="article-children">
 		{{ range . -}}
 		{{ template "article" . }}
 		{{ end -}}
 	</div>
+	{{- end }}
 	{{- end }}
 </article>
 {{ end -}}

@@ -365,6 +365,17 @@ type Article struct {
 	// will be used to resolve the MIME type. Otherwise the MIME type will default
 	// to "application/json".
 	Type string
+	// LoadExpanded controls how much of the article's content will be loaded
+	// during the initial page load.
+	//
+	// If set, the entire article will be loaded.
+	//
+	// If unset, only the "preamble" of the article will be loaded and
+	// subsequent user interaction will be required to trigger the loading
+	// of the rest of the content.
+	//
+	// NOTE: "root" articles only, this field is ignored for SubArticles.
+	LoadExpanded bool
 }
 
 // ArticleGroup is a list of loosely related articles. It is used by httpdoc to generate
@@ -374,6 +385,15 @@ type ArticleGroup struct {
 	Name string
 	// The list of articles that belong to the group.
 	Articles []*Article
+	// LoadExpanded controls how much of the group articles' content will be
+	// loaded during the initial page load.
+	//
+	// If set, the group's entire articles will be loaded.
+	//
+	// If unset, only the "preambles" of the group's articles will be loaded
+	// and subsequent user interaction will be required to trigger the loading
+	// of the rest of the content.
+	LoadExpanded bool
 }
 
 // ArticleDirectory is the hierarchy of articles used to generate the documentation.

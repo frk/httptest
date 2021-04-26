@@ -139,11 +139,10 @@ a {
 	padding-right: 10px;
 
 	color: var(--cp-grey400);
-	font-family: var(--ff-mono);
-	font-weight: 500;
-	font-size: 12px;
+	font-family: var(--ff-sans);
+	font-weight: 400;
+	font-size: 11px;
 	letter-spacing: 0.04em;
-	user-select: none;
 	pointer-events: none;
 }
 

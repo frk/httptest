@@ -118,11 +118,16 @@ func (w *write) init() error {
 func (w *write) writeArticles() error {
 	// Split the page into as many articles as there are elements in the
 	// root p.Content.Articles slice, then write each into their own file.
-	for _, aElem := range w.page.Content.Articles {
+	for i, a := range w.page.Content.Articles {
 		p := w.page // shallow copy
-		p.Content.Articles = []*page.ArticleElement{aElem}
+		p.Content.Articles = make([]*page.ArticleElement, len(w.page.Content.Articles))
+		copy(p.Content.Articles, w.page.Content.Articles)
 
-		filename := filepath.Join(w.htmldir, aElem.Id+".html")
+		a := *a // shallow copy
+		a.Expanded = true
+		p.Content.Articles[i] = &a
+
+		filename := filepath.Join(w.htmldir, a.Id+".html")
 		f, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY, w.fperm)
 		if err != nil {
 			fmt.Println("os.OpenFile")

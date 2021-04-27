@@ -688,16 +688,16 @@ func Test_build(t *testing.T) {
 			Articles: []*Article{{
 				Title: "Article 1",
 				TestGroups: []*httptest.TestGroup{{
-					E:    "POST /api/foos",
+					E:    "POST /foos",
 					Desc: "Create a Foo",
 				}, {
-					E:    "GET /api/foos",
+					E:    "GET /foos",
 					Desc: "List Foos",
 				}, {
-					E:    "GET /api/foos/{id}",
+					E:    "GET /foos/{id}",
 					Desc: "Get a Foo",
 				}, {
-					E:    "DELETE /api/foos",
+					E:    "DELETE /foos",
 					Desc: "Delete a Foo",
 				}},
 			}},

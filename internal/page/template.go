@@ -66,7 +66,13 @@ var page_root = `
 		{{ template "sidebar" .Sidebar }}
 		{{ template "content" .Content }}
 
-		<script src="/assets/js/main.js"></script>
+		{{- with .AnchorId }}
+		<script type="text/javascript">
+			document.getElementById('{{ . }}').scrollIntoView();
+		</script>
+		{{- end }}
+
+		<script type="text/javascript" src="/assets/js/main.js"></script>
 	</body>
 </html>
 ` //`

@@ -120,6 +120,7 @@ func (w *write) writeArticles() error {
 	// root p.Content.Articles slice, then write each into their own file.
 	for i, a := range w.page.Content.Articles {
 		p := w.page // shallow copy
+		p.AnchorId = a.Id
 		p.Content.Articles = make([]*page.ArticleElement, len(w.page.Content.Articles))
 		copy(p.Content.Articles, w.page.Content.Articles)
 

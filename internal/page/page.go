@@ -16,6 +16,8 @@ type Page struct {
 	// to a pointer, then the page-writing code needs to be updated to create
 	// a shallow copy of the pointed-to Content.
 	Content Content
+	// The id of the element which should act as the anchor for the initial page load.
+	AnchorId string
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -92,7 +94,10 @@ type Footer struct {
 ////////////////////////////////////////////////////////////////////////////////
 
 type ArticleElement struct {
+	// The id attribute of the article.
 	Id string
+	// The URL path to the article.
+	Path string
 	// The article's anchor.
 	Href string
 	// The article's title.

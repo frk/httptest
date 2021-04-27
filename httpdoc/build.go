@@ -44,6 +44,22 @@ type build struct {
 	hrefs   map[string]int                 // set of already generated hrefs
 	aHrefs  map[*Article]string            // cache of Article specific hrefs
 	tgHrefs map[*httptest.TestGroup]string // cache of TestGroup specific hrefs
+
+	// Keeps track of the parent-relation between an *Article and its parent
+	// *Article or between an *httptest.TestGroups and its parent *Article.
+	// The map is populated during the first pass through the input.
+	parents map[interface{}]*Article
+	// ...
+	objkeys map[interface{}]objkeys
+	// keep track of already generated values to ensure uniquenes
+	slugs, paths, anchors map[string]int
+}
+
+// set of properties that uniquely identify an object across the documentation.
+type objkeys struct {
+	slug   string // a slug of an article
+	path   string // the url path of an article
+	anchor string // the id of an html element (not necessarily an article)
 }
 
 func (c *build) run() error {
@@ -63,12 +79,20 @@ func (c *build) run() error {
 	c.aHrefs = make(map[*Article]string)
 	c.tgHrefs = make(map[*httptest.TestGroup]string)
 
+	////xxxxxxxxxxxxxx
+	c.parents = make(map[interface{}]*Article)
+	c.objkeys = make(map[interface{}]objkeys)
+	c.slugs = make(map[string]int)
+	c.paths = make(map[string]int)
+	c.anchors = make(map[string]int)
+
 	// ensure the configured hrefs and the hrefs generated later don't collide
 	c.hrefs[c.RootPath] = 0
 	c.hrefs[c.logoURL] = 0
 	c.hrefs[c.SigninPath] = 0
 
 	// build
+	c.prepBuild()
 	if err := c.buildSidebar(); err != nil {
 		return err
 	}
@@ -79,6 +103,32 @@ func (c *build) run() error {
 		return err
 	}
 	return nil
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Prep (first pass through the input)
+////////////////////////////////////////////////////////////////////////////////
+
+func (c *build) prepBuild() {
+	for _, g := range c.dir {
+		c.prepArticles(g.Articles, nil)
+	}
+}
+
+func (c *build) prepArticles(articles []*Article, parent *Article) {
+	for _, a := range articles {
+		c.parents[a] = parent
+		c.objkeys[a] = c.newObjKeysForArticle(a, parent)
+		c.prepTestGroups(a.TestGroups, a)
+		c.prepArticles(a.SubArticles, a)
+	}
+}
+
+func (c *build) prepTestGroups(tgs []*httptest.TestGroup, parent *Article) {
+	for _, g := range tgs {
+		c.parents[g] = parent
+		c.objkeys[g] = c.newObjKeysForTestGroup(g, parent)
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -132,14 +182,14 @@ var errNoArticleTitle = fmt.Errorf("httpdoc: Article.Title is required.")
 func (c *build) newSidebarItemsFromArticles(articles []*Article, parent *Article) ([]*page.SidebarItem, error) {
 	items := make([]*page.SidebarItem, len(articles))
 	for i, a := range articles {
-		// an article title is required, fail if none was provided
 		if a.Title == "" {
+			// title is required, fail if none was provided
 			return nil, errNoArticleTitle
 		}
 
 		item := new(page.SidebarItem)
 		item.Text = a.Title
-		item.Href = c.getHrefForArticle(a, parent)
+		item.Href = c.objkeys[a].path
 
 		if len(a.TestGroups) > 0 {
 			items := c.newSidebarItemsFromTestGroups(a.TestGroups, a)
@@ -164,7 +214,7 @@ func (c *build) newSidebarItemsFromTestGroups(tgs []*httptest.TestGroup, parent 
 		if desc := getTestGroupDesc(g); len(desc) > 0 {
 			item := new(page.SidebarItem)
 			item.Text = desc
-			item.Href = c.getHrefForTestGroup(g, parent)
+			item.Href = c.objkeys[g].path
 			items = append(items, item)
 		}
 	}
@@ -299,8 +349,8 @@ func (c *build) newArticleElementListFromTestGroups(tgs []*httptest.TestGroup, p
 
 func (c *build) newArticleElementFromArticle(a *Article, parent *Article) (*page.ArticleElement, error) {
 	aElem := new(page.ArticleElement)
-	aElem.Id = c.getIdForArticle(a, parent)
-	aElem.Href = c.getHrefForArticle(a, parent)
+	aElem.Id = c.objkeys[a].anchor
+	aElem.Href = c.objkeys[a].path
 	aElem.Title = a.Title
 	aElem.Expanded = a.LoadExpanded
 
@@ -348,8 +398,8 @@ func (c *build) newArticleElementFromArticle(a *Article, parent *Article) (*page
 
 func (c *build) newArticleElementFromTestGroup(tg *httptest.TestGroup, parent *Article) (*page.ArticleElement, error) {
 	aElem := new(page.ArticleElement)
-	aElem.Id = c.getIdForTestGroup(tg, parent)
-	aElem.Href = c.getHrefForTestGroup(tg, parent)
+	aElem.Id = c.objkeys[tg].anchor
+	aElem.Href = c.objkeys[tg].path
 	aElem.Title = getTestGroupDesc(tg)
 
 	if tg.DocA != nil {
@@ -514,7 +564,7 @@ func (c *build) newExampleEndpoints(tgs []*httptest.TestGroup) *page.ExampleEndp
 		method, pattern := tg.E.Split()
 
 		item := new(page.EndpointItem)
-		item.Href = c.getHrefForTestGroup(tg, nil)
+		item.Href = c.objkeys[tg].path
 		item.Method = method
 		item.Pattern = pattern
 		item.Tooltip = getTestGroupDesc(tg)
@@ -869,13 +919,8 @@ func (c *build) _newFieldList(typ *types.Type, aElem *page.ArticleElement, class
 
 		// the field's id
 		item.Id = aElem.Id + "." + idpfx + item.Path + item.Name
-
 		// the field's anchor
-		item.Href = aElem.Href
-		if i := strings.IndexByte(item.Href, '#'); i > -1 {
-			item.Href = item.Href[:i]
-		}
-		item.Href = item.Href + "#" + item.Id
+		item.Href = "#" + item.Id
 
 		// "trim" pointers
 		ftype := f.Type
@@ -988,95 +1033,65 @@ func (c *build) newEnumList(typ *types.Type) (*page.EnumList, error) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// ids & hrefs
+// objkeys
 ////////////////////////////////////////////////////////////////////////////////
 
-// getIdForArticle returns a unique id value for the given Article.
-func (c *build) getIdForArticle(a *Article, parent *Article) string {
-	if id, ok := c.aIds[a]; ok {
-		return id
-	}
+func (c *build) newObjKeysForArticle(a *Article, parent *Article) objkeys {
+	var k objkeys
+	k.slug = slugFromString(a.Title)
+	k.path = c.RootPath + "/" + k.slug
+	k.anchor = k.slug
 
-	id := strings.Map(func(r rune) rune {
-		// TODO(mkopriva): handle non ascii characters, e.g. japanese, chinese, arabic, etc.
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
-			return r
+	if parent != nil {
+		if pk, ok := c.objkeys[parent]; ok {
+			k.path = pk.path + "/" + k.slug
+			k.anchor = pk.anchor + "." + k.slug
 		}
-		return '-'
-	}, strings.ToLower(a.Title))
-
-	if parent != nil {
-		id = c.getIdForArticle(parent, nil) + "." + id
 	}
 
-	// make sure the id is unique
-	count := c.ids[id]
-	c.ids[id] = count + 1
-	if count > 0 {
-		id += "-" + strconv.Itoa(count+1)
-	}
-
-	// cache the id
-	c.aIds[a] = id
-	return id
+	c.makeObjKeysUnique(&k)
+	return k
 }
 
-// getIdForTestGroup returns a unique id for the given TestGroup.
-func (c *build) getIdForTestGroup(tg *httptest.TestGroup, parent *Article) string {
-	if id, ok := c.tgIds[tg]; ok {
-		return id
-	}
-
-	var id string
-	if len(tg.Desc) > 0 {
-		id = strings.Map(func(r rune) rune {
-			// TODO(mkopriva): handle non ascii characters, e.g. japanese, chinese, arabic, etc.
-			if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
-				return r
-			}
-			return '-'
-		}, strings.ToLower(tg.Desc))
-	} else {
-		method, pattern := tg.E.Split()
-
-		// default to tg.E if no tg.Desc was set
-		method = strings.ToLower(strings.Trim(method, "/-"))
-		pattern = strings.ToLower(strings.Trim(pattern, "/-"))
-		id = method + "-" + pattern
-
-		// replace "/" with "-", and remove placeholder delimiters
-		id = strings.Map(func(r rune) rune {
-			// TODO(mkopriva): allow for handling of more complex endpoint
-			// patterns, i.e. some routers allow specifying regular expressions,
-			// or they use delimiters different from "{" and "}".
-			//
-			// Consider providing a Config.<Field> so that the user can supply
-			// their own "getHrefForTestGroup" implementation based on their own need.
-			if r == '{' || r == '}' {
-				return -1
-			}
-			if r == '/' {
-				return '-'
-			}
-			return r
-		}, id)
-	}
+func (c *build) newObjKeysForTestGroup(tg *httptest.TestGroup, parent *Article) objkeys {
+	var k objkeys
+	k.path = pathFromTestGroup(tg)
+	k.slug = slugFromPath(k.path)
+	k.anchor = k.slug
 
 	if parent != nil {
-		id = c.getIdForArticle(parent, nil) + "." + id
+		if pk, ok := c.objkeys[parent]; ok {
+			k.path = pathJoin(pk.path, k.path)
+			k.anchor = pk.anchor + "." + k.slug
+		}
 	}
 
-	// make sure the id is unique
-	count := c.ids[id]
-	c.ids[id] = count + 1
-	if count > 0 {
-		id += "-" + strconv.Itoa(count+1)
-	}
-
-	// cache the id
-	c.tgIds[tg] = id
-	return id
+	c.makeObjKeysUnique(&k)
+	return k
 }
+
+// make sure the slugs, paths, and anchors are unique
+func (c *build) makeObjKeysUnique(k *objkeys) {
+	snum := c.slugs[k.slug]
+	c.slugs[k.slug] = snum + 1
+	if snum > 0 {
+		k.slug += "-" + strconv.Itoa(snum+1)
+	}
+	pnum := c.paths[k.path]
+	c.paths[k.path] = pnum + 1
+	if pnum > 0 {
+		k.path += "-" + strconv.Itoa(pnum+1)
+	}
+	anum := c.anchors[k.anchor]
+	c.anchors[k.anchor] = anum + 1
+	if anum > 0 {
+		k.anchor += "-" + strconv.Itoa(anum+1)
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// ids & hrefs
+////////////////////////////////////////////////////////////////////////////////
 
 // getIdForCodeSnippet returns a unique id for the given CodeSnippet.
 func (c *build) getIdForCodeSnippet(cs page.CodeSnippet, tg *httptest.TestGroup, lang string) string {
@@ -1084,7 +1099,7 @@ func (c *build) getIdForCodeSnippet(cs page.CodeSnippet, tg *httptest.TestGroup,
 		return id
 	}
 
-	id := c.getIdForTestGroup(tg, nil) + ".cs-lang-" + lang
+	id := c.objkeys[tg].anchor + ".cs-lang-" + lang
 
 	// make sure the id is unique
 	count := c.ids[id]
@@ -1096,62 +1111,6 @@ func (c *build) getIdForCodeSnippet(cs page.CodeSnippet, tg *httptest.TestGroup,
 	// cache the id
 	c.csIds[cs] = id
 	return id
-}
-
-// getHrefForArticle returns an href string for the given Article.
-func (c *build) getHrefForArticle(a *Article, parent *Article) string {
-	if href, ok := c.aHrefs[a]; ok {
-		return href
-	}
-
-	id := c.getIdForArticle(a, parent)
-	href := c.RootPath + "/" + id
-	if parent != nil {
-		href = c.getHrefForArticle(parent, nil)
-		if i := strings.IndexByte(href, '#'); i > -1 {
-			href = href[:i]
-		}
-		href += "#" + id
-	}
-
-	// make sure the href is unique
-	count := c.hrefs[href]
-	c.hrefs[href] = count + 1
-	if count > 0 {
-		href += "-" + strconv.Itoa(count+1)
-	}
-
-	// cache the href
-	c.aHrefs[a] = href
-	return href
-}
-
-// getHrefForTestGroup returns an href string for the given TestGroup.
-func (c *build) getHrefForTestGroup(tg *httptest.TestGroup, parent *Article) string {
-	if href, ok := c.tgHrefs[tg]; ok {
-		return href
-	}
-
-	id := c.getIdForTestGroup(tg, parent)
-	href := c.RootPath + "/" + id
-	if parent != nil {
-		href = c.getHrefForArticle(parent, nil)
-		if i := strings.IndexByte(href, '#'); i > -1 {
-			href = href[:i]
-		}
-		href += "#" + id
-	}
-
-	// make sure the returned href is unique
-	count := c.hrefs[href]
-	c.hrefs[href] = count + 1
-	if count > 0 {
-		href += "-" + strconv.Itoa(count+1)
-	}
-
-	// cache the href
-	c.tgHrefs[tg] = href
-	return href
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1341,20 +1300,3 @@ func getRequestPath(req httptest.Request, pattern string) (path string) {
 	}
 	return path
 }
-
-// removes scheme from url, e.g. "https://example.com" becomes "example.com".
-func trimURLScheme(url string) string {
-	if i := strings.Index(url, "://"); i >= 0 {
-		return url[i+3:]
-	}
-	return url
-}
-
-// adapted from net/http.Header
-type headerSorter struct {
-	items []page.HeaderItem
-}
-
-func (s *headerSorter) Len() int           { return len(s.items) }
-func (s *headerSorter) Swap(i, j int)      { s.items[i], s.items[j] = s.items[j], s.items[i] }
-func (s *headerSorter) Less(i, j int) bool { return s.items[i].Key < s.items[j].Key }

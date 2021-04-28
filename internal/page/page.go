@@ -113,6 +113,8 @@ type ArticleElement struct {
 	Example ExampleElement
 	// A list of sub articles.
 	SubArticles []*ArticleElement
+	// If set, indicates that this article has no parent article.
+	IsRoot bool
 }
 
 type ArticleSection interface {

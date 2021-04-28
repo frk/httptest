@@ -241,9 +241,15 @@ var article_section_list = `{{ define "article_section_list" -}}
 
 var article_lead = `{{ define "article_lead" -}}
 <section class="article-section-lead">
+	{{- if .IsRoot }}
 	<h2 class="article-section-lead-title">
 		<a class="article-anchor" href="{{ .Href }}">{{ .Title }}</a>
 	</h2>
+	{{- else }}
+	<h3 class="article-section-lead-title">
+		<a class="article-anchor" href="{{ .Href }}">{{ .Title }}</a>
+	</h3>
+	{{- end }}
 
 	{{- with .SourceLink }}
 	<div class="article-source">
@@ -506,14 +512,14 @@ var field_list = `{{ define "field_list" -}}
 var field_item = `{{ define "field_item" -}}
 <li id="{{ .Id }}" class="field-item">
 	<h3 class="field-heading">
-		<a class="field-anchor" href="{{ .Href }}">¶</a>
+		<a class="field-anchor" href="{{ .Href }}"><span class="field-anchor-icon">#</span></a>
 		{{ with .Path -}}
 		<span class="field-path">{{ . }}</span>
 		{{- end -}}
 		<span class="field-name">{{ .Name }}</span>
 		<span class="field-type">{{ .Type }}</span>
 		{{- if .SettingText }}
-		<span class="field-setting-{{ .SettingLabel }}">{{ .SettingText }}</span>
+		<span class="field-setting {{ .SettingLabel }}">{{ .SettingText }}</span>
 		{{- end }}
 		{{- with .SourceLink }}
 		<a class="field-source-link" href="{{ .Href }}">‹›</a>
@@ -543,8 +549,9 @@ var field_item = `{{ define "field_item" -}}
 ` //`
 
 var field_children = `{{ define "field_children" -}}
-<div class="field-list-container">
-	<ul class="field-list">
+<div class="field-list-container child">
+	<h5 class="field-list-heading child">Child fields</h5>
+	<ul class="field-list child">
 		{{ range . -}}
 		{{ template "field_item" . }}
 		{{ end -}}

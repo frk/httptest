@@ -333,6 +333,7 @@ func (c *build) newArticleElementFromArticle(a *Article, parent *Article) (*page
 	aElem.Id = c.objkeys[a].anchor
 	aElem.Href = c.objkeys[a].path
 	aElem.Title = a.Title
+	aElem.IsRoot = (parent == nil)
 
 	if a.Text != nil {
 		text, err := c.newHTML(a.Text, nil)
@@ -454,7 +455,7 @@ func (c *build) newArticleElementFromTestGroup(tg *httptest.TestGroup, parent *A
 		}
 		if len(inputFields) > 0 {
 			section := new(page.ArticleFieldList)
-			section.Title = "INPUT"
+			//section.Title = "INPUT"
 			section.Lists = inputFields
 			aElem.Sections = append(aElem.Sections, section)
 		}
@@ -481,7 +482,7 @@ func (c *build) newArticleElementFromTestGroup(tg *httptest.TestGroup, parent *A
 			}
 			if len(outputFields) > 0 {
 				section := new(page.ArticleFieldList)
-				section.Title = "OUTPUT"
+				//section.Title = "OUTPUT"
 				section.Lists = outputFields
 				aElem.Sections = append(aElem.Sections, section)
 			}
@@ -841,6 +842,14 @@ func (c *build) newFieldList(value interface{}, aElem *page.ArticleElement, clas
 	case page.FIELD_LIST_OBJECT:
 		title = ""
 		idpfx = "obj."
+	}
+
+	if len(title) > 0 {
+		if isInput {
+			title = "Request " + title
+		} else {
+			title = "Response " + title
+		}
 	}
 
 	list, err = c._newFieldList(typ, aElem, class, isInput, idpfx, nil)

@@ -15,7 +15,7 @@
 	--cp-navy800: #063562;
 	--cp-navy900: #042e56;
 
-	
+	--cp-grey10: #edf1f7;
 	--cp-grey50: #e1e6ec;
 	--cp-grey100: #d0d8e0;
 	--cp-grey200: #c6cdd4;
@@ -26,6 +26,10 @@
 	--cp-grey700: #686c6f;
 	--cp-grey800: #545759;
 	--cp-grey900: #3f4143;
+
+	--cp-orange10: #fdf4ec;
+	--cp-orange300: #e6b081;
+	--cp-orange900: #b05a0e;
 
 	--cp-primary: var(--cp-navy500);
 
@@ -63,6 +67,7 @@ article {
 	font-size: 15px;
 	line-height: 1.5;
 	letter-spacing: 0.003em;
+	border-top: 1px solid var(--cp-grey50);
 }
 
 a {
@@ -215,10 +220,10 @@ article {
 
 .article-primary-column {
 	width: 600px;
+	margin-right: 100px;
 }
 
 .article-section-lead-title {
-	font-size: 28px;
 	line-height: 40px;
 	font-weight: 500;
 	margin: 0;
@@ -229,8 +234,211 @@ article {
 	text-decoration: none;
 }
 
+h2.article-section-lead-title {
+	font-size: 30px;
+}
+
+h3.article-section-lead-title {
+	font-size: 25px;
+}
+
 .article-section-lead-title > a {
 	color: black;
+}
+
+.article-section-field-list-title {
+}
+
+/*******************************************************************************
+ * Fields
+ ******************************************************************************/
+
+.field-item {
+	border-bottom: 1px solid var(--cp-grey50);
+}
+
+.field-item:last-child {
+	border-bottom: none;
+}
+
+.field-heading {
+	margin: 10px 0px;
+	display: flex;
+	flex-direction: row;
+	justify-content: flex-start;
+	align-items: center;
+}
+
+.field-anchor {
+	position: absolute;
+	width: 0px;
+}
+
+.field-anchor-icon {
+	position: relative;
+	display: block;
+	left: -16px;
+	width: 13px;
+	opacity: 0;
+	font-size: 13px;
+	font-family: var(--ff-mono);
+	font-weight: 100;
+	background-color: white;
+}
+
+.field-heading:hover .field-anchor-icon {
+	opacity: 1;
+}
+
+.field-anchor-icon:hover {
+	opacity: 1;
+}
+
+.field-path {
+	color: var(--cp-grey600);
+	font-family: var(--ff-mono);
+	font-size: 12px;
+	font-weight: 500;
+	letter-spacing: 0;
+}
+
+.field-name {
+	font-size: 12px;
+	font-family: var(--ff-mono);
+	margin-right: 8px;
+}
+
+.field-type {
+	color: var(--cp-navy700);
+	background-color: var(--cp-navy10);
+	font-size: 11px;
+	font-family: var(--ff-mono);
+	font-weight: normal;
+	padding: 0px 3px;
+	border-radius: 4px;
+	border-style: solid;
+	border-width: 1px;
+	border-color: var(--cp-navy100);
+	margin-right: 8px;
+}
+
+.field-setting {
+	font-size: 11px;
+	font-family: var(--ff-mono);
+	font-weight: normal;
+	padding: 0px 3px;
+	border-radius: 4px;
+	border-style: solid;
+	border-width: 1px;
+	margin-right: 8px;
+}
+
+.field-setting.required {
+	color: var(--cp-orange900);
+	background-color: var(--cp-orange10);
+	border-color: var(--cp-orange300);
+}
+
+.field-setting.optional {
+	color: var(--cp-grey700);
+	background-color: var(--cp-grey10);
+	border-color: var(--cp-grey100);
+}
+
+.field-text {
+	font-size: 13px;
+}
+
+.field-list-container.child {
+	border: 1px solid var(--cp-grey50);
+	border-radius: 6px;
+	margin-bottom: 15px;
+}
+
+.field-list-heading.child {
+	color: var(--cp-grey900);
+	font-family: var(--ff-mono);
+	font-weight: 500;
+	font-size: 10px;
+	text-transform: uppercase;
+	margin: 0;
+	padding: 5px 10px;
+	border-bottom: 1px solid var(--cp-grey50);
+}
+
+.field-list.child > .field-item {
+	padding: 0px 11px;
+}
+
+/*******************************************************************************
+ * Enum List
+ ******************************************************************************/
+.enum-list-container {
+	border: 1px solid var(--cp-grey50);
+	border-radius: 6px;
+	margin-bottom: 15px;
+}
+
+.enum-list-heading {
+	color: var(--cp-grey900);
+	font-family: var(--ff-mono);
+	font-weight: 500;
+	font-size: 10px;
+	text-transform: uppercase;
+	margin: 0;
+	padding: 5px 10px;
+	border-bottom: 1px solid var(--cp-grey50);
+}
+
+.enum-item {
+	padding: 0px 11px;
+	border-bottom: 1px solid var(--cp-grey50);
+}
+
+.enum-item:last-child {
+	border-bottom: none;
+}
+
+.enum-heading {
+	margin: 10px 0px;
+	display: flex;
+	flex-direction: row;
+	justify-content: flex-start;
+	align-items: center;
+}
+
+.enum-value {
+	display: inline-flex;
+}
+
+.enum-value > code {
+	color: var(--cp-grey700);
+	background-color: var(--cp-grey10);
+	border-color: var(--cp-grey100);
+
+	font-size: 11px;
+	font-family: var(--ff-mono);
+	font-weight: normal;
+	padding: 1px 4px;
+	border-radius: 4px;
+	border-style: solid;
+	border-width: 1px;
+	margin-right: 8px;
+}
+
+.enum-source-link {
+	text-align: center;
+	margin-left: auto;
+	padding: 0px 6px 2px 6px;
+	border-radius: 3px;
+}
+
+.enum-source-link:hover {
+	background-color: var(--cp-navy10);
+}
+
+.enum-text {
+	font-size: 13px;
 }
 
 /*******************************************************************************

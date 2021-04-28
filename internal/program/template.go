@@ -8,21 +8,18 @@ import (
 var T = template.Must(template.New("t").Parse(strings.Join([]string{
 	prog_file,
 	func_new,
+	type_page,
 	type_handler,
-	index_handler,
+	valid_paths,
 	must_get_files_dir,
 }, "")))
 
 var prog_file = `package {{ .PkgName }}
 
 import (
-	"html/template"
-	"log"
-	"net/http"
-	{{- if .IsExecutable }}
-	"os"
+	{{- range .Imports }}
+	"{{ . }}"
 	{{- end }}
-	"path/filepath"
 )
 
 var (
@@ -46,9 +43,11 @@ func main() {
 
 {{ template "func_new" . }}
 
+{{ template "type_page" . }}
+
 {{ template "type_handler" . }}
 
-{{ template "index_handler" . }}
+{{ template "valid_paths" . }}
 
 {{ template "must_get_files_dir" . }}
 ` //`
@@ -58,23 +57,32 @@ func New() http.Handler {
 	mux := http.NewServeMux()
 
 	// initialize handlers
-	{{ .IndexHandler.Name }} := indexHandler("{{ .IndexHandler.File }}")
-	{{- range .Handlers }}
-	{{ .Name }} := newHandler("{{ .File }}")
-	{{- end }}
+	docsHandler := newHandler("docs.html")
 
 	// register handlers
-	mux.Handle("/", {{ .IndexHandler.Name }})
-	mux.Handle("{{ .IndexHandler.Path }}", {{ .IndexHandler.Name }})
-	{{- range .Handlers }}
-	mux.Handle("{{ .Path }}", {{ .Name }})
-	{{- end }}
+	mux.Handle("/", docsHandler)
 
 	// register file servers
 	mux.Handle("/assets/css/", http.StripPrefix("/assets/css/", cssfs))
 	mux.Handle("/assets/js/", http.StripPrefix("/assets/js/", jsfs))
 
 	return mux
+}
+{{ end -}}
+` //`
+
+var type_page = `{{ define "type_page" -}}
+type page struct {
+	Id   string
+	Path string
+}
+
+func (p page) IsHidden(s string) bool {
+	return !strings.HasPrefix(p.Path, s)
+}
+
+func (p page) IsActive(s string) bool {
+	return p.Path == s
 }
 {{ end -}}
 ` //`
@@ -93,33 +101,34 @@ func newHandler(filename string) *handler {
 }
 
 func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if err := h.t.Execute(w, nil); err != nil {
+	p := page{}
+	p.Path = r.URL.Path
+
+	var ok bool
+	if p.Id, ok = validPaths[p.Path]; !ok {
+		if p.Path != "{{ .RootPath }}" && p.Path != "/" {
+			http.NotFound(w, r)
+			return
+		}
+
+		if p.Path != "{{ .RootPath }}" && p.Path == "/" {
+			http.Redirect(w, r, "{{ .RootPath }}", http.StatusFound)
+			return
+		}
+	}
+
+	if err := h.t.Execute(w, p); err != nil {
 		log.Println(err)
 	}
 }
 {{ end -}}
 ` //`
 
-var index_handler = `{{ define "index_handler" -}}
-func indexHandler(filename string) http.Handler {
-	t, err := template.ParseFiles(filepath.Join(htmldir, filename))
-	if err != nil {
-		panic(err)
-	}
-	h := &handler{t: t}
-
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "{{ .RootPath }}" {
-			if r.URL.Path != "/" {
-				http.NotFound(w, r)
-				return
-			}
-
-			http.Redirect(w, r, "{{ .RootPath }}", http.StatusFound)
-			return
-		}
-		h.ServeHTTP(w, r)
-	})
+var valid_paths = `{{ define "valid_paths" -}}
+var validPaths = map[string]string{
+	{{- range $k, $v := .ValidPaths }}
+	"{{ $k }}": "{{ $v }}",
+	{{- end }}
 }
 {{ end -}}
 ` //`

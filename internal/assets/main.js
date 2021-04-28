@@ -8,6 +8,13 @@
 		return null;
 	}
 
+	function firstElementChild(e) {
+		if (e.children.length > 0) {
+			return e.children[0];
+		}
+		return null;
+	}
+
 	/**
 	* @param {Element} target is the element whose sibling children should be hidden.
 	* @param {Array} siblingChildren is a line of descendant elements one of which
@@ -37,6 +44,16 @@
 		let shown = [];
 
 		for (let i = 0; i < items.length; i++) {
+			if (items[i].classList.contains('active')) {
+				active = items[i];
+			}
+			if (items[i].classList.contains('has-subitems')) {
+				let subitems = lastElementChild(items[i]);
+				if (!subitems.classList.contains('hidden')) {
+					shown.push(subitems);
+				}
+			}
+
 			items[i].addEventListener('click', function(e) {
 				e.preventDefault();
 				e.stopPropagation();
@@ -50,6 +67,17 @@
 					}
 					target.classList.add('active');
 					active = target;
+				}
+
+				// scroll to selected element
+				let child = firstElementChild(active);
+				if (child !== null) {
+					let url = new URL(child.href);
+					let a = document.getElementById(url.hash.slice(1));
+					if (a !== null) {
+						a.scrollIntoView();
+						window.history.pushState({}, "", url.pathname);
+					}
 				}
 
 				if (!target.classList.contains('has-subitems')) {

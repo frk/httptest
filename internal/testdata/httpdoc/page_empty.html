@@ -29,7 +29,11 @@
 			<footer class="content-footer">
 			</footer>
 		</div>
-
+		{{ with .Id }}
+		<script type="text/javascript">
+document.getElementById('{{ . }}').scrollIntoView();
+		</script>
+		{{ end }}
 		<script type="text/javascript" src="/assets/js/main.js"></script>
 	</body>
 </html>

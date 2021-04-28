@@ -116,34 +116,21 @@ func (w *write) init() error {
 }
 
 func (w *write) writeArticles() error {
-	// Split the page into as many articles as there are elements in the
-	// root p.Content.Articles slice, then write each into their own file.
-	for i, a := range w.page.Content.Articles {
-		p := w.page // shallow copy
-		p.AnchorId = a.Id
-		p.Content.Articles = make([]*page.ArticleElement, len(w.page.Content.Articles))
-		copy(p.Content.Articles, w.page.Content.Articles)
+	filename := filepath.Join(w.htmldir, "docs.html")
+	f, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY, w.fperm)
+	if err != nil {
+		fmt.Println("os.OpenFile")
+		return err
+	}
+	defer f.Close()
 
-		a := *a // shallow copy
-		a.Expanded = true
-		p.Content.Articles[i] = &a
-
-		filename := filepath.Join(w.htmldir, a.Id+".html")
-		f, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY, w.fperm)
-		if err != nil {
-			fmt.Println("os.OpenFile")
-			return err
-		}
-		defer f.Close()
-
-		if err := page.T.Execute(f, p); err != nil {
-			fmt.Println("page.T.Execute")
-			return err
-		}
-		if err := f.Sync(); err != nil {
-			fmt.Println("f.Sync")
-			return err
-		}
+	if err := page.T.Execute(f, w.page); err != nil {
+		fmt.Println("page.T.Execute")
+		return err
+	}
+	if err := f.Sync(); err != nil {
+		fmt.Println("f.Sync")
+		return err
 	}
 	return nil
 }

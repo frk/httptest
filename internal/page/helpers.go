@@ -17,6 +17,19 @@ var helpers = template.FuncMap{
 		}
 	},
 
+	// funcs that produce template actions
+	"DOT": func() template.HTML { return template.HTML(`{{ . }}`) },
+	"IS_HIDDEN": func(s string) template.HTML {
+		return template.HTML("{{ if .IsHidden `" + s + "` }}")
+	},
+	"IS_ACTIVE": func(s string) template.HTML {
+		return template.HTML("{{ if .IsActive `" + s + "` }}")
+	},
+	"WITH_ID": func() template.HTML {
+		return template.HTML("{{ with .Id }}")
+	},
+	"END": func() template.HTML { return template.HTML(`{{ end }}`) },
+
 	////////////////////////////////////////////////////////////////////////
 	// sidebar banner type assertion
 	////////////////////////////////////////////////////////////////////////

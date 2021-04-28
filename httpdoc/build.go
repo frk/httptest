@@ -36,14 +36,8 @@ type build struct {
 	// the sidebar list currently being built, or nil
 	sbls *page.SidebarList
 
-	ids   map[string]int                 // set of already generated ids
-	aIds  map[*Article]string            // cache of Article specific ids
-	tgIds map[*httptest.TestGroup]string // cache of TestGroup specific ids
-	csIds map[page.CodeSnippet]string    // cache of CodeSnippet specific ids
-
-	hrefs   map[string]int                 // set of already generated hrefs
-	aHrefs  map[*Article]string            // cache of Article specific hrefs
-	tgHrefs map[*httptest.TestGroup]string // cache of TestGroup specific hrefs
+	ids   map[string]int              // set of already generated ids
+	csIds map[page.CodeSnippet]string // cache of CodeSnippet specific ids
 
 	// Keeps track of the parent-relation between an *Article and its parent
 	// *Article or between an *httptest.TestGroups and its parent *Article.
@@ -72,12 +66,7 @@ func (c *build) run() error {
 
 	// initialize build
 	c.ids = make(map[string]int)
-	c.aIds = make(map[*Article]string)
-	c.tgIds = make(map[*httptest.TestGroup]string)
 	c.csIds = make(map[page.CodeSnippet]string)
-	c.hrefs = make(map[string]int)
-	c.aHrefs = make(map[*Article]string)
-	c.tgHrefs = make(map[*httptest.TestGroup]string)
 
 	////xxxxxxxxxxxxxx
 	c.parents = make(map[interface{}]*Article)
@@ -86,10 +75,10 @@ func (c *build) run() error {
 	c.paths = make(map[string]int)
 	c.anchors = make(map[string]int)
 
-	// ensure the configured hrefs and the hrefs generated later don't collide
-	c.hrefs[c.RootPath] = 0
-	c.hrefs[c.logoURL] = 0
-	c.hrefs[c.SigninPath] = 0
+	// ensure the configured paths and the paths generated later don't collide
+	c.paths[c.RootPath] = 0
+	c.paths[c.logoURL] = 0
+	c.paths[c.SigninPath] = 0
 
 	// build
 	c.prepBuild()
@@ -106,7 +95,7 @@ func (c *build) run() error {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Prep (first pass through the input)
+// Prep (first pass)
 ////////////////////////////////////////////////////////////////////////////////
 
 func (c *build) prepBuild() {
@@ -187,9 +176,11 @@ func (c *build) newSidebarItemsFromArticles(articles []*Article, parent *Article
 			return nil, errNoArticleTitle
 		}
 
+		key := c.objkeys[a]
 		item := new(page.SidebarItem)
 		item.Text = a.Title
-		item.Href = c.objkeys[a].path
+		item.Path = key.path
+		item.Href = key.path + "#" + key.anchor
 
 		if len(a.TestGroups) > 0 {
 			items := c.newSidebarItemsFromTestGroups(a.TestGroups, a)
@@ -212,9 +203,11 @@ func (c *build) newSidebarItemsFromTestGroups(tgs []*httptest.TestGroup, parent 
 	for _, g := range tgs {
 		// include the test group only if a decent description was extracted
 		if desc := getTestGroupDesc(g); len(desc) > 0 {
+			key := c.objkeys[g]
 			item := new(page.SidebarItem)
 			item.Text = desc
-			item.Href = c.objkeys[g].path
+			item.Path = key.path
+			item.Href = key.path + "#" + key.anchor
 			items = append(items, item)
 		}
 	}
@@ -265,24 +258,12 @@ func (b *build) buildProgram() error {
 	b.prog.RootPath = b.Config.RootPath
 	b.prog.ListenAddr = ":" + strconv.Itoa(b.Config.TCPListenPort)
 
-	// handlers
-	if len(b.page.Content.Articles) > 0 {
-		// TODO(mkopriva): currently this is using the 0th article
-		// to create the index page handler, while also creating the
-		// article-specific handler... doesn't feel right, give it
-		// more thought and refactor
-		a := b.page.Content.Articles[0]
-		b.prog.IndexHandler.Name = "_Handler"
-		b.prog.IndexHandler.Path = b.prog.RootPath
-		b.prog.IndexHandler.File = a.Id + ".html"
-	}
-	for _, a := range b.page.Content.Articles {
-		h := program.Handler{}
-		h.Name = getCamelCaseArticleId(a.Id) + "Handler"
-		h.Path = b.prog.RootPath + "/" + a.Id
-		h.File = a.Id + ".html"
-
-		b.prog.Handlers = append(b.prog.Handlers, h)
+	b.prog.ValidPaths = make(map[string]string, 3+len(b.objkeys))
+	b.prog.ValidPaths[b.RootPath] = ""
+	b.prog.ValidPaths[b.logoURL] = ""
+	b.prog.ValidPaths[b.SigninPath] = ""
+	for _, k := range b.objkeys {
+		b.prog.ValidPaths[k.path] = k.anchor
 	}
 	return nil
 }
@@ -352,7 +333,6 @@ func (c *build) newArticleElementFromArticle(a *Article, parent *Article) (*page
 	aElem.Id = c.objkeys[a].anchor
 	aElem.Href = c.objkeys[a].path
 	aElem.Title = a.Title
-	aElem.Expanded = a.LoadExpanded
 
 	if a.Text != nil {
 		text, err := c.newHTML(a.Text, nil)

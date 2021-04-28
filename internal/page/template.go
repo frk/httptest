@@ -66,11 +66,11 @@ var page_root = `
 		{{ template "sidebar" .Sidebar }}
 		{{ template "content" .Content }}
 
-		{{- with .AnchorId }}
+		{{ WITH_ID }}
 		<script type="text/javascript">
-			document.getElementById('{{ . }}').scrollIntoView();
+			document.getElementById('{{ DOT }}').scrollIntoView();
 		</script>
-		{{- end }}
+		{{ END }}
 
 		<script type="text/javascript" src="/assets/js/main.js"></script>
 	</body>
@@ -134,10 +134,10 @@ var sidebar_lists = `{{ define "sidebar_lists" -}}
 // is a direct child of the li.sidebar-list-item element. If the sidebar_item
 // DOM is changed the JavaScript will most probably have to be changed too.
 var sidebar_item = `{{ define "sidebar_item" -}}
-<li class="{{ .ListItemClass }}">
+<li class="{{ .ListItemClass }}{{ IS_ACTIVE .Path }} active{{ END }}">
 	<a href="{{ .Href }}" class="sidebar-item">{{ .Text }}</a>
 	{{- if .SubItems }}
-	<ul class="sidebar-item-subitems hidden">
+	<ul class="sidebar-item-subitems{{ IS_HIDDEN .Path }} hidden{{ END }}">
 		{{ range .SubItems }}{{ template "sidebar_item" . }}{{ end -}}
 	</ul>
 	{{- end }}
@@ -186,20 +186,18 @@ var content_articles = `{{ define "content_articles" -}}
 ////////////////////////////////////////////////////////////////////////////////
 
 var article = `{{ define "article" -}}
-<article id="{{ .Id }}" class="{{ .Class }}">
+<article id="{{ .Id }}">
 	<div class="article-content">
 		{{ template "article_primary_column" . }}
 		{{ template "article_example_column" . }}
 	</div>
 
-	{{- if .Expanded }}
 	{{- with .SubArticles }}
 	<div class="article-children">
 		{{ range . -}}
 		{{ template "article" . }}
 		{{ end -}}
 	</div>
-	{{- end }}
 	{{- end }}
 </article>
 {{ end -}}

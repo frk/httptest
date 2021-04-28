@@ -45,6 +45,7 @@ type SidebarList struct {
 
 type SidebarItem struct {
 	Text     string
+	Path     string
 	Href     string
 	SubItems []*SidebarItem
 }
@@ -112,15 +113,6 @@ type ArticleElement struct {
 	Example ExampleElement
 	// A list of sub articles.
 	SubArticles []*ArticleElement
-	//
-	Expanded bool
-}
-
-func (ae *ArticleElement) Class() string {
-	if ae.Expanded {
-		return "expanded"
-	}
-	return "collapsed"
 }
 
 type ArticleSection interface {

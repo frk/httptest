@@ -6,12 +6,25 @@ type Program struct {
 	RootPath     string
 	ListenAddr   string
 	IsExecutable bool
-	IndexHandler Handler
-	Handlers     []Handler
+	ValidPaths   map[string]string
 }
 
-type Handler struct {
-	Name string
-	Path string
-	File string
+func (p Program) Imports() []string {
+	if p.IsExecutable {
+		return []string{
+			"html/template",
+			"log",
+			"net/http",
+			"os",
+			"path/filepath",
+			"strings",
+		}
+	}
+	return []string{
+		"html/template",
+		"log",
+		"net/http",
+		"path/filepath",
+		"strings",
+	}
 }

@@ -102,10 +102,14 @@ func newHandler(filename string) *handler {
 
 func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	p := page{}
+	p.Id = r.URL.Fragment
 	p.Path = r.URL.Path
 
-	var ok bool
-	if p.Id, ok = validPaths[p.Path]; !ok {
+	if id, ok := validPaths[p.Path]; ok {
+		if len(p.Id) == 0 {
+			p.Id = id
+		}
+	} else {
 		if p.Path != "{{ .RootPath }}" && p.Path != "/" {
 			http.NotFound(w, r)
 			return

@@ -10,32 +10,32 @@
 		<div class="sidebar-list-container">
 			<h5 class="sidebar-list-title">Article Group 1</h5>
 			<ul class="sidebar-list">
-				<li class="sidebar-list-item has-subitems{{ if .IsActive `/api/article-1` }} active{{ end }}">
-					<a href="/api/article-1#article-1" class="sidebar-item">Article 1</a>
+				<li class="sidebar-list-item has-subitems{{ if .IsActive `/api/article-1` }} active{{ end }}" data-anchor="article-1">
+					<a href="/api/article-1" class="sidebar-item">Article 1</a>
 					<ul class="sidebar-item-subitems{{ if .IsHidden `/api/article-1` }} hidden{{ end }}">
-						<li class="sidebar-list-item{{ if .IsActive `/api/article-1/sub-article-1` }} active{{ end }}">
-							<a href="/api/article-1/sub-article-1#article-1.sub-article-1" class="sidebar-item">Sub Article 1</a>
+						<li class="sidebar-list-item{{ if .IsActive `/api/article-1/sub-article-1` }} active{{ end }}" data-anchor="article-1.sub-article-1">
+							<a href="/api/article-1/sub-article-1" class="sidebar-item">Sub Article 1</a>
 						</li>
-						<li class="sidebar-list-item has-subitems{{ if .IsActive `/api/article-1/sub-article-2` }} active{{ end }}">
-							<a href="/api/article-1/sub-article-2#article-1.sub-article-2" class="sidebar-item">Sub Article 2</a>
+						<li class="sidebar-list-item has-subitems{{ if .IsActive `/api/article-1/sub-article-2` }} active{{ end }}" data-anchor="article-1.sub-article-2">
+							<a href="/api/article-1/sub-article-2" class="sidebar-item">Sub Article 2</a>
 							<ul class="sidebar-item-subitems{{ if .IsHidden `/api/article-1/sub-article-2` }} hidden{{ end }}">
-								<li class="sidebar-list-item{{ if .IsActive `/api/article-1/sub-article-2/sub-sub-article-1` }} active{{ end }}">
-									<a href="/api/article-1/sub-article-2/sub-sub-article-1#article-1.sub-article-2.sub-sub-article-1" class="sidebar-item">Sub Sub Article 1</a>
+								<li class="sidebar-list-item{{ if .IsActive `/api/article-1/sub-article-2/sub-sub-article-1` }} active{{ end }}" data-anchor="article-1.sub-article-2.sub-sub-article-1">
+									<a href="/api/article-1/sub-article-2/sub-sub-article-1" class="sidebar-item">Sub Sub Article 1</a>
 								</li>
 							</ul>
 						</li>
 					</ul>
 				</li>
-				<li class="sidebar-list-item{{ if .IsActive `/api/article-2` }} active{{ end }}">
-					<a href="/api/article-2#article-2" class="sidebar-item">Article 2</a>
+				<li class="sidebar-list-item{{ if .IsActive `/api/article-2` }} active{{ end }}" data-anchor="article-2">
+					<a href="/api/article-2" class="sidebar-item">Article 2</a>
 				</li>
 			</ul>
 		</div>
 		<div class="sidebar-list-container">
 			<h5 class="sidebar-list-title">Article Group 2</h5>
 			<ul class="sidebar-list">
-				<li class="sidebar-list-item{{ if .IsActive `/api/article-3` }} active{{ end }}">
-					<a href="/api/article-3#article-3" class="sidebar-item">Article 3</a>
+				<li class="sidebar-list-item{{ if .IsActive `/api/article-3` }} active{{ end }}" data-anchor="article-3">
+					<a href="/api/article-3" class="sidebar-item">Article 3</a>
 				</li>
 			</ul>
 		</div>

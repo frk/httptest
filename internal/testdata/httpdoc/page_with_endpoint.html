@@ -18,11 +18,11 @@
 				<div class="sidebar-list-container">
 					<h5 class="sidebar-list-title">Group Name</h5>
 					<ul class="sidebar-list">
-						<li class="sidebar-list-item has-subitems{{ if .IsActive `/api/article-title` }} active{{ end }}">
-							<a href="/api/article-title#article-title" class="sidebar-item">Article Title</a>
+						<li class="sidebar-list-item has-subitems{{ if .IsActive `/api/article-title` }} active{{ end }}" data-anchor="article-title">
+							<a href="/api/article-title" class="sidebar-item">Article Title</a>
 							<ul class="sidebar-item-subitems{{ if .IsHidden `/api/article-title` }} hidden{{ end }}">
-								<li class="sidebar-list-item{{ if .IsActive `/api/article-title/api/foos/post` }} active{{ end }}">
-									<a href="/api/article-title/api/foos/post#article-title.api-foos-post" class="sidebar-item">POST /api/foos</a>
+								<li class="sidebar-list-item{{ if .IsActive `/api/article-title/api/foos/post` }} active{{ end }}" data-anchor="article-title.api-foos-post">
+									<a href="/api/article-title/api/foos/post" class="sidebar-item">POST /api/foos</a>
 								</li>
 							</ul>
 						</li>

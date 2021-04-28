@@ -45,8 +45,8 @@ type SidebarList struct {
 
 type SidebarItem struct {
 	Text     string
-	Path     string
 	Href     string
+	Anchor   string
 	SubItems []*SidebarItem
 }
 

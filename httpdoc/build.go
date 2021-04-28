@@ -179,8 +179,8 @@ func (c *build) newSidebarItemsFromArticles(articles []*Article, parent *Article
 		key := c.objkeys[a]
 		item := new(page.SidebarItem)
 		item.Text = a.Title
-		item.Path = key.path
-		item.Href = key.path + "#" + key.anchor
+		item.Href = key.path
+		item.Anchor = key.anchor
 
 		if len(a.TestGroups) > 0 {
 			items := c.newSidebarItemsFromTestGroups(a.TestGroups, a)
@@ -206,8 +206,8 @@ func (c *build) newSidebarItemsFromTestGroups(tgs []*httptest.TestGroup, parent 
 			key := c.objkeys[g]
 			item := new(page.SidebarItem)
 			item.Text = desc
-			item.Path = key.path
-			item.Href = key.path + "#" + key.anchor
+			item.Href = key.path
+			item.Anchor = key.anchor
 			items = append(items, item)
 		}
 	}
@@ -543,8 +543,9 @@ func (c *build) newExampleEndpoints(tgs []*httptest.TestGroup) *page.ExampleEndp
 	for _, tg := range tgs {
 		method, pattern := tg.E.Split()
 
+		key := c.objkeys[tg]
 		item := new(page.EndpointItem)
-		item.Href = c.objkeys[tg].path
+		item.Href = key.path
 		item.Method = method
 		item.Pattern = pattern
 		item.Tooltip = getTestGroupDesc(tg)

@@ -134,10 +134,10 @@ var sidebar_lists = `{{ define "sidebar_lists" -}}
 // is a direct child of the li.sidebar-list-item element. If the sidebar_item
 // DOM is changed the JavaScript will most probably have to be changed too.
 var sidebar_item = `{{ define "sidebar_item" -}}
-<li class="{{ .ListItemClass }}{{ IS_ACTIVE .Path }} active{{ END }}">
+<li class="{{ .ListItemClass }}{{ IS_ACTIVE .Href }} active{{ END }}" data-anchor="{{ .Anchor }}">
 	<a href="{{ .Href }}" class="sidebar-item">{{ .Text }}</a>
 	{{- if .SubItems }}
-	<ul class="sidebar-item-subitems{{ IS_HIDDEN .Path }} hidden{{ END }}">
+	<ul class="sidebar-item-subitems{{ IS_HIDDEN .Href }} hidden{{ END }}">
 		{{ range .SubItems }}{{ template "sidebar_item" . }}{{ end -}}
 	</ul>
 	{{- end }}
@@ -311,6 +311,10 @@ var example_section_list = `{{ define "example_section_list" -}}
 {{ end -}}
 ` //`
 
+// NOTE(mkopriva): The correlated JavaScript relies on the structure of the
+// xs-endpoint-item DOM. Specifically it expects that the div.xs-endpoint-item
+// has the anchor as the first child. If the xs-endpoint-item DOM is changed the
+// JavaScript will most probably have to be changed too.
 var example_endpoints = `{{ define "example_endpoints" -}}
 <section class="example-section-endpoint-list">
 	<div class="xs-endpoint-list-container">

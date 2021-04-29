@@ -18,17 +18,21 @@ var helpers = template.FuncMap{
 	},
 
 	// funcs that produce template actions
-	"DOT": func() template.HTML { return template.HTML(`{{ . }}`) },
+	"DOT":      func() template.HTML { return template.HTML(`{{ . }}`) },
+	"GET_LANG": func() template.JSStr { return template.JSStr(`{{ .Lang }}`) },
 	"IS_HIDDEN": func(s string) template.HTML {
 		return template.HTML("{{ if .IsHidden `" + s + "` }}")
 	},
 	"IS_ACTIVE": func(s string) template.HTML {
 		return template.HTML("{{ if .IsActive `" + s + "` }}")
 	},
+	"IS_LANG": func(s string) template.HTMLAttr {
+		return template.HTMLAttr("{{ if .IsLang `" + s + "` }}")
+	},
 	"WITH_ID": func() template.HTML {
 		return template.HTML("{{ with .Id }}")
 	},
-	"END": func() template.HTML { return template.HTML(`{{ end }}`) },
+	"END": func() template.HTMLAttr { return template.HTMLAttr(`{{ end }}`) },
 
 	////////////////////////////////////////////////////////////////////////
 	// sidebar banner type assertion

@@ -1,5 +1,5 @@
 <div class="xs-request-body">
-	<div id="test-article.api-foos-post.cs-lang-curl" class="code-snippet-container lang-curl">
+	<div class="code-snippet-container lang-curl{{ if .IsLang `curl` }} selected{{ end }}" data-lang="curl">
 		<div class="cs-lines-container">
 			<div>0</div>
 			<div>1</div>
@@ -12,7 +12,7 @@
 		</div>
 		<div class="cs-code-container">
 <pre class="cs-pre lang-curl">
-<code class="lang-curl"><span class="token curl-cmd">curl</span> <span class="token curl-flag">-X</span> <span class="token curl-flag-value">POST</span> <span class="token curl-url">"https://api.example.com/api/foos"</span> \
+<code class="lang-curl"><span class="token curl-cmd">curl</span> <span class="token curl-flag">-X</span> <span class="token curl-flag-value method">POST</span> <span class="token curl-url">"https://api.example.com/api/foos"</span> \
     <span class="token curl-flag">-H</span> <span class="token curl-header-value">'Content-Type: application/json'</span> \
     <span class="token curl-flag">-d</span> <span class="token curl-data-text">'{
   "fooBar": "foo bar",

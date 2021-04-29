@@ -2,15 +2,15 @@
 	<div class="xs-request-title-container">
 		<h3 class="xs-request-title">
 			<code>
-				<span class="xs-request-endpoint-method-post">POST </span>
+				<span class="xs-request-endpoint-method post">POST </span>
 				<span class="xs-request-endpoint-pattern">/api/foos</span>
 			</code>
 		</h3>
 	</div>
 	<div class="xs-request-lang-select-container">
-		<select name="lang">
-			<option value="http" data-id="test-article.api-foos-post.cs-lang-http" selected>HTTP</option>
-			<option value="curl" data-id="test-article.api-foos-post.cs-lang-curl">cURL</option>
+		<select name="lang" autocomplete="off">
+			<option value="http"{{ if .IsLang `http` }} selected{{ end }}>HTTP</option>
+			<option value="curl"{{ if .IsLang `curl` }} selected{{ end }}>cURL</option>
 		</select>
 	</div>
 </div>

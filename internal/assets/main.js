@@ -41,6 +41,7 @@ var httpdoc = (function() {
 		this.items = new Map();
 		this.shown = [];
 		this.active = null;
+		this.codeSnippets = [];
 
 		function selectItem(item) {
 			if (item !== this.active) {
@@ -138,7 +139,41 @@ var httpdoc = (function() {
 			this.expandSubItems(item);
 		}
 
-		function init() {
+		function langSelectOnChangeHandler(e) {
+			let lang = e.currentTarget.value;
+			if (this.lang === lang) {
+				return;
+			}
+			
+			for (let i = 0; i < this.codeSnippets.length; i++) {
+				let item = this.codeSnippets[i];
+				item.lang[this.lang].classList.remove('selected');
+				item.lang[lang].classList.add('selected');
+
+				if (item.sel !== e.currentTarget) {
+					item.sel.value = lang;
+					//
+					// update each option, is this necessary?
+					// 
+					// for (let i = 0; i < item.sel.children.length; i++) {
+					// 	if (item.sel.children[i].value === lang) {
+					// 		item.sel.children[i].selected = true;
+					// 	} else {
+					// 		item.sel.children[i].selected = false;
+					// 	}
+					// }
+				}
+			}
+
+			this.lang = lang;
+			window.history.pushState({}, "", '?lang='+this.lang);
+		}
+
+		function init(opts) {
+			opts = opts || {};
+			this.lang = opts.lang || 'http';
+
+			// add listeners to sidebar items
 			let items = document.getElementsByClassName('sidebar-list-item');
 			for (let i = 0; i < items.length; i++) {
 				let item = items[i];
@@ -157,11 +192,32 @@ var httpdoc = (function() {
 				}
 			}
 
+			// add listeners to endpoint links
 			let endpointItems = document.getElementsByClassName('xs-endpoint-item');
 			for (let i = 0; i < endpointItems.length; i++) {
 				let item = endpointItems[i];
 				let a = firstElementChild(item);
 				item.addEventListener('click', endpointItemOnClickHandler.bind(this));
+			}
+
+			// add listeners to lang selects
+			let langSelects = document.getElementsByClassName('xs-request-lang-select-container');
+			for (let i = 0; i < langSelects.length; i++) {
+				let s = firstElementChild(langSelects[i]);
+				s.addEventListener('change', langSelectOnChangeHandler.bind(this));
+
+				let item = {sel: s, lang: {}};
+
+				let container = langSelects[i].parentElement.parentElement; // xs-request-topbar -> xs-request-container
+				if (container !== null) {
+					// aggregate code-snippets maps into an array
+					let codeSnippets = container.getElementsByClassName('code-snippet-container');
+					for (let i = 0; i < codeSnippets.length; i++) {
+						item.lang[codeSnippets[i].dataset.lang] = codeSnippets[i];
+					}
+				}
+
+				this.codeSnippets.push(item);
 			}
 		}
 
@@ -170,5 +226,3 @@ var httpdoc = (function() {
 
 	return new HttpDoc();
 }());
-
-httpdoc.init();

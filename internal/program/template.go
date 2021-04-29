@@ -1,8 +1,8 @@
 package program
 
 import (
-	"html/template"
 	"strings"
+	"text/template"
 )
 
 var T = template.Must(template.New("t").Parse(strings.Join([]string{
@@ -11,6 +11,7 @@ var T = template.Must(template.New("t").Parse(strings.Join([]string{
 	type_page,
 	type_handler,
 	valid_paths,
+	snippet_langs,
 	must_get_files_dir,
 }, "")))
 
@@ -49,6 +50,8 @@ func main() {
 
 {{ template "valid_paths" . }}
 
+{{ template "snippet_langs" . }}
+
 {{ template "must_get_files_dir" . }}
 ` //`
 
@@ -75,6 +78,7 @@ var type_page = `{{ define "type_page" -}}
 type page struct {
 	Id   string
 	Path string
+	Lang string
 }
 
 func (p page) IsHidden(s string) bool {
@@ -83,6 +87,10 @@ func (p page) IsHidden(s string) bool {
 
 func (p page) IsActive(s string) bool {
 	return p.Path == s
+}
+
+func (p page) IsLang(s string) bool {
+	return p.Lang == s
 }
 {{ end -}}
 ` //`
@@ -104,6 +112,7 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	p := page{}
 	p.Id = r.URL.Fragment
 	p.Path = r.URL.Path
+	p.Lang = getSnippetLang(r)
 
 	if id, ok := validPaths[p.Path]; ok {
 		if len(p.Id) == 0 {
@@ -133,6 +142,25 @@ var validPaths = map[string]string{
 	{{- range $k, $v := .ValidPaths }}
 	"{{ $k }}": "{{ $v }}",
 	{{- end }}
+}
+{{ end -}}
+` //`
+
+var snippet_langs = `{{ define "snippet_langs" -}}
+var snippetLangs = []string{
+	{{- range .SnippetTypes }}
+	"{{ . }}",
+	{{- end }}
+}
+
+func getSnippetLang(r *http.Request) string {
+	lang := r.URL.Query().Get("lang")
+	for i := 0; i < len(snippetLangs); i++ {
+		if snippetLangs[i] == lang {
+			return lang
+		}
+	}
+	return snippetLangs[0] // default
 }
 {{ end -}}
 ` //`

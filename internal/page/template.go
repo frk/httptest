@@ -73,6 +73,11 @@ var page_root = `
 		{{ END }}
 
 		<script type="text/javascript" src="/assets/js/main.js"></script>
+		<script type="text/javascript">
+			httpdoc.init({
+				lang: '{{ GET_LANG }}',
+			});
+		</script>
 	</body>
 </html>
 ` //`
@@ -415,15 +420,15 @@ var example_request_topbar = `{{ define "example_request_topbar" -}}
 	<div class="xs-request-title-container">
 		<h3 class="xs-request-title">
 			<code>
-				<span class="xs-request-endpoint-method-{{ lower .Method }}">{{ .Method }} </span>
+				<span class="xs-request-endpoint-method {{ lower .Method }}">{{ .Method }} </span>
 				<span class="xs-request-endpoint-pattern">{{ .Pattern }}</span>
 			</code>
 		</h3>
 	</div>
 	<div class="xs-request-lang-select-container">
-		<select name="lang">
+		<select name="lang" autocomplete="off">
 		{{ range .Options -}}
-			<option value="{{ .Value }}" data-id="{{ .DataId }}"{{ if .Selected }} selected{{ end }}>{{ .Text }}</option>
+			<option value="{{ .Value }}"{{ IS_LANG .Value }} selected{{ END }}>{{ .Text }}</option>
 		{{ end -}}
 		</select>
 	</div>
@@ -434,7 +439,7 @@ var example_request_topbar = `{{ define "example_request_topbar" -}}
 var example_request_body = `{{ define "example_request_body" -}}
 <div class="xs-request-body">
 	{{ range .Snippets -}}
-	<div id="{{ .Id }}" class="code-snippet-container lang-{{ .Lang }}">
+	<div class="code-snippet-container lang-{{ .Lang }}{{ IS_LANG .Lang }} selected{{ END }}" data-lang="{{ .Lang }}">
 		<div class="cs-lines-container">
 			{{ range $i, $_ := .Lines -}}
 			<div>{{ $i }}</div>
@@ -459,11 +464,13 @@ var example_request_body = `{{ define "example_request_body" -}}
 
 var code_snippet_http = `{{ define "code_snippet_http" -}}
 <pre class="cs-pre lang-http">
-<code class="lang-http"><span class="token http-method-{{ lower .Method }}">{{ .Method }}</span> <span class="token http-uri">{{ .RequestURI }}</span> <span class="token http-version">{{ .HTTPVersion }}</span>
+<code class="lang-http"><span class="token http-method {{ lower .Method }}">{{ .Method }}</span> <span class="token http-uri">{{ .RequestURI }}</span> <span class="token http-version">{{ .HTTPVersion }}</span>
 {{ range .Headers -}}
 <span class="token http-header-key">{{ .Key }}:</span> <span class="token http-header-value">{{ .Value }}</span>
 {{ end }}
-<span class="token http-body">{{ .Body }}</span></code>
+{{- with .Body }}
+<span class="token http-body">{{ . }}</span></code>
+{{- end -}}
 </pre>
 {{ end -}}
 ` //`
@@ -471,7 +478,7 @@ var code_snippet_http = `{{ define "code_snippet_http" -}}
 var code_snippet_curl = `{{ define "code_snippet_curl" -}}
 {{ $LB := (sh_line_break .NumOpts) -}}
 <pre class="cs-pre lang-curl">
-<code class="lang-curl"><span class="token curl-cmd">curl</span> <span class="token curl-flag">-X</span> <span class="token curl-flag-value">{{ .X }}</span> <span class="token curl-url">"{{ .URL }}"</span>{{ call $LB }}
+<code class="lang-curl"><span class="token curl-cmd">curl</span> <span class="token curl-flag">-X</span> <span class="token curl-flag-value method">{{ .X }}</span> <span class="token curl-url">"{{ .URL }}"</span>{{ call $LB }}
 {{- range .H }}
     <span class="token curl-flag">-H</span> <span class="token curl-header-value">'{{ . }}'</span>{{ call $LB }}
 {{- end }}

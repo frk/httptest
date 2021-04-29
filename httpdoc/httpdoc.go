@@ -406,3 +406,16 @@ const (
 	SNIPP_CURL
 	// TODO add support for more snippet types: js, go, etc..
 )
+
+func (st SnippetType) Name() string { return snippetTypeName[st] }
+func (st SnippetType) Lang() string { return snippetTypeLang[st] }
+
+var snippetTypeName = [...]string{
+	SNIPP_HTTP: "HTTP",
+	SNIPP_CURL: "cURL",
+}
+
+var snippetTypeLang = [...]string{
+	SNIPP_HTTP: "http",
+	SNIPP_CURL: "curl",
+}

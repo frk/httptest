@@ -210,9 +210,6 @@ type CodeSnippetHTTP struct {
 	Body template.HTML
 }
 
-func (CodeSnippetHTTP) Name() string { return "HTTP" }
-func (CodeSnippetHTTP) Lang() string { return "http" }
-
 type CodeSnippetCURL struct {
 	// The target URL
 	URL string
@@ -223,9 +220,6 @@ type CodeSnippetCURL struct {
 	// the -d/--data options
 	Data []CURLDataType
 }
-
-func (CodeSnippetCURL) Name() string { return "cURL" }
-func (CodeSnippetCURL) Lang() string { return "curl" }
 
 func (cs *CodeSnippetCURL) NumOpts() int { return len(cs.H) + len(cs.Data) }
 
@@ -335,10 +329,8 @@ type SourceLink struct {
 }
 
 type SelectOption struct {
-	Text     string
-	Value    string
-	DataId   string
-	Selected bool
+	Text  string
+	Value string
 }
 
 ////////////////////////////////////////////////////////////////////////////////

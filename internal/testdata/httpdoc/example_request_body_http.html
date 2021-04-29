@@ -1,5 +1,5 @@
 <div class="xs-request-body">
-	<div id="test-article.api-foos-post.cs-lang-http" class="code-snippet-container lang-http">
+	<div class="code-snippet-container lang-http{{ if .IsLang `http` }} selected{{ end }}" data-lang="http">
 		<div class="cs-lines-container">
 			<div>0</div>
 			<div>1</div>
@@ -15,7 +15,7 @@
 		</div>
 		<div class="cs-code-container">
 <pre class="cs-pre lang-http">
-<code class="lang-http"><span class="token http-method-post">POST</span> <span class="token http-uri">/api/foos</span> <span class="token http-version">HTTP/1.1</span>
+<code class="lang-http"><span class="token http-method post">POST</span> <span class="token http-uri">/api/foos</span> <span class="token http-version">HTTP/1.1</span>
 <span class="token http-header-key">Content-Length:</span> <span class="token http-header-value">79</span>
 <span class="token http-header-key">Content-Type:</span> <span class="token http-header-value">application/json</span>
 <span class="token http-header-key">Host:</span> <span class="token http-header-value">api.example.com</span>
@@ -25,8 +25,7 @@
   "foo_bar": 0.007,
   "F3": 12345,
   "foo-bar": true
-}</span></code>
-</pre>
+}</span></code></pre>
 		</div>
 	</div>
 </div>

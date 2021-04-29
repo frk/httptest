@@ -7,6 +7,7 @@ type Program struct {
 	ListenAddr   string
 	IsExecutable bool
 	ValidPaths   map[string]string
+	SnippetTypes []string
 }
 
 func (p Program) Imports() []string {

@@ -265,6 +265,10 @@ func (b *build) buildProgram() error {
 	for _, k := range b.objkeys {
 		b.prog.ValidPaths[k.path] = k.anchor
 	}
+
+	for _, st := range b.Config.SnippetTypes {
+		b.prog.SnippetTypes = append(b.prog.SnippetTypes, st.Lang())
+	}
 	return nil
 }
 
@@ -604,7 +608,7 @@ func (c *build) newExampleRequest(req httptest.Request, tg *httptest.TestGroup) 
 				return nil, err
 			}
 			snip = cs
-			name, lang = cs.Name(), cs.Lang()
+			name, lang = st.Name(), st.Lang()
 			numlines = nl
 		case SNIPP_CURL:
 			cs, nl, err := c.newCodeSnippetCURL(req, tg)
@@ -612,12 +616,11 @@ func (c *build) newExampleRequest(req httptest.Request, tg *httptest.TestGroup) 
 				return nil, err
 			}
 			snip = cs
-			name, lang = cs.Name(), cs.Lang()
+			name, lang = st.Name(), st.Lang()
 			numlines = nl
 		}
 
 		elem := new(page.CodeSnippetElement)
-		elem.Id = c.getIdForCodeSnippet(snip, tg, lang)
 		elem.Show = (i == 0)
 		elem.Lang = lang
 		elem.Snippet = snip
@@ -627,8 +630,6 @@ func (c *build) newExampleRequest(req httptest.Request, tg *httptest.TestGroup) 
 		opt := new(page.SelectOption)
 		opt.Text = name
 		opt.Value = lang
-		opt.DataId = elem.Id
-		opt.Selected = elem.Show
 		xr.Options[i] = opt
 	}
 
@@ -986,7 +987,7 @@ func (c *build) _newFieldList(typ *types.Type, aElem *page.ArticleElement, class
 
 func (c *build) newEnumList(typ *types.Type) (*page.EnumList, error) {
 	list := new(page.EnumList)
-	list.Title = "Possible enum values"
+	list.Title = "Enum Values"
 	list.Items = make([]*page.EnumItem, len(typ.Values))
 
 	for i, v := range typ.Values {
@@ -1077,30 +1078,6 @@ func (c *build) makeObjKeysUnique(k *objkeys) {
 	if anum > 0 {
 		k.anchor += "-" + strconv.Itoa(anum+1)
 	}
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// ids & hrefs
-////////////////////////////////////////////////////////////////////////////////
-
-// getIdForCodeSnippet returns a unique id for the given CodeSnippet.
-func (c *build) getIdForCodeSnippet(cs page.CodeSnippet, tg *httptest.TestGroup, lang string) string {
-	if id, ok := c.csIds[cs]; ok {
-		return id
-	}
-
-	id := c.objkeys[tg].anchor + ".cs-lang-" + lang
-
-	// make sure the id is unique
-	count := c.ids[id]
-	c.ids[id] = count + 1
-	if count > 0 {
-		id += "-" + strconv.Itoa(count+1)
-	}
-
-	// cache the id
-	c.csIds[cs] = id
-	return id
 }
 
 ////////////////////////////////////////////////////////////////////////////////

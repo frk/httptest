@@ -272,11 +272,7 @@ h3.article-section-lead-title {
  ******************************************************************************/
 
 .field-item {
-	border-bottom: 1px solid var(--cp-grey50);
-}
-
-.field-item:last-child {
-	border-bottom: none;
+	border-top: 1px solid var(--cp-grey50);
 }
 
 .field-heading {
@@ -375,6 +371,11 @@ h3.article-section-lead-title {
 	border: 1px solid var(--cp-grey50);
 	border-radius: 6px;
 	margin-bottom: 15px;
+	overflow: hidden;
+}
+
+.field-list-container.child.collapsed > ul.field-list.child {
+	display: none;
 }
 
 .field-list-heading {
@@ -395,7 +396,12 @@ h3.article-section-lead-title {
 	text-transform: uppercase;
 	margin: 0;
 	padding: 5px 10px;
-	border-bottom: 1px solid var(--cp-grey50);
+	pointer-events: inherit;
+	cursor: pointer;
+}
+
+.field-list-heading.child:hover {
+	background-color: var(--cp-navy10);
 }
 
 .field-list.child > .field-item {

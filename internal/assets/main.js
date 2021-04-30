@@ -152,21 +152,25 @@ var httpdoc = (function() {
 
 				if (item.sel !== e.currentTarget) {
 					item.sel.value = lang;
-					//
-					// update each option, is this necessary?
-					// 
-					// for (let i = 0; i < item.sel.children.length; i++) {
-					// 	if (item.sel.children[i].value === lang) {
-					// 		item.sel.children[i].selected = true;
-					// 	} else {
-					// 		item.sel.children[i].selected = false;
-					// 	}
-					// }
 				}
 			}
 
 			this.lang = lang;
 			window.history.pushState({}, "", '?lang='+this.lang);
+		}
+
+		function fieldListHeadingOnClickHandler(e) {
+			e.preventDefault();
+			e.stopPropagation();
+
+			let container = e.currentTarget.parentElement;
+			if (container) {
+				if (container.classList.contains('collapsed')) {
+					container.classList.remove('collapsed');
+				} else {
+					container.classList.add('collapsed');
+				}
+			}
 		}
 
 		function init(opts) {
@@ -218,6 +222,13 @@ var httpdoc = (function() {
 				}
 
 				this.codeSnippets.push(item);
+			}
+
+			// add listeners to child field lists
+			let fieldLists = document.getElementsByClassName('field-list-container child');
+			for (let i = 0; i < fieldLists.length; i++) {
+				let heading = firstElementChild(fieldLists[i]);
+				heading.addEventListener('click', fieldListHeadingOnClickHandler.bind(this));
 			}
 		}
 

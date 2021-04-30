@@ -556,7 +556,7 @@ var field_item = `{{ define "field_item" -}}
 ` //`
 
 var field_children = `{{ define "field_children" -}}
-<div class="field-list-container child">
+<div class="field-list-container child collapsed">
 	<h5 class="field-list-heading child">Child fields</h5>
 	<ul class="field-list child">
 		{{ range . -}}

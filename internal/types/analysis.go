@@ -288,7 +288,14 @@ func (s *Source) analyzeTypeSource(t *Type, src *typeSource, visited map[*Type]b
 				}
 			}
 
-			for range fi.Names {
+			num := len(fi.Names)
+			if num == 0 { // len(fi.Names) will be 0 for embedded fields
+				num = 1
+
+				// TODO add test for the embedded field case
+				// and also multiple fields case
+			}
+			for num > 0 {
 				t.Fields[i].Pos = pos
 				t.Fields[i].Doc = doc
 				if t.Fields[i].Type.isDefined() {
@@ -297,6 +304,7 @@ func (s *Source) analyzeTypeSource(t *Type, src *typeSource, visited map[*Type]b
 					s.analyzeTypeSource(t.Fields[i].Type, &typeSource{Expr: fi.Type, pkg: src.pkg}, visited)
 				}
 				i += 1
+				num -= 1
 			}
 		}
 	}

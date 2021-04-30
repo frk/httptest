@@ -2,6 +2,7 @@ package page
 
 import (
 	"html/template"
+	"strings"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -210,6 +211,10 @@ type CodeSnippetHTTP struct {
 	Body template.HTML
 }
 
+func (cs *CodeSnippetHTTP) ClassMethod() string {
+	return "method-" + strings.ToLower(cs.Method)
+}
+
 type CodeSnippetCURL struct {
 	// The target URL
 	URL string
@@ -222,6 +227,10 @@ type CodeSnippetCURL struct {
 }
 
 func (cs *CodeSnippetCURL) NumOpts() int { return len(cs.H) + len(cs.Data) }
+
+func (cs *CodeSnippetCURL) ClassMethod() string {
+	return "method-" + strings.ToLower(cs.X)
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // Fields

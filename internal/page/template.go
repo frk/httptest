@@ -464,21 +464,21 @@ var example_request_body = `{{ define "example_request_body" -}}
 
 var code_snippet_http = `{{ define "code_snippet_http" -}}
 <pre class="cs-pre lang-http">
-<code class="lang-http"><span class="token http-method {{ lower .Method }}">{{ .Method }}</span> <span class="token http-uri">{{ .RequestURI }}</span> <span class="token http-version">{{ .HTTPVersion }}</span>
+<code class="lang-http"><span class="token http-method {{ .ClassMethod }}">{{ .Method }}</span> <span class="token http-uri">{{ .RequestURI }}</span> <span class="token http-version">{{ .HTTPVersion }}</span>
 {{ range .Headers -}}
 <span class="token http-header-key">{{ .Key }}:</span> <span class="token http-header-value">{{ .Value }}</span>
 {{ end }}
 {{- with .Body }}
-<span class="token http-body">{{ . }}</span></code>
+<span class="token http-body">{{ . }}</span>
 {{- end -}}
-</pre>
+</code></pre>
 {{ end -}}
 ` //`
 
 var code_snippet_curl = `{{ define "code_snippet_curl" -}}
 {{ $LB := (sh_line_break .NumOpts) -}}
 <pre class="cs-pre lang-curl">
-<code class="lang-curl"><span class="token curl-cmd">curl</span> <span class="token curl-flag">-X</span> <span class="token curl-flag-value method">{{ .X }}</span> <span class="token curl-url">"{{ .URL }}"</span>{{ call $LB }}
+<code class="lang-curl"><span class="token curl-cmd">curl</span> <span class="token curl-flag">-X</span> <span class="token curl-flag-value {{ .ClassMethod }}">{{ .X }}</span> <span class="token curl-url">"{{ .URL }}"</span>{{ call $LB }}
 {{- range .H }}
     <span class="token curl-flag">-H</span> <span class="token curl-header-value">'{{ . }}'</span>{{ call $LB }}
 {{- end }}

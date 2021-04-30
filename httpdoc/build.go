@@ -36,9 +36,6 @@ type build struct {
 	// the sidebar list currently being built, or nil
 	sbls *page.SidebarList
 
-	ids   map[string]int              // set of already generated ids
-	csIds map[page.CodeSnippet]string // cache of CodeSnippet specific ids
-
 	// Keeps track of the parent-relation between an *Article and its parent
 	// *Article or between an *httptest.TestGroups and its parent *Article.
 	// The map is populated during the first pass through the input.
@@ -65,10 +62,6 @@ func (c *build) run() error {
 	c.src = src
 
 	// initialize build
-	c.ids = make(map[string]int)
-	c.csIds = make(map[page.CodeSnippet]string)
-
-	////xxxxxxxxxxxxxx
 	c.parents = make(map[interface{}]*Article)
 	c.objkeys = make(map[interface{}]objkeys)
 	c.slugs = make(map[string]int)

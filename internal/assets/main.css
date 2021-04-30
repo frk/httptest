@@ -40,14 +40,24 @@
 	--cp-code600: #3e3e3e;
 	--cp-code800: #2d2d2d;
 	--cp-code900: #1c1c1c;
+
 	--cp-code-keyword: #f44375;
 	--cp-code-constant: #a17fff;
 	--cp-code-string: #fffd99;
 	--cp-code-type: #6fdef0;
 	--cp-code-func: #9df06f;
-	
-	
 
+	--cp-method-get: #47ac2a;
+	--cp-method-post: #307df4;
+	--cp-method-patch: #e38915;
+	--cp-method-put: #a353d0;
+	--cp-method-delete: #df3232;
+	--cp-method-head: #dbbb0c;
+	--cp-method-connect: #76c6ca;
+	--cp-method-options: #bbb;
+	--cp-method-trace: #cad00d;
+	--cp-method-custom: #45a3d0;
+	
 	--cp-primary: var(--cp-navy500);
 
 	--sidebar-header-heigth: 80px;
@@ -357,6 +367,10 @@ h3.article-section-lead-title {
 	font-size: 13px;
 }
 
+.field-text > p:first-child {
+    margin-top: 0px;
+}
+
 .field-list-container.child {
 	border: 1px solid var(--cp-grey50);
 	border-radius: 6px;
@@ -465,10 +479,26 @@ h3.article-section-lead-title {
 .article-example-column {
 	width: 600px;
 	padding-top: 60px;
+	position: sticky;
+	align-self: flex-start;
+	top: 0;
+
+	display: flex;
+	flex-direction: column;
+	align-content: flex-start;
+	box-sizing: border-box;
+	max-height: 100vh;
 }
 
 .article-example-column > section {
 	margin-bottom: 30px;
+}
+
+.example-section-response {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
 }
 
 /*******************************************************************************
@@ -526,33 +556,16 @@ h3.article-section-lead-title {
 
 .xs-endpoint-method {
 	width: 55px;
-	display: inline-block;
-	text-align: right;
+	display: block;
 	margin-right: 5px;
-	color: var(--cp-code-func);
+	padding-left: 5px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: ellipsis;
+	text-align: right;
+	float: left;
+	color: var(--cp-code10);
 }
-
-/*
-.xs-endpoint-method.method-get {
-	color: var(--cp-code-func);
-}
-
-.xs-endpoint-method.method-post {
-	color: var(--cp-code-type);
-}
-
-.xs-endpoint-method.method-put {
-	color: var(--cp-code-constant);
-}
-
-.xs-endpoint-method.method-patch {
-	color: var(--cp-code-constant);
-}
-
-.xs-endpoint-method.method-delete {
-	color: var(--cp-code-keyword);
-}
-*/
 
 /*******************************************************************************
  * Example Request
@@ -659,6 +672,8 @@ h3.article-section-lead-title {
 	overflow: hidden;
 	border: 1px solid var(--cp-code200);
 	border-radius: 10px;
+	display: flex;
+	flex-direction: column;
 }
 
 .xs-response-topbar {
@@ -671,7 +686,7 @@ h3.article-section-lead-title {
 	color: var(--cp-code200);
 	font-family: var(--ff-sans);
 	font-size: 12px;
-	font-weight: 300;
+	font-weight: 400;
 	letter-spacing: 0.04em;
 	text-transform: uppercase;
 	user-select: none;
@@ -725,9 +740,6 @@ h3.article-section-lead-title {
 /*******************************************************************************
  * HTTP colors
  ******************************************************************************/
-.token.http-method {
-	color: var(--cp-code-func);
-}
 .token.http-uri {
 	color: var(--cp-code-type);
 }
@@ -740,7 +752,6 @@ h3.article-section-lead-title {
 .token.http-body {
 	color: var(--cp-code200);
 }
-
 /*******************************************************************************
  * cURL colors
  ******************************************************************************/
@@ -762,3 +773,37 @@ h3.article-section-lead-title {
 .token.curl-data-text {
 	color: var(--cp-code-string);
 }
+/*******************************************************************************
+ * method colors
+ ******************************************************************************/
+.xs-endpoint-method.method-get, .token.method-get {
+	color: var(--cp-method-get);
+}
+.xs-endpoint-method.method-post, .token.method-post {
+	color: var(--cp-method-post);
+}
+.xs-endpoint-method.method-patch, .token.method-patch {
+	color: var(--cp-method-patch);
+}
+.xs-endpoint-method.method-put, .token.method-put {
+	color: var(--cp-method-put);
+}
+.xs-endpoint-method.method-delete, .token.method-delete {
+	color: var(--cp-method-delete);
+}
+.xs-endpoint-method.method-head, .token.method-head {
+	color: var(--cp-method-head);
+}
+.xs-endpoint-method.method-connect, .token.method-connect {
+	color: var(--cp-method-connect);
+}
+.xs-endpoint-method.method-options, .token.method-options {
+	color: var(--cp-method-options);
+}
+.xs-endpoint-method.method-trace, .token.method-trace {
+	color: var(--cp-method-trace);
+}
+.xs-endpoint-method.method-custom, .token.method-custom {
+	color: var(--cp-method-custom);
+}
+

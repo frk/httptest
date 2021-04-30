@@ -47,6 +47,8 @@ var T = template.Must(template.New("t").Funcs(helpers).Parse(strings.Join([]stri
 	code_snippet_curl,
 
 	code_block_pre,
+	svg_code_icon,
+	svg_code_icon_use,
 	curl_data,
 }, "")))
 
@@ -63,6 +65,8 @@ var page_root = `
 		<link rel="stylesheet" href="/assets/css/main.css">
 	</head>
 	<body>
+		{{ template "svg_code_icon" }}
+
 		{{ template "sidebar" .Sidebar }}
 		{{ template "content" .Content }}
 
@@ -529,7 +533,7 @@ var field_item = `{{ define "field_item" -}}
 		<span class="field-setting {{ .SettingLabel }}">{{ .SettingText }}</span>
 		{{- end }}
 		{{- with .SourceLink }}
-		<a class="field-source-link" href="{{ .Href }}">‹›</a>
+		<a class="field-source-link" href="{{ .Href }}">{{ template "svg_code_icon_use" }}</a>
 		{{- end }}
 	</h3>
 	{{- with .Validation }}
@@ -581,11 +585,9 @@ var enum_list = `{{ define "enum_list" -}}
 				<div class="enum-value">
 					<code>{{ .Value }}</code>
 				</div>
-				<div class="enum-source-link">
-					{{- with .SourceLink }}
-					<a href="{{ .Href }}">‹›</a>
-					{{- end }}
-				</div>
+				{{- with .SourceLink }}
+				<a href="{{ .Href }}" class="enum-source-link">{{ template "svg_code_icon_use" }}</a>
+				{{- end }}
 			</div>
 			<div class="enum-text">
 				{{- with .Text }}
@@ -607,5 +609,18 @@ var code_block_pre = `{{ define "code_block_pre" -}}
 <pre class="code-block-pre">
 <code class="lang-{{ .Lang }}">{{ .Code }}</code>
 </pre>
-{{ end -}}
-` //`
+{{ end -}}` //`
+
+var svg_code_icon = `{{ define "svg_code_icon" -}}
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+	<symbol id="svg-code-icon" viewBox="0 0 16 16" stroke="currentcolor" fill="none">
+		<path d="M15.466,4.241c-0,-2.065 -1.677,-3.741 -3.741,-3.741l-7.484,0c-2.065,0 -3.741,1.676 -3.741,3.741l-0,7.482c-0,2.065 1.676,3.741 3.741,3.741l7.484,0c2.064,0 3.741,-1.676 3.741,-3.741l-0,-7.482Z" style="stroke-width:1px;"/>
+		<path d="M6.483,11l-2.985,-3l2.985,-3" style="stroke-width:1.5px;"/>
+		<path d="M9.498,5l2.985,3l-2.985,3" style="stroke-width:1.5px;"/>
+	</symbol>
+</svg>
+{{- end -}}` //`
+
+var svg_code_icon_use = `{{ define "svg_code_icon_use" -}}
+<svg width="16px" height="16px"><use href="#svg-code-icon"/></svg>
+{{- end -}}` //`

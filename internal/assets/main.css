@@ -398,6 +398,7 @@ h3.article-section-lead-title {
 	padding: 5px 10px;
 	pointer-events: inherit;
 	cursor: pointer;
+	background-color: var(--cp-grey10);
 }
 
 .field-list-heading.child:hover {
@@ -408,6 +409,27 @@ h3.article-section-lead-title {
 	padding: 0px 11px;
 }
 
+.field-source-link {
+	color: var(--cp-grey300);
+	font-size: 15px;
+	font-weight: 400;
+	line-height: 15px;
+	margin-left: auto;
+	margin-right: 2%;
+	opacity: 0;
+	height: 16px;
+	width: 16px;
+}
+
+.field-heading:hover .field-source-link {
+	opacity: 1;
+}
+
+.field-source-link:hover {
+	color: var(--cp-primary);
+	opacity: 1;
+}
+
 /*******************************************************************************
  * Enum List
  ******************************************************************************/
@@ -415,6 +437,7 @@ h3.article-section-lead-title {
 	border: 1px solid var(--cp-grey50);
 	border-radius: 6px;
 	margin-bottom: 15px;
+	overflow: hidden;
 }
 
 .enum-list-heading {
@@ -426,6 +449,7 @@ h3.article-section-lead-title {
 	margin: 0;
 	padding: 5px 10px;
 	border-bottom: 1px solid var(--cp-grey50);
+	background-color: var(--cp-grey10);
 }
 
 .enum-item {
@@ -465,14 +489,23 @@ h3.article-section-lead-title {
 }
 
 .enum-source-link {
+	color: var(--cp-grey300);
 	text-align: center;
 	margin-left: auto;
 	padding: 0px 6px 2px 6px;
 	border-radius: 3px;
+	height: 16px;
+	width: 16px;
+	opacity: 0;
+}
+
+.enum-heading:hover > .enum-source-link {
+	opacity: 1;
 }
 
 .enum-source-link:hover {
-	background-color: var(--cp-navy10);
+	color: var(--cp-primary);
+	opacity: 1;
 }
 
 .enum-text {

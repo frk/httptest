@@ -15,7 +15,9 @@
 	--cp-navy800: #063562;
 	--cp-navy900: #042e56;
 
+	--cp-grey5: #f8fbff;
 	--cp-grey10: #edf1f7;
+	--cp-grey15: #e7ebf0;
 	--cp-grey50: #e1e6ec;
 	--cp-grey100: #d0d8e0;
 	--cp-grey200: #c6cdd4;
@@ -95,6 +97,20 @@ a {
 
 .hidden {
 	display: none;
+}
+
+/*******************************************************************************
+ * TextBox
+ ******************************************************************************/
+
+.text-box code {
+	font-family: var(--ff-mono);
+	background-color: var(--cp-grey10);
+	border: 1px solid var(--cp-grey100);
+	border-radius: 2px;
+	padding-left: 3px;
+	padding-right: 3px;
+	font-size: 10px;
 }
 
 /*******************************************************************************
@@ -237,7 +253,7 @@ article {
 }
 
 .article-primary-column {
-	width: 600px;
+	width: 50%;
 	margin-right: 100px;
 }
 
@@ -374,7 +390,15 @@ h3.article-section-lead-title {
 	overflow: hidden;
 }
 
-.field-list-container.child.collapsed > ul.field-list.child {
+.field-list-container.child.collapsed > .field-list-heading.child {
+	background-color: white;
+}
+
+.field-list-container.child.collapsed > .field-list-heading.child:hover {
+	background-color: var(--cp-grey5);
+}
+
+.field-list-container.child.collapsed > .field-list.child {
 	display: none;
 }
 
@@ -389,6 +413,7 @@ h3.article-section-lead-title {
 }
 
 .field-list-heading.child {
+	background-color: var(--cp-grey5);
 	color: var(--cp-grey900);
 	font-family: var(--ff-mono);
 	font-weight: 500;
@@ -398,11 +423,6 @@ h3.article-section-lead-title {
 	padding: 5px 10px;
 	pointer-events: inherit;
 	cursor: pointer;
-	background-color: var(--cp-grey10);
-}
-
-.field-list-heading.child:hover {
-	background-color: var(--cp-navy10);
 }
 
 .field-list.child > .field-item {
@@ -430,6 +450,16 @@ h3.article-section-lead-title {
 	opacity: 1;
 }
 
+.field-validation {
+	margin: 10px;
+	padding: 5px 10px 5px 10px;
+	font-size: 12px;
+	font-weight: 500;
+	background-color: var(--cp-grey5);
+	border: 1px solid var(--cp-grey15);
+	border-radius: 4px;
+}
+
 /*******************************************************************************
  * Enum List
  ******************************************************************************/
@@ -449,7 +479,7 @@ h3.article-section-lead-title {
 	margin: 0;
 	padding: 5px 10px;
 	border-bottom: 1px solid var(--cp-grey50);
-	background-color: var(--cp-grey10);
+	background-color: var(--cp-grey5);
 }
 
 .enum-item {
@@ -516,7 +546,7 @@ h3.article-section-lead-title {
  * Example Sections
  ******************************************************************************/
 .article-example-column {
-	width: 600px;
+	width: 50%;
 	padding-top: 60px;
 	position: sticky;
 	align-self: flex-start;
@@ -544,22 +574,23 @@ h3.article-section-lead-title {
  * Example Endpoint List
  ******************************************************************************/
 .xs-endpoint-list-container {
-	overflow: hidden;
-	border: 1px solid var(--cp-code200);
+	border: 1px solid var(--cp-grey15);
 	border-radius: 10px;
+	overflow: hidden;
 }
 
 .xs-endpoint-list-topbar {
-	background-color: var(--cp-code600);
+	background-color: white;
+	border-bottom: 1px solid var(--cp-grey15);
 	padding: 10px 12px;
 }
 
 .xs-endpoint-list-title {
 	margin: 0;
-	color: var(--cp-code200);
+	color: var(--cp-grey600);
 	font-family: var(--ff-sans);
 	font-size: 12px;
-	font-weight: 300;
+	font-weight: 400;
 	letter-spacing: 0.04em;
 	text-transform: uppercase;
 	user-select: none;
@@ -567,30 +598,21 @@ h3.article-section-lead-title {
 }
 
 .xs-endpoint-list {
-	color: var(--cp-code10);
-	background-color: var(--cp-code800);
+	background-color: white;
 	font-family: var(--ff-mono);
 	font-size: 13px;
 	font-weight: 100;
 	line-height: 20px;
 	overflow: scroll;
-	padding: 20px 20px;
+	padding: 20px 30px;
 }
 
 .xs-endpoint-item {
 	border-radius: 5px;
 }
 
-.xs-endpoint-item:hover {
-	background-color: var(--cp-code900);
-}
-
 .xs-endpoint-item > a {
 	text-decoration: none;
-}
-
-.xs-endpoint-pattern {
-	color: var(--cp-code10);
 }
 
 .xs-endpoint-method {
@@ -603,7 +625,26 @@ h3.article-section-lead-title {
 	white-space: ellipsis;
 	text-align: right;
 	float: left;
-	color: var(--cp-code10);
+}
+
+.xs-endpoint-item > a > .xs-endpoint-method {
+	color: var(--cp-navy400);
+}
+
+.xs-endpoint-item:hover > a > .xs-endpoint-method {
+	color: var(--cp-navy700);
+}
+
+.xs-endpoint-item > a > .xs-endpoint-pattern {
+	color: var(--cp-grey700);
+}
+
+.xs-endpoint-item:hover > a > .xs-endpoint-pattern {
+	color: black;
+}
+
+.xs-endpoint-pattern {
+	padding-right: 10px;
 }
 
 /*******************************************************************************
@@ -611,7 +652,6 @@ h3.article-section-lead-title {
  ******************************************************************************/
 .xs-request-container {
 	overflow: hidden;
-	border: 1px solid var(--cp-code200);
 	border-radius: 10px;
 }
 
@@ -709,7 +749,6 @@ h3.article-section-lead-title {
  ******************************************************************************/
 .xs-response-container {
 	overflow: hidden;
-	border: 1px solid var(--cp-code200);
 	border-radius: 10px;
 	display: flex;
 	flex-direction: column;
@@ -748,6 +787,15 @@ h3.article-section-lead-title {
 	padding: 12px 20px;
 }
 
+.code-block-pre {
+	width: 0;
+	min-width: 100%;
+}
+
+.cs-pre {
+	width: 0;
+	min-width: 100%;
+}
 
 /*******************************************************************************
  * JSON colors
@@ -815,34 +863,34 @@ h3.article-section-lead-title {
 /*******************************************************************************
  * method colors
  ******************************************************************************/
-.xs-endpoint-method.method-get, .token.method-get {
+.token.method-get {
 	color: var(--cp-method-get);
 }
-.xs-endpoint-method.method-post, .token.method-post {
+.token.method-post {
 	color: var(--cp-method-post);
 }
-.xs-endpoint-method.method-patch, .token.method-patch {
+.token.method-patch {
 	color: var(--cp-method-patch);
 }
-.xs-endpoint-method.method-put, .token.method-put {
+.token.method-put {
 	color: var(--cp-method-put);
 }
-.xs-endpoint-method.method-delete, .token.method-delete {
+.token.method-delete {
 	color: var(--cp-method-delete);
 }
-.xs-endpoint-method.method-head, .token.method-head {
+.token.method-head {
 	color: var(--cp-method-head);
 }
-.xs-endpoint-method.method-connect, .token.method-connect {
+.token.method-connect {
 	color: var(--cp-method-connect);
 }
-.xs-endpoint-method.method-options, .token.method-options {
+.token.method-options {
 	color: var(--cp-method-options);
 }
-.xs-endpoint-method.method-trace, .token.method-trace {
+.token.method-trace {
 	color: var(--cp-method-trace);
 }
-.xs-endpoint-method.method-custom, .token.method-custom {
+.token.method-custom {
 	color: var(--cp-method-custom);
 }
 

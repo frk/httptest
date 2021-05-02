@@ -820,30 +820,30 @@ func (c *build) newFieldList(value interface{}, aElem *page.ArticleElement, clas
 	}
 
 	var title, idpfx string
+	if isInput {
+		title = "Request "
+		idpfx = "in."
+	} else {
+		title = "Response "
+		idpfx = "out."
+	}
+
 	switch class {
 	case page.FIELD_LIST_PATH:
-		title = "Path"
-		idpfx = "path."
+		title += "Path"
+		idpfx += "path."
 	case page.FIELD_LIST_QUERY:
-		title = "Query"
-		idpfx = "query."
+		title += "Query"
+		idpfx += "query."
 	case page.FIELD_LIST_HEADER:
-		title = "Header"
-		idpfx = "header."
+		title += "Header"
+		idpfx += "header."
 	case page.FIELD_LIST_BODY:
-		title = "Body"
-		idpfx = "body."
+		title += "Body"
+		idpfx += "body."
 	case page.FIELD_LIST_OBJECT:
 		title = ""
 		idpfx = "obj."
-	}
-
-	if len(title) > 0 {
-		if isInput {
-			title = "Request " + title
-		} else {
-			title = "Response " + title
-		}
 	}
 
 	list, err = c._newFieldList(typ, aElem, class, isInput, idpfx, nil)
@@ -1039,14 +1039,14 @@ func (c *build) newObjKeysForArticle(a *Article, parent *Article) objkeys {
 
 func (c *build) newObjKeysForTestGroup(tg *httptest.TestGroup, parent *Article) objkeys {
 	var k objkeys
-	k.path = pathFromTestGroup(tg)
+	k.path = pathFromTestGroup(tg, c.Config.StripPrefix)
 	k.slug = slugFromPath(k.path)
 	k.anchor = k.slug
 
 	if parent != nil {
 		if pk, ok := c.objkeys[parent]; ok {
 			k.path = pathJoin(pk.path, k.path)
-			k.anchor = pk.anchor + "." + k.slug
+			k.anchor = anchorJoin(pk.anchor, k.anchor)
 		}
 	}
 

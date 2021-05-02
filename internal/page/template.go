@@ -267,7 +267,7 @@ var article_lead = `{{ define "article_lead" -}}
 	{{- end }}
 
 	{{- with .Text }}
-	<div class="article-text">
+	<div class="article-text text-box">
 		{{ . }}
 	</div>
 	{{- end }}
@@ -278,7 +278,7 @@ var article_lead = `{{ define "article_lead" -}}
 var article_text = `{{ define "article_text" -}}
 <section class="article-section-text">
 	<h3 class="article-section-text-title">{{ .Title }}</h3>
-	<div class="article-text">
+	<div class="article-text text-box">
 		{{ .Text }}
 	</div>
 </section>
@@ -288,7 +288,7 @@ var article_text = `{{ define "article_text" -}}
 var article_auth_info = `{{ define "article_auth_info" -}}
 <section class="article-section-auth-info">
 	<h3 class="article-section-auth-info-title">{{ .Title }}</h3>
-	<div class="auth-info-text">
+	<div class="auth-info-text text-box">
 		{{ .Text }}
 	</div>
 </section>
@@ -356,7 +356,7 @@ var example_text = `{{ define "example_text" -}}
 	{{- with .Title }}
 	<h3 class="xs-text-title">{{ . }}</h3>
 	{{- end }}
-	<div class="xs-text-container">
+	<div class="xs-text-container text-box">
 		{{ .Text }}
 	</div>
 </section>
@@ -537,13 +537,13 @@ var field_item = `{{ define "field_item" -}}
 		{{- end }}
 	</h3>
 	{{- with .Validation }}
-	<div class="field-validation">
+	<div class="field-validation text-box">
 		{{ . }}
 	</div>
 	{{- end }}
 	<div class="field-text-container">
 		{{- with .Text }}
-		<div class="field-text">
+		<div class="field-text text-box">
 			{{ . }}
 		</div>
 		{{- end }}
@@ -589,7 +589,7 @@ var enum_list = `{{ define "enum_list" -}}
 				<a href="{{ .Href }}" class="enum-source-link">{{ template "svg_code_icon_use" }}</a>
 				{{- end }}
 			</div>
-			<div class="enum-text">
+			<div class="enum-text text-box">
 				{{- with .Text }}
 				{{ . }}
 				{{- end }}

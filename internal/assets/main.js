@@ -173,9 +173,44 @@ var httpdoc = (function() {
 			}
 		}
 
+		function expandAnchoredField() {
+			if (window.location.hash.length > 0) {
+				// slice(1) to drop the leading '#'
+				let id = window.location.hash.slice(1);
+				let elem = document.getElementById(id);
+				if (elem === null) {
+					return;
+				}
+
+				if (elem.tagName === "LI" && elem.classList.contains('field-item')) {
+					for (let el = elem; el !== null; ) {
+						// li.field-item -> ul.field-list -> div.field-list-container
+						if (el.parentElement && el.parentElement.parentElement) {
+							el = el.parentElement.parentElement;
+
+							let cl = el.classList;
+							if (cl && cl.contains('field-list-container') && cl.contains('collapsed')) {
+								cl.remove('collapsed');
+
+								// div.field-list-container -> li.field-item
+								el = el.parentElement;
+								continue;
+							}
+						}
+
+						el = null;
+					}
+				}
+
+				elem.scrollIntoView();
+			}
+		}
+
 		function init(opts) {
 			opts = opts || {};
 			this.lang = opts.lang || 'http';
+
+			expandAnchoredField();
 
 			// add listeners to sidebar items
 			let items = document.getElementsByClassName('sidebar-list-item');

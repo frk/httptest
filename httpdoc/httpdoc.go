@@ -89,6 +89,8 @@ type Config struct {
 	// The host which will be used in example snippets. If no host
 	// is provided it will default to the value of DefaultExampleHost.
 	ExampleHost string
+	// TODO
+	StripPrefix func(pattern string) string
 	// The tag to be used to resolve a field's name for the documentation,
 	// defaults to DefaultFieldNameTag. If no name is present in the tag's
 	// value the field's name will be used as fallback.
@@ -201,6 +203,9 @@ func (c *Config) normalize() {
 
 	if len(c.ExampleHost) == 0 {
 		c.ExampleHost = DefaultExampleHost
+	}
+	if c.StripPrefix == nil {
+		c.StripPrefix = func(s string) string { return s }
 	}
 	if len(c.FieldNameTag) == 0 {
 		c.FieldNameTag = DefaultFieldNameTag

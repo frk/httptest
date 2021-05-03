@@ -13,6 +13,8 @@ import (
 	"strconv"
 	"strings"
 
+	"golang.org/x/crypto/bcrypt"
+
 	"github.com/frk/httptest"
 	"github.com/frk/httptest/internal/godoc"
 	"github.com/frk/httptest/internal/markup"
@@ -70,8 +72,6 @@ func (c *build) run() error {
 
 	// ensure the configured paths and the paths generated later don't collide
 	c.paths[c.RootPath] = 0
-	c.paths[c.logoURL] = 0
-	c.paths[c.SigninPath] = 0
 
 	// build
 	c.prepBuild()
@@ -253,14 +253,24 @@ func (b *build) buildProgram() error {
 
 	b.prog.ValidPaths = make(map[string]string, 3+len(b.objkeys))
 	b.prog.ValidPaths[b.RootPath] = ""
-	b.prog.ValidPaths[b.logoURL] = ""
-	b.prog.ValidPaths[b.SigninPath] = ""
 	for _, k := range b.objkeys {
 		b.prog.ValidPaths[k.path] = k.anchor
 	}
 
 	for _, st := range b.Config.SnippetTypes {
 		b.prog.SnippetTypes = append(b.prog.SnippetTypes, st.Lang())
+	}
+
+	if len(b.Config.Users) > 0 {
+		b.prog.SessionName = "sid"
+		b.prog.Users = make(map[string]string, len(b.Config.Users))
+		for name, pass := range b.Config.Users {
+			hash, err := bcrypt.GenerateFromPassword([]byte(pass), 12)
+			if err != nil {
+				return err
+			}
+			b.prog.Users[name] = string(hash)
+		}
 	}
 	return nil
 }

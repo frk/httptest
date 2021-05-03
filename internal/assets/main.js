@@ -24,7 +24,6 @@ var httpdoc = (function() {
 	////////////////////////////////////////////////////////////////////////////
 
 	function Sidebar() {
-		console.log('Sidebar.new');
 
 		function itemOnClickHandler(e) {
 			e.preventDefault();
@@ -49,7 +48,6 @@ var httpdoc = (function() {
 
 			// init initializes the state of the sidebar.
 			init: function() {
-				console.log('Sidebar.init');
 
 				let items = document.getElementsByClassName('sidebar-list-item');
 				for (let i = 0; i < items.length; i++) {
@@ -167,7 +165,6 @@ var httpdoc = (function() {
 	////////////////////////////////////////////////////////////////////////////
 
 	function Main() {
-		console.log('Main.new');
 
 		// endpointItemOnClickHandler
 		function endpointItemOnClickHandler(e) {
@@ -202,7 +199,6 @@ var httpdoc = (function() {
 
 			// init initializes the state of the main content.
 			init: function() {
-				console.log('Main.init');
 				this.expandAnchoredField();
 
 				// add an event listener to each endpoint link
@@ -269,7 +265,6 @@ var httpdoc = (function() {
 	// CodeSnippets
 	/////////////////////////////////////////////////////////////////////////////
 	function CodeSnippets() {
-		console.log('CodeSnippets.new');
 
 		// langSelectOnChangeHandler
 		function langSelectOnChangeHandler(e) {
@@ -309,7 +304,6 @@ var httpdoc = (function() {
 
 			// init initializes the state of the code snippets
 			init: function() {
-				console.log('CodeSnippets.init');
 
 				// add an event listener to each lang select
 				let langSelects = document.getElementsByClassName('xs-request-lang-select-container');

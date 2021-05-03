@@ -16,7 +16,6 @@ const (
 	DefaultOutputName    = "apidoc"
 	DefaultPageTitle     = "Example API v1"
 	DefaultRootPath      = "/api"
-	DefaultSigninPath    = "/signin"
 	DefaultTCPListenPort = 8080
 	DefaultExampleHost   = "https://api.example.com"
 	DefaultFieldNameTag  = "json"
@@ -138,12 +137,6 @@ type Config struct {
 	// The directory of the client program (the one calling Compile).
 	srcdir string
 
-	// the following are hardcoded, may later be made configurable
-
-	// this setting needs some more thought on how to best ensure that the logo
-	// image is rendered well, like should a specific size limit be enforece?
-	// specific image type? something else? ...
-	logoURL string
 	// XXX: just a placeholder, not yet implemented and may never be.
 	useEmbed bool
 }
@@ -173,8 +166,6 @@ func Compile(c Config, dir ArticleDirectory) error {
 }
 
 func (c *Config) normalize() {
-	c.logoURL = "/logo.png"
-
 	if len(c.OutputName) == 0 {
 		c.OutputName = DefaultOutputName
 	}
@@ -193,9 +184,6 @@ func (c *Config) normalize() {
 		}
 	} else {
 		c.RootPath = DefaultRootPath
-	}
-	if len(c.SigninPath) == 0 {
-		c.SigninPath = DefaultSigninPath
 	}
 	if c.TCPListenPort < 1 {
 		c.TCPListenPort = DefaultTCPListenPort

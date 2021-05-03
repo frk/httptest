@@ -179,6 +179,13 @@ func (w *write) copyAssets() error {
 		from: filepath.Join(w.assetsdir, "main.js"),
 	}}
 
+	if len(w.prog.Users) > 0 {
+		files = append(files, filecopy{
+			to:   filepath.Join(w.htmldir, "signin.html"),
+			from: filepath.Join(w.assetsdir, "signin.html"),
+		})
+	}
+
 	for _, f := range files {
 		from, err := os.Open(f.from)
 		if err != nil {

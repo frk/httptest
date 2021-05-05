@@ -227,7 +227,7 @@ type HeaderGetter interface {
 
 // The Body type represents the contents of an HTTP request or response body.
 //
-// The httpbody package contains a number of useful implementations.
+// The httptype package contains a number of useful implementations.
 type Body interface {
 	// Type returns the string used in an HTTP request's Content-Type header.
 	Type() string

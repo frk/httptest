@@ -1,4 +1,4 @@
-package httpbody
+package httptype
 
 import (
 	"fmt"

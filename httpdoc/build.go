@@ -434,31 +434,35 @@ func (c *build) newArticleElementFromTestGroup(tg *httptest.TestGroup, parent *A
 		var inputFields []*page.FieldList
 		if v, ok := t.Request.Header.(Valuer); ok && v != nil {
 			list, err := c.newFieldList(v, aElem, page.FIELD_LIST_HEADER, true)
-			if err != nil {
+			if err != nil && err != errNotStructType {
 				return nil, err
+			} else if err == nil {
+				inputFields = append(inputFields, list)
 			}
-			inputFields = append(inputFields, list)
 		}
 		if v, ok := t.Request.Params.(Valuer); ok && v != nil {
 			list, err := c.newFieldList(v, aElem, page.FIELD_LIST_PATH, true)
-			if err != nil {
+			if err != nil && err != errNotStructType {
 				return nil, err
+			} else if err == nil {
+				inputFields = append(inputFields, list)
 			}
-			inputFields = append(inputFields, list)
 		}
 		if v, ok := t.Request.Query.(Valuer); ok && v != nil {
 			list, err := c.newFieldList(v, aElem, page.FIELD_LIST_QUERY, true)
-			if err != nil {
+			if err != nil && err != errNotStructType {
 				return nil, err
+			} else if err == nil {
+				inputFields = append(inputFields, list)
 			}
-			inputFields = append(inputFields, list)
 		}
 		if v, ok := t.Request.Body.(Valuer); ok && v != nil {
 			list, err := c.newFieldList(v, aElem, page.FIELD_LIST_BODY, true)
-			if err != nil {
+			if err != nil && err != errNotStructType {
 				return nil, err
+			} else if err == nil {
+				inputFields = append(inputFields, list)
 			}
-			inputFields = append(inputFields, list)
 		}
 		if len(inputFields) > 0 {
 			section := new(page.ArticleFieldList)
@@ -475,17 +479,19 @@ func (c *build) newArticleElementFromTestGroup(tg *httptest.TestGroup, parent *A
 			var outputFields []*page.FieldList
 			if v, ok := t.Response.Header.(Valuer); ok && v != nil {
 				list, err := c.newFieldList(v, aElem, page.FIELD_LIST_HEADER, false)
-				if err != nil {
+				if err != nil && err != errNotStructType {
 					return nil, err
+				} else if err == nil {
+					outputFields = append(outputFields, list)
 				}
-				outputFields = append(outputFields, list)
 			}
 			if v, ok := t.Response.Body.(Valuer); ok && v != nil {
 				list, err := c.newFieldList(v, aElem, page.FIELD_LIST_BODY, false)
-				if err != nil {
+				if err != nil && err != errNotStructType {
 					return nil, err
+				} else if err == nil {
+					outputFields = append(outputFields, list)
 				}
-				outputFields = append(outputFields, list)
 			}
 			if len(outputFields) > 0 {
 				section := new(page.ArticleFieldList)
@@ -1118,7 +1124,7 @@ func getLangFromMediaType(mediatype string) string {
 // marshalValue marshals the given value according to the specified mediatype.
 func marshalValue(value interface{}, mediatype string, withMarkup bool) (string, error) {
 	if !isSupportedMediaType(mediatype) {
-		return "", errNotSupportedMediaType
+		return "", nil //errNotSupportedMediaType
 	}
 
 	switch mediatype {
@@ -1152,7 +1158,7 @@ func marshalValue(value interface{}, mediatype string, withMarkup bool) (string,
 func marshalBody(body httptest.Body, withMarkup bool) (text string, mediatype string, numlines int, err error) {
 	mediatype, _, err = mime.ParseMediaType(body.Type())
 	if err != nil || !isSupportedMediaType(mediatype) {
-		return "", "", 0, errNotSupportedMediaType
+		return "", "", 0, nil //errNotSupportedMediaType
 	}
 
 	r, err := body.Reader()

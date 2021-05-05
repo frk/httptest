@@ -252,6 +252,10 @@ article {
 	padding: 5vw;
 }
 
+.article-children {
+	width: 100%;
+}
+
 .article-primary-column {
 	width: 50%;
 	margin-right: 100px;
@@ -566,7 +570,7 @@ h3.article-section-lead-title {
 .example-section-response {
     display: flex;
     flex-direction: column;
-    height: 100vh;
+    /*height: 100vh;*/
     overflow: hidden;
 }
 

@@ -1,4 +1,4 @@
-package httpbody
+package httptype
 
 import (
 	"bytes"
@@ -87,7 +87,7 @@ func (b jsonbody) Compare(r io.Reader) error {
 func (b jsonbody) String() string {
 	bs, err := json.MarshalIndent(b.v, "", "  ")
 	if err != nil {
-		log.Println("frk/httptest/httpbody:", err)
+		log.Println("frk/httptest/httptype:", err)
 		return "[JSON ERROR]"
 	}
 	return string(bs)
@@ -164,7 +164,7 @@ func (b xmlbody) Compare(r io.Reader) error {
 func (b xmlbody) String() string {
 	bs, err := xml.MarshalIndent(b.v, "", "  ")
 	if err != nil {
-		log.Println("frk/httptest/httpbody:", err)
+		log.Println("frk/httptest/httptype:", err)
 		return "[XML ERROR]"
 	}
 	return string(bs)
@@ -220,7 +220,7 @@ func (b csvbody) Compare(r io.Reader) error {
 func (b csvbody) String() string {
 	buf := bytes.NewBuffer(nil)
 	if err := csv.NewWriter(buf).WriteAll(b.v); err != nil {
-		log.Println("frk/httptest/httpbody:", err)
+		log.Println("frk/httptest/httptype:", err)
 		return "[CSV ERROR]"
 	}
 	return buf.String()

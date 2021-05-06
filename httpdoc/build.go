@@ -2,6 +2,7 @@ package httpdoc
 
 import (
 	"bytes"
+	"encoding/csv"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
@@ -1098,7 +1099,8 @@ var errNotSupportedMediaType = fmt.Errorf("httpdoc: media type is not supported"
 // isSupportedMediaType reports whether or not the given mediatype is supported.
 func isSupportedMediaType(mediatype string) bool {
 	return mediatype == "application/json" ||
-		mediatype == "application/xml"
+		mediatype == "application/xml" ||
+		mediatype == "text/csv"
 
 	// TODO add support for the following:
 	// - text/csv
@@ -1113,10 +1115,11 @@ func getLangFromMediaType(mediatype string) string {
 		return "json"
 	case "application/xml":
 		return "xml"
+	case "text/csv":
+		return "csv"
 	}
 	return ""
 	// TODO add support for the following:
-	// - text/csv
 	// - application/x-www-form-urlencoded
 	// - text/plain
 }
@@ -1124,7 +1127,7 @@ func getLangFromMediaType(mediatype string) string {
 // marshalValue marshals the given value according to the specified mediatype.
 func marshalValue(value interface{}, mediatype string, withMarkup bool) (string, error) {
 	if !isSupportedMediaType(mediatype) {
-		return "", nil //errNotSupportedMediaType
+		return "", errNotSupportedMediaType
 	}
 
 	switch mediatype {
@@ -1148,6 +1151,19 @@ func marshalValue(value interface{}, mediatype string, withMarkup bool) (string,
 			return markup.XML(data), nil
 		}
 		return string(data), nil
+	case "text/csv":
+		if records, ok := value.([][]string); ok {
+			buf := bytes.NewBuffer(nil)
+			if err := csv.NewWriter(buf).WriteAll(records); err != nil {
+				return "", err
+			}
+			data := buf.Bytes()
+
+			if withMarkup {
+				return markup.CSV(data), nil
+			}
+			return string(data), nil
+		}
 	}
 
 	panic("shouldn't reach")
@@ -1158,7 +1174,7 @@ func marshalValue(value interface{}, mediatype string, withMarkup bool) (string,
 func marshalBody(body httptest.Body, withMarkup bool) (text string, mediatype string, numlines int, err error) {
 	mediatype, _, err = mime.ParseMediaType(body.Type())
 	if err != nil || !isSupportedMediaType(mediatype) {
-		return "", "", 0, nil //errNotSupportedMediaType
+		return "", "", 0, errNotSupportedMediaType
 	}
 
 	r, err := body.Reader()
@@ -1196,6 +1212,19 @@ func marshalBody(body httptest.Body, withMarkup bool) (text string, mediatype st
 
 		if withMarkup {
 			text = markup.XML(raw)
+		} else {
+			text = string(raw)
+		}
+	case "text/csv":
+		raw, err := ioutil.ReadAll(r)
+		if err != nil {
+			return "", "", 0, err
+		}
+
+		numlines = 1 + bytes.Count(raw, []byte{'\n'})
+
+		if withMarkup {
+			text = markup.CSV(raw)
 		} else {
 			text = string(raw)
 		}

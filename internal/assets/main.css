@@ -711,6 +711,7 @@ h3.article-section-lead-title {
 .xs-request-body {
 	background: var(--cp-code800);
 	padding: 8px 0px;
+	overflow: scroll;
 }
 
 .code-snippet-container {
@@ -780,6 +781,19 @@ h3.article-section-lead-title {
 	color: white;
 }
 
+.xs-response-header-list {
+	padding: 5px 0px;
+	font-size: 12px;
+}
+
+.xs-response-header-key {
+	color: var(--cp-code100);
+}
+
+.xs-response-header-value {
+	color: var(--cp-code-string);
+}
+
 .xs-response-body {
 	color: var(--cp-code10);
 	background-color: var(--cp-code800);
@@ -807,27 +821,33 @@ h3.article-section-lead-title {
 .token.json-num {
 	color: var(--cp-code-constant);
 }
-
 .token.json-fal {
 	color: var(--cp-code-constant);
 }
-
 .token.json-tru {
 	color: var(--cp-code-constant);
 }
-
 .token.json-nul {
 	color: var(--cp-code-constant);
 }
-
 .token.json-key-t {
 	color: var(--cp-code-keyword);
 }
-
 .token.json-str {
 	color: var(--cp-code-string);
 }
-
+/*******************************************************************************
+ * CSV colors
+ ******************************************************************************/
+.token.csv-com {
+	color: white;
+}
+.token.csv-header {
+	color: var(--cp-code-keyword);
+}
+.token.csv-field {
+	color: var(--cp-code-string);
+}
 /*******************************************************************************
  * HTTP colors
  ******************************************************************************/

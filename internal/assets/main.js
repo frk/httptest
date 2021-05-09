@@ -1,6 +1,9 @@
 var httpdoc = (function() {
 	'use strict';
 
+	const ANCHOR_TOP_MIN = -200;
+	const ANCHOR_TOP_MAX = 100;
+
 	////////////////////////////////////////////////////////////////////////////
 	// Generic Helpers
 	////////////////////////////////////////////////////////////////////////////
@@ -22,20 +25,18 @@ var httpdoc = (function() {
 	////////////////////////////////////////////////////////////////////////////
 	// Sidebar
 	////////////////////////////////////////////////////////////////////////////
-
 	function Sidebar() {
-
 		function itemOnClickHandler(e) {
 			e.preventDefault();
 			e.stopPropagation();
 
 			let item = e.currentTarget;
 			this.selectItem(item);
-			this.expandSubItems(item);
 			this.main.scrollIntoView(item);
 		}
 
 		return {
+			items: null,
 			// A reference to the an instance of Main.
 			main: null,
 			// A map of sidebar list items. The key in the map is the href attribute
@@ -48,10 +49,9 @@ var httpdoc = (function() {
 
 			// init initializes the state of the sidebar.
 			init: function() {
-
-				let items = document.getElementsByClassName('sidebar-list-item');
-				for (let i = 0; i < items.length; i++) {
-					let item = items[i];
+				this.items = document.getElementsByClassName('sidebar-list-item');
+				for (let i = 0; i < this.items.length; i++) {
+					let item = this.items[i];
 
 					// add an event listener to each sidebar item
 					item.addEventListener('click', itemOnClickHandler.bind(this));
@@ -77,85 +77,64 @@ var httpdoc = (function() {
 				}
 			},
 
-			// selectItem deactivates any previously selected item
-			// and activates the given item.
+			// selectItemByIndex
+			selectItemByIndex: function(index) {
+				let item = this.items[index];
+				if (item) {
+					this.selectItem(item);
+				}
+			},
+
+			// selectItem
 			selectItem: function(item) {
-				if (item !== this.activeItem) {
-					if (this.activeItem) {
-						this.activeItem.classList.remove('active');
-					}
-
-					this.activeItem = item;
-					this.activeItem.classList.add('active');
+				if (item === this.activeItem) {
+					return;
 				}
+				this.showItem(item);
+				this.setItemAsActive(item);
 			},
 
-			// expandSubItems displays the sub-items of the given item and
-			// hides previously displayed items that aren't in the hierarchy
-			// of the given item.
-			expandSubItems: function(item) {
-				if (!item.classList.contains('has-subitems')) {
-					// If item is child of the currently shown item's last element; exit
-					if (this.shownItems.length > 0) {
-						let last = this.shownItems[this.shownItems.length -1];
-						for (let i = 0; i < last.children.length; i++) {
-							if (last.children[i] === item) {
-								return;
-							}
-						}
-					}
-					this.hideShownSiblingChildren(item);
-					return;
-				}
-
-				// Get the ul element to be displayed.
-				let subitems = lastElementChild(item);
-				if (subitems === null) {
-					return;
-				}
-
-				// If member of the current shown items; don't do anything
-				if (!subitems.classList.contains('hidden')) {
-					return;
-				}
-
-				// If currently no subitems are being shown; show subitems
-				// and add them to the shownItems array.
-				if (this.shownItems.length === 0) {
-					subitems.classList.remove('hidden');
-					this.shownItems.push(subitems);
-					return;
-				}
-
-				// If child of the currently shown items' last element; show
-				// current subitems and add them to the shownItems array.
-				let last = this.shownItems[this.shownItems.length -1];
-				for (let i = 0; i < last.children.length; i++) {
-					if (last.children[i] === item) {
-						subitems.classList.remove('hidden');
-						this.shownItems.push(subitems);
-						return;
-					}
-				}
-
-				this.hideShownSiblingChildren(item);
-				subitems.classList.remove('hidden');
-				this.shownItems.push(subitems);
-				return;
-			},
-
-			// hideShownSiblingChildren ...
-			hideShownSiblingChildren: function(target) {
-				let num = this.shownItems.length;
-				for (let i = num - 1; i >= 0; i--) {
-					let last = this.shownItems.pop()
-					last.classList.add('hidden');
-
-					let li = last.parentElement;
-					if (li !== null && li.parentElement === target.parentElement) {
+			// showItem
+			showItem: function(item) {
+				for (let i = this.shownItems.length-1; i > -1; i--) {
+					let last = this.shownItems[i];
+					if (last === item.parentElement || last.parentElement === item) {
 						break;
 					}
+					last.classList.add('hidden');
+					this.shownItems.pop();
 				}
+
+				if (this.shownItems.length === 0) {
+					// expand parent ul; repeat until root (i.e. until not ul.sidebar-item-subitems)
+					for (let ul = item.parentElement; ; ) {
+						if (!ul.classList.contains('sidebar-item-subitems')) {
+							break;
+						}
+
+						ul.classList.remove('hidden');
+						this.shownItems.unshift(ul);
+
+						ul = ul.parentElement.parentElement;
+					}
+				}
+
+				// expand item's subitems ul if any
+				if (item.classList.contains('has-subitems')) {
+					let ul = item.querySelector('ul.sidebar-item-subitems');
+					ul.classList.remove('hidden');
+					this.shownItems.push(ul);
+				}
+			},
+
+			// setItemAsActive
+			setItemAsActive: function(item) {
+				if (this.activeItem) {
+					this.activeItem.classList.remove('active');
+				}
+
+				this.activeItem = item;
+				this.activeItem.classList.add('active');
 			},
 		};
 	}
@@ -163,10 +142,8 @@ var httpdoc = (function() {
 	////////////////////////////////////////////////////////////////////////////
 	// Main
 	////////////////////////////////////////////////////////////////////////////
-
 	function Main() {
-
-		// endpointItemOnClickHandler
+		// event handler
 		function endpointItemOnClickHandler(e) {
 			e.preventDefault();
 			e.stopPropagation();
@@ -174,11 +151,20 @@ var httpdoc = (function() {
 			let a = firstElementChild(e.currentTarget);
 			let item = this.sidebar.itemMap.get(a.getAttribute('href'));
 			this.sidebar.selectItem(item);
-			this.sidebar.expandSubItems(item);
+			this.scrollIntoView(item);
+		}
+
+		// event handler
+		function articleAnchorOnClickHandler(e) {
+			e.preventDefault();
+			e.stopPropagation();
+
+			let item = this.sidebar.itemMap.get(e.currentTarget.getAttribute('href'));
+			this.sidebar.selectItem(item);
 			this.scrollIntoView(item);
 		}
 		
-		// fieldListHeadingOnClickHandler
+		// event handler
 		function fieldListHeadingOnClickHandler(e) {
 			e.preventDefault();
 			e.stopPropagation();
@@ -193,12 +179,108 @@ var httpdoc = (function() {
 			}
 		}
 
+		// event handler
+		function enumListHeadingOnClickHandler(e) {
+			e.preventDefault();
+			e.stopPropagation();
+
+			let container = e.currentTarget.parentElement;
+			if (container) {
+				if (container.classList.contains('collapsed')) {
+					container.classList.remove('collapsed');
+				} else {
+					container.classList.add('collapsed');
+				}
+			}
+		}
+
+		// event handler
+		function onScrollHandler(e) {
+			if (this.onScrollHandlerDisabled) {
+				this.onScrollHandlerDisabled = false;
+				return;
+			}
+
+			let scrollTop = this.container.scrollTop, scrollUp = false;
+			if (scrollTop < this.containerScrollTop) {
+				scrollUp = true;
+			}
+			this.containerScrollTop = scrollTop;
+
+			if (scrollUp) {
+				if (this.currentIndex < 1) {
+					return; // nowhere to go
+				} else if (this.currentIndex > 0 && scrollTop < 20) { // close to top?
+					this.currentIndex = 0;
+					this.sidebar.selectItemByIndex(0);
+					return;
+				}
+
+				let a = this.articles[this.currentIndex].getBoundingClientRect();
+				if (a.top < (window.innerHeight - 200)) {
+					return; // nothing to do
+				}
+
+				let prevIndex = this.currentIndex-1;
+				let b = this.articles[prevIndex-1].getBoundingClientRect();
+				if (b.top > (window.innerHeight - 200)) {
+					for (; prevIndex > 0; prevIndex--) {
+						let c = this.articles[prevIndex-1].getBoundingClientRect();
+						if (c.top < (window.innerHeight - 200)) {
+							break;
+						}
+					}
+				}
+				this.currentIndex = prevIndex;
+				this.sidebar.selectItemByIndex(this.currentIndex);
+			} else {
+				if (this.currentIndex > (this.articles.length-2)) {
+					return; // nowhere to go
+				}
+
+				let a = this.articles[this.currentIndex].getBoundingClientRect();
+				if (a.top > ANCHOR_TOP_MIN) {
+					return; // nothing to do
+				}
+
+				let nextIndex = this.currentIndex+1;
+				let b = this.articles[nextIndex].getBoundingClientRect();
+				if (b.top > ANCHOR_TOP_MAX) {
+					return; // nothing to do, yet
+				}
+
+				// handle potential "jumps"
+				if (b.top < ANCHOR_TOP_MIN) {
+					let len = this.articles.length;
+					for (; nextIndex < len-1; nextIndex++) {
+						let c = this.articles[nextIndex+1].getBoundingClientRect();
+						if (c.top > ANCHOR_TOP_MAX) {
+							break;
+						}
+					}
+				}
+				this.currentIndex = nextIndex;
+				this.sidebar.selectItemByIndex(this.currentIndex);
+			}
+		}
+
 		return {
 			// A reference to the Sidebar instance.
 			sidebar: null,
+			articles: null,
+			currentIndex: 0,
+			container: 0,
+			containerScrollTop: 0,
+			onScrollHandlerDisabled: false,
 
 			// init initializes the state of the main content.
 			init: function() {
+				this.articles = document.getElementsByTagName('ARTICLE');
+
+				this.container = document.querySelector('body div.content-container');
+				this.containerScrollTop = this.container.scrollTop;
+				this.container.addEventListener('scroll', onScrollHandler.bind(this));
+
 				this.expandAnchoredField();
 
 				// add an event listener to each endpoint link
@@ -206,16 +288,28 @@ var httpdoc = (function() {
 				for (let i = 0; i < endpointItems.length; i++) {
 					endpointItems[i].addEventListener('click', endpointItemOnClickHandler.bind(this));
 				}
+				// add an event listener to each article anchor
+				let articleAnchors = document.getElementsByClassName('article-anchor');
+				for (let i = 0; i < articleAnchors.length; i++) {
+					articleAnchors[i].addEventListener('click', articleAnchorOnClickHandler.bind(this));
+				}
 				// add an event listener to each child field list
 				let fieldLists = document.getElementsByClassName('field-list-container child');
 				for (let i = 0; i < fieldLists.length; i++) {
 					let heading = firstElementChild(fieldLists[i]);
 					heading.addEventListener('click', fieldListHeadingOnClickHandler.bind(this));
 				}
+				// add an event listener to each enum list
+				let enumLists = document.getElementsByClassName('enum-list-container');
+				for (let i = 0; i < enumLists.length; i++) {
+					let heading = firstElementChild(enumLists[i]);
+					heading.addEventListener('click', enumListHeadingOnClickHandler.bind(this));
+				}
 			},
 
 			// scrollIntoView ...
 			scrollIntoView: function(item) {
+				this.onScrollHandlerDisabled = true;
 				let a = document.getElementById(item.dataset.anchor);
 				if (a !== null) {
 					a.scrollIntoView();

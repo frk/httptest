@@ -414,6 +414,7 @@ h3.article-section-lead-title {
 	letter-spacing: 0.04em;
 	text-transform: uppercase;
 	pointer-events: none;
+	user-select: none;
 }
 
 .field-list-heading.child {
@@ -482,13 +483,26 @@ h3.article-section-lead-title {
 	text-transform: uppercase;
 	margin: 0;
 	padding: 5px 10px;
-	border-bottom: 1px solid var(--cp-grey50);
 	background-color: var(--cp-grey5);
+	user-select: none;
+	cursor: pointer;
+}
+
+.enum-list-container.collapsed > .enum-list-heading {
+	background-color: white;
+}
+
+.enum-list-container.collapsed > .enum-list-heading:hover {
+	background-color: var(--cp-grey5);
+}
+
+.enum-list-container.collapsed > .enum-list {
+	display: none;
 }
 
 .enum-item {
 	padding: 0px 11px;
-	border-bottom: 1px solid var(--cp-grey50);
+	border-top: 1px solid var(--cp-grey50);
 }
 
 .enum-item:last-child {

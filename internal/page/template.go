@@ -576,7 +576,7 @@ var field_children = `{{ define "field_children" -}}
 ////////////////////////////////////////////////////////////////////////////////
 
 var enum_list = `{{ define "enum_list" -}}
-<div class="enum-list-container">
+<div class="enum-list-container collapsed">
 	<h5 class="enum-list-heading">{{ .Title }}</h5>
 	<ul class="enum-list">
 		{{ range .Items -}}

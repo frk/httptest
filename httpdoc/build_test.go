@@ -432,6 +432,7 @@ func Test_build(t *testing.T) {
 		file: "field_list_from_test_response_header",
 		wt:   wt_article_field_list,
 		toc: []*ArticleGroup{{
+			Name: "Article",
 			Articles: []*Article{{
 				Title: "Test Article",
 				TestGroups: []*httptest.TestGroup{{
@@ -448,6 +449,7 @@ func Test_build(t *testing.T) {
 		file: "field_list_from_test_response_body",
 		wt:   wt_article_field_list,
 		toc: []*ArticleGroup{{
+			Name: "Article",
 			Articles: []*Article{{
 				Title: "Test Article",
 				TestGroups: []*httptest.TestGroup{{
@@ -464,6 +466,7 @@ func Test_build(t *testing.T) {
 		file: "field_list_from_test_response",
 		wt:   wt_article_field_list,
 		toc: []*ArticleGroup{{
+			Name: "Article",
 			Articles: []*Article{{
 				Title: "Test Article",
 				TestGroups: []*httptest.TestGroup{{
@@ -484,6 +487,7 @@ func Test_build(t *testing.T) {
 		file: "field_list_from_test_request_path",
 		wt:   wt_article_field_list,
 		toc: []*ArticleGroup{{
+			Name: "Article",
 			Articles: []*Article{{
 				Title: "Test Article",
 				TestGroups: []*httptest.TestGroup{{
@@ -500,6 +504,7 @@ func Test_build(t *testing.T) {
 		file: "field_list_from_test_request_query",
 		wt:   wt_article_field_list,
 		toc: []*ArticleGroup{{
+			Name: "Article",
 			Articles: []*Article{{
 				Title: "Test Article",
 				TestGroups: []*httptest.TestGroup{{
@@ -516,6 +521,7 @@ func Test_build(t *testing.T) {
 		file: "field_list_from_test_request_header",
 		wt:   wt_article_field_list,
 		toc: []*ArticleGroup{{
+			Name: "Article",
 			Articles: []*Article{{
 				Title: "Test Article",
 				TestGroups: []*httptest.TestGroup{{
@@ -532,6 +538,7 @@ func Test_build(t *testing.T) {
 		file: "field_list_from_test_request_body",
 		wt:   wt_article_field_list,
 		toc: []*ArticleGroup{{
+			Name: "Article",
 			Articles: []*Article{{
 				Title: "Test Article",
 				TestGroups: []*httptest.TestGroup{{
@@ -548,6 +555,7 @@ func Test_build(t *testing.T) {
 		file: "field_list_from_test_request",
 		wt:   wt_article_field_list,
 		toc: []*ArticleGroup{{
+			Name: "Article",
 			Articles: []*Article{{
 				Title: "Test Article",
 				TestGroups: []*httptest.TestGroup{{
@@ -570,6 +578,7 @@ func Test_build(t *testing.T) {
 		file: "field_list_from_test_request_and_response",
 		wt:   wt_article_section_list,
 		toc: []*ArticleGroup{{
+			Name: "Article",
 			Articles: []*Article{{
 				Title: "Test Article",
 				TestGroups: []*httptest.TestGroup{{
@@ -600,6 +609,7 @@ func Test_build(t *testing.T) {
 			},
 		},
 		toc: []*ArticleGroup{{
+			Name: "Article",
 			Articles: []*Article{{
 				Title: "Test Article",
 				TestGroups: []*httptest.TestGroup{{
@@ -642,6 +652,7 @@ func Test_build(t *testing.T) {
 			},
 		},
 		toc: []*ArticleGroup{{
+			Name: "Article",
 			Articles: []*Article{{
 				Title: "Test Article",
 				TestGroups: []*httptest.TestGroup{{
@@ -826,7 +837,7 @@ func Test_build(t *testing.T) {
 			// build
 			tt.cfg.srcdir = test_file_dir
 			tt.cfg.normalize()
-			b := build{Config: tt.cfg, dir: tt.toc}
+			b := build{Config: tt.cfg, toc: tt.toc}
 			if err := b.run(); err != nil {
 				t.Error(err)
 				return

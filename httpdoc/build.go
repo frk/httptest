@@ -29,7 +29,7 @@ import (
 type build struct {
 	Config
 	// the input
-	dir ArticleDirectory
+	toc TOC
 	// source code info
 	src *types.Source
 	// the page being built
@@ -39,6 +39,10 @@ type build struct {
 	// the sidebar list currently being built, or nil
 	sbls *page.SidebarList
 
+	// Keeps track of the group-relation between an *Article and its ancestor
+	// *ArticleGroup or between an *httptest.TestGroups and its ancestor *ArticleGroup.
+	// The map is populated during the first pass through the input.
+	groups map[interface{}]*ArticleGroup
 	// Keeps track of the parent-relation between an *Article and its parent
 	// *Article or between an *httptest.TestGroups and its parent *Article.
 	// The map is populated during the first pass through the input.
@@ -65,6 +69,7 @@ func (c *build) run() error {
 	c.src = src
 
 	// initialize build
+	c.groups = make(map[interface{}]*ArticleGroup)
 	c.parents = make(map[interface{}]*Article)
 	c.objkeys = make(map[interface{}]objkeys)
 	c.slugs = make(map[string]int)
@@ -93,24 +98,26 @@ func (c *build) run() error {
 ////////////////////////////////////////////////////////////////////////////////
 
 func (c *build) prepBuild() {
-	for _, g := range c.dir {
-		c.prepArticles(g.Articles, nil)
+	for _, g := range c.toc {
+		c.prepArticles(g.Articles, g, nil)
 	}
 }
 
-func (c *build) prepArticles(articles []*Article, parent *Article) {
+func (c *build) prepArticles(articles []*Article, group *ArticleGroup, parent *Article) {
 	for _, a := range articles {
+		c.groups[a] = group
 		c.parents[a] = parent
-		c.objkeys[a] = c.newObjKeysForArticle(a, parent)
-		c.prepTestGroups(a.TestGroups, a)
-		c.prepArticles(a.SubArticles, a)
+		c.objkeys[a] = c.newObjKeysForArticle(a, group, parent)
+		c.prepTestGroups(a.TestGroups, group, a)
+		c.prepArticles(a.SubArticles, group, a)
 	}
 }
 
-func (c *build) prepTestGroups(tgs []*httptest.TestGroup, parent *Article) {
+func (c *build) prepTestGroups(tgs []*httptest.TestGroup, group *ArticleGroup, parent *Article) {
 	for _, g := range tgs {
+		c.groups[g] = group
 		c.parents[g] = parent
-		c.objkeys[g] = c.newObjKeysForTestGroup(g, parent)
+		c.objkeys[g] = c.newObjKeysForTestGroup(g, group, parent)
 	}
 }
 
@@ -128,7 +135,7 @@ func (c *build) buildSidebar() error {
 	c.page.Sidebar.Header.Banner = banner
 
 	lists := []*page.SidebarList{}
-	for _, g := range c.dir {
+	for _, g := range c.toc {
 		if len(g.Articles) == 0 {
 			continue
 		}
@@ -213,7 +220,7 @@ func (c *build) newSidebarItemsFromTestGroups(tgs []*httptest.TestGroup, parent 
 ////////////////////////////////////////////////////////////////////////////////
 
 func (c *build) buildContent() error {
-	for _, g := range c.dir {
+	for _, g := range c.toc {
 		if len(g.Articles) == 0 {
 			continue
 		}
@@ -1037,35 +1044,36 @@ func (c *build) newEnumList(typ *types.Type) (*page.EnumList, error) {
 // objkeys
 ////////////////////////////////////////////////////////////////////////////////
 
-func (c *build) newObjKeysForArticle(a *Article, parent *Article) objkeys {
-	var k objkeys
-	k.slug = slugFromString(a.Title)
-	k.path = c.RootPath + "/" + k.slug
-	k.anchor = k.slug
-
+func (c *build) newObjKeysForArticle(a *Article, group *ArticleGroup, parent *Article) objkeys {
+	parentTitle := group.Name
 	if parent != nil {
-		if pk, ok := c.objkeys[parent]; ok {
-			k.path = pk.path + "/" + k.slug
-			k.anchor = pk.anchor + "." + k.slug
-		}
+		parentTitle = parent.Title
+	}
+
+	k := objkeys{}
+	k.slug = slugFromString(removeStutter(a.Title, parentTitle))
+	if parent != nil {
+		pk := c.objkeys[parent]
+		k.path = pk.path + "/" + k.slug
+		k.anchor = pk.anchor + "." + k.slug
+	} else {
+		gslug := slugFromString(group.Name)
+		k.path = c.RootPath + "/" + gslug + "/" + k.slug
+		k.anchor = gslug + "." + k.slug
 	}
 
 	c.makeObjKeysUnique(&k)
 	return k
 }
 
-func (c *build) newObjKeysForTestGroup(tg *httptest.TestGroup, parent *Article) objkeys {
-	var k objkeys
+func (c *build) newObjKeysForTestGroup(tg *httptest.TestGroup, group *ArticleGroup, parent *Article) objkeys {
+	k := objkeys{}
 	k.path = pathFromTestGroup(tg, c.Config.StripPrefix)
+	if !strings.HasPrefix(k.path, c.RootPath) {
+		k.path = c.RootPath + k.path
+	}
 	k.slug = slugFromPath(k.path)
 	k.anchor = k.slug
-
-	if parent != nil {
-		if pk, ok := c.objkeys[parent]; ok {
-			k.path = pathJoin(pk.path, k.path)
-			k.anchor = anchorJoin(pk.anchor, k.anchor)
-		}
-	}
 
 	c.makeObjKeysUnique(&k)
 	return k

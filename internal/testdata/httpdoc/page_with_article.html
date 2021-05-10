@@ -8,9 +8,9 @@
 	<body>
 		<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
 			<symbol id="svg-code-icon" viewBox="0 0 16 16" stroke="currentcolor" fill="none">
-				<path d="M15.466,4.241c-0,-2.065 -1.677,-3.741 -3.741,-3.741l-7.484,0c-2.065,0 -3.741,1.676 -3.741,3.741l-0,7.482c-0,2.065 1.676,3.741 3.741,3.741l7.484,0c2.064,0 3.741,-1.676 3.741,-3.741l-0,-7.482Z" style="stroke-width:1px;"/>
-				<path d="M6.483,11l-2.985,-3l2.985,-3" style="stroke-width:1.5px;"/>
-				<path d="M9.498,5l2.985,3l-2.985,3" style="stroke-width:1.5px;"/>
+			<path d="M15.466,4.241c-0,-2.065 -1.677,-3.741 -3.741,-3.741l-7.484,0c-2.065,0 -3.741,1.676 -3.741,3.741l-0,7.482c-0,2.065 1.676,3.741 3.741,3.741l7.484,0c2.064,0 3.741,-1.676 3.741,-3.741l-0,-7.482Z" style="stroke-width:1px;"/>
+			<path d="M6.483,11l-2.985,-3l2.985,-3" style="stroke-width:1.5px;"/>
+			<path d="M9.498,5l2.985,3l-2.985,3" style="stroke-width:1.5px;"/>
 			</symbol>
 		</svg>
 		<div class="sidebar-container">
@@ -25,8 +25,8 @@
 				<div class="sidebar-list-container">
 					<h5 class="sidebar-list-title">Group Name</h5>
 					<ul class="sidebar-list">
-						<li class="sidebar-list-item{{ if .IsActive `/api/article-title` }} active{{ end }}" data-anchor="article-title">
-							<a href="/api/article-title" class="sidebar-item">Article Title</a>
+						<li class="sidebar-list-item{{ if .IsActive `/api/group-name/article-title` }} active{{ end }}" data-anchor="group-name.article-title">
+							<a href="/api/group-name/article-title" class="sidebar-item">Article Title</a>
 						</li>
 					</ul>
 				</div>
@@ -39,12 +39,12 @@
 			</header>
 			<main role="main">
 				<div class="article-column">
-					<article id="article-title">
+					<article id="group-name.article-title">
 						<div class="article-content">
 							<div class="article-primary-column">
 								<section class="article-section-lead">
 									<h2 class="article-section-lead-title">
-										<a class="article-anchor" href="/api/article-title">Article Title</a>
+										<a class="article-anchor" href="/api/group-name/article-title">Article Title</a>
 									</h2>
 								</section>
 							</div>
@@ -65,8 +65,8 @@ document.getElementById('{{ . }}').scrollIntoView();
 		<script type="text/javascript" src="/assets/js/main.js"></script>
 		<script type="text/javascript">
 httpdoc.init({
-lang: '{{ .Lang }}',
+	lang: '{{ .Lang }}',
 });
-</script>
+		</script>
 	</body>
 </html>

@@ -9,27 +9,49 @@ import (
 	"github.com/frk/httptest/internal/page"
 )
 
+// removeStutter attempts to remove the word, or part of the word, from the
+// given text and returns the result.
+func removeStutter(text, word string) string {
+	text = strings.ToLower(strings.TrimSpace(text))
+	word = strings.ToLower(strings.TrimSpace(word))
+
+	if words := strings.Split(word, " "); len(words) > 1 {
+		// this supposes that the preceding word(s) are determinants
+		// and/or qualifiers and the last word is the subject noun.
+		word = words[len(words)-1]
+	}
+
+	// TODO(mkopriva): would be nice if this could handle singular/plural matches.
+	// Even if only for the English language.
+	// - https://en.wikipedia.org/wiki/English_plurals
+
+	if re, err := regexp.Compile(`\b` + regexp.QuoteMeta(word) + `\b`); err == nil {
+		if re.MatchString(text) {
+			return re.ReplaceAllString(text, "")
+		}
+	}
+	return text
+}
+
 var rxDeterminer = regexp.MustCompile(`^the-+|-+(?:an?(?:-+an?)*)?-`)
 
 func slugFromString(s string) string {
-	s = strings.TrimSpace(s)
-	s = strings.ToLower(s)
+	s = strings.ToLower(strings.TrimSpace(s))
 	s = strings.Map(func(r rune) rune {
 		if unicode.IsLetter(r) || unicode.IsNumber(r) {
 			return r
 		}
 		return '-'
 	}, s)
-	s = rxDeterminer.ReplaceAllString(s, "-")
-	s = strings.Trim(s, "-")
-	return s
+
+	return strings.Trim(rxDeterminer.ReplaceAllString(s, "-"), "-")
 }
 
 // expects a "clean" path, no consecutive slashes, no placeholders, ...
 func slugFromPath(s string) string {
 	return strings.Map(func(r rune) rune {
 		if r == '/' {
-			return '-'
+			return '.'
 		}
 		return r
 	}, strings.Trim(s, "/"))
@@ -62,61 +84,6 @@ func pathFromTestGroup(tg *httptest.TestGroup, stripPrefix func(string) string) 
 	}
 
 	return "/" + pattern + "/" + verb
-}
-
-func pathJoin(p1, p2 string) string {
-	p1, p2 = strings.TrimRight(p1, "/"), strings.TrimLeft(p2, "/")
-
-	// try to reduce stutter by dropping the first node of p2 iff the last
-	// node of p1 is the same word (singular and plural included).
-
-	last := p1
-	if i := strings.LastIndexByte(last, '/'); i > -1 {
-		last = last[i+1:]
-	}
-
-	first, sliceAt := p2, len(p2)
-	if i := strings.IndexByte(first, '/'); i > -1 {
-		first = first[:i]
-		sliceAt = i + 1
-	}
-
-	if first == last || (first+"s") == last || first == (last+"s") {
-		p2 = p2[sliceAt:]
-	}
-
-	return p1 + "/" + p2
-}
-
-func anchorJoin(a1, a2 string) string {
-	a1, a2 = strings.TrimRight(a1, "."), strings.TrimLeft(a2, ".")
-
-	// try to reduce stutter by dropping the first node of a2 iff the last
-	// node of a1 is the same word (singular and plural included).
-
-	last := a1
-	if i := strings.LastIndexByte(last, '.'); i > -1 {
-		last = last[i+1:]
-	}
-	if i := strings.LastIndexByte(last, '-'); i > -1 {
-		last = last[i+1:]
-	}
-
-	first, sliceAt := a2, len(a2)
-	if i := strings.IndexByte(first, '.'); i > -1 {
-		first = first[:i]
-		sliceAt = i + 1
-	}
-	if i := strings.IndexByte(first, '-'); i > -1 {
-		first = first[:i]
-		sliceAt = i + 1
-	}
-
-	if first == last || (first+"s") == last || first == (last+"s") {
-		a2 = a2[sliceAt:]
-	}
-
-	return a1 + "." + a2
 }
 
 // removes scheme from url, e.g. "https://example.com" becomes "example.com".

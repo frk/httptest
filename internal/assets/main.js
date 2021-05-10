@@ -36,6 +36,7 @@ var httpdoc = (function() {
 		}
 
 		return {
+			elem: null,
 			items: null,
 			// A reference to the an instance of Main.
 			main: null,
@@ -49,7 +50,8 @@ var httpdoc = (function() {
 
 			// init initializes the state of the sidebar.
 			init: function() {
-				this.items = document.getElementsByClassName('sidebar-list-item');
+				this.elem = document.querySelector('nav.sidebar');
+				this.items = this.elem.getElementsByClassName('sidebar-list-item');
 				for (let i = 0; i < this.items.length; i++) {
 					let item = this.items[i];
 
@@ -124,6 +126,15 @@ var httpdoc = (function() {
 					let ul = item.querySelector('ul.sidebar-item-subitems');
 					ul.classList.remove('hidden');
 					this.shownItems.push(ul);
+				}
+
+				// if item's is not visible due to scroll, scroll.
+				let er = this.elem.getBoundingClientRect();
+				let ir = item.getBoundingClientRect();
+				if (ir.top < er.top) {
+					this.elem.scrollTop += (ir.top - er.top);
+				} else if (ir.bottom > er.bottom) {
+					this.elem.scrollTop += (ir.bottom - er.bottom);
 				}
 			},
 
@@ -216,13 +227,18 @@ var httpdoc = (function() {
 					return;
 				}
 
+				// TODO the hard coded numbers used here should probably be calculated
+				// based on the height of the viewport, the switching from current
+				// to prev (and probably next) looks weird when the viewport's height
+				// is smaller than "normal".
+
 				let a = this.articles[this.currentIndex].getBoundingClientRect();
 				if (a.top < (window.innerHeight - 200)) {
 					return; // nothing to do
 				}
 
 				let prevIndex = this.currentIndex-1;
-				let b = this.articles[prevIndex-1].getBoundingClientRect();
+				let b = this.articles[prevIndex].getBoundingClientRect();
 				if (b.top > (window.innerHeight - 200)) {
 					for (; prevIndex > 0; prevIndex--) {
 						let c = this.articles[prevIndex-1].getBoundingClientRect();

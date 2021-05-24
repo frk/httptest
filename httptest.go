@@ -158,7 +158,7 @@ func runtest(s *tstate, c *http.Client) (e error) {
 
 	// send request
 	res, err := c.Do(s.req)
-	if err != nil && err != redirect {
+	if err != nil && !errors.Is(err, redirect) {
 		return &testError{code: errRequestSend, s: s, err: err}
 	} else if res.Body != nil {
 		defer res.Body.Close()

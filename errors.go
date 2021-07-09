@@ -34,11 +34,22 @@ func (e *testError) Error() string {
 	return sb.String()
 }
 
-func (e *testError) RequestBody() string {
-	if e.s.tt.Request.Body != nil {
-		return fmt.Sprintf("%v", e.s.tt.Request.Body)
+func (e *testError) RequestDump() string {
+	if len(e.s.reqdump) > 0 {
+		return string(e.s.reqdump)
 	}
 	return ""
+}
+
+func (e *testError) ResponseDump() string {
+	if len(e.s.resdump) > 0 {
+		return string(e.s.resdump)
+	}
+	return ""
+}
+
+func (e *testError) TestName() string {
+	return e.s.name
 }
 
 func (e *testError) TestIndex() string {
@@ -46,7 +57,7 @@ func (e *testError) TestIndex() string {
 }
 
 func (e *testError) EndpointString() string {
-	return e.s.e.String()
+	return `"` + e.s.e.String() + `"`
 }
 
 func (e *testError) RequestHeader() string {
@@ -125,61 +136,79 @@ var output_template_string = `
 {{ end }}
 
 {{ define "` + errRequestBodyReader.name() + `" -}}
-{{Wb "frk/httptest"}}: "{{.EndpointString}}" test #{{.TestIndex}} ({{.RequestBodyType}}).Reader() call returned an error.
+{{Y .EndpointString}}
+{{R .TestName}} test failed.
+({{.RequestBodyType}}).Reader() call returned an error.
  - {{R .Err}}
 {{ end }}
 
 {{ define "` + errRequestNew.name() + `" -}}
-{{Wb "frk/httptest"}}: "{{.EndpointString}}" test #{{.TestIndex}} http.NewRequest call returned an error.
+{{Y .EndpointString}}
+{{R .TestName}} test failed.
+http.NewRequest call returned an error.
  - {{R .Err}}
 {{ end }}
 
 {{ define "` + errRequestSend.name() + `" -}}
-{{Wb "frk/httptest"}}: "{{.EndpointString}}" test #{{.TestIndex}} (*http.Client).Do call returned an error.
+{{Y .EndpointString}}
+{{R .TestName}} test failed.
+(*http.Client).Do call returned an error.
  - {{R .Err}}
+
+{{ with .RequestDump -}}
+- Request Dump: {{Y .}}
+{{- end }}
 {{ end }}
 
 {{ define "` + errResponseStatus.name() + `" -}}
-{{Wb "frk/httptest"}}: "{{.EndpointString}}" test #{{.TestIndex}} failed.
-http.Response.StatusCode got={{R .GotStatus}}, want={{C .WantStatus}}
-{{- with .RequestHeader }}
- - Request.Header: {{Y .}}
-{{ end }}
-{{- with .RequestBody }}
- - Request.Body: {{Y .}}
+{{Y .EndpointString}}
+{{R .TestName}} test failed.
+http.Response.StatusCode got={{R .GotStatus}}, want={{G .WantStatus}}
+
+{{ with .RequestDump -}}
+REQUEST: {{Y .}}
+{{- end }}
+{{- with .ResponseDump -}}
+RESPONSE: {{Y .}}
 {{ end }}
 {{ end }}
 
 {{ define "` + errResponseHeader.name() + `" -}}
-{{Wb "frk/httptest"}}: "{{.EndpointString}}" test #{{.TestIndex}} failed.
-http.Response.Header["{{.HeaderKey}}"] got={{R .GotHeader}}, want={{C .WantHeader}}
-{{- with .RequestHeader }}
- - Request.Header: {{Y .}}
-{{ end }}
-{{- with .RequestBody }}
- - Request.Body: {{Y .}}
+{{Y .EndpointString}}
+{{R .TestName}} test failed.
+http.Response.Header["{{.HeaderKey}}"] got={{R .GotHeader}}, want={{G .WantHeader}}
+
+{{ with .RequestDump -}}
+REQUEST: {{Y .}}
+{{- end }}
+{{- with .ResponseDump -}}
+RESPONSE: {{Y .}}
 {{ end }}
 {{ end }}
 
 {{ define "` + errResponseBody.name() + `" -}}
-{{Wb "frk/httptest"}}: "{{.EndpointString}}" test #{{.TestIndex}} failed.
+{{Y .EndpointString}}
+{{R .TestName}} test failed.
 http.Response.Body mismatch:
 {{.Err}}
-{{- with .RequestHeader }}
- - Request.Header: {{Y .}}
-{{ end }}
-{{- with .RequestBody }}
- - Request.Body: {{Y .}}
+
+{{ with .RequestDump -}}
+REQUEST: {{Y .}}
+{{- end }}
+{{- with .ResponseDump -}}
+RESPONSE: {{Y .}}
 {{ end }}
 {{ end }}
 
-{{ define "test_report" -}}
-{{G "Note"}}: Passed {{.Passed}} test(s).
-{{- with .Skipped}}
-{{Y "Warning"}}: Skipped {{.}} test(s).
-{{ end }}
-{{- with .Failed}}
-{{R "Error"}}: Failed {{.}} test(s).
+{{ define "test_report" }}
+{{ with .Failed -}}
+> {{R "FAILED"}}: {{W .}} test(s).
+{{ end -}}
+{{ with .Skipped -}}
+> {{Y "SKIPPED"}}: {{W .}} test(s).
+{{ end -}}
+{{ with .Passed -}}
+> {{G "PASSED"}}: {{W .}} test(s).
 {{ end }}
 {{ end }}
 ` // `
@@ -193,16 +222,22 @@ var output_templates = template.Must(template.New("t").Funcs(template.FuncMap{
 	// green color HI (terminal)
 	"G": func(v ...string) string { return getcolor("\033[0;92m", v) },
 	// yellow color HI (terminal)
-	"Y": func(v ...string) string { return getcolor("\033[0;93m", v) },
+	"Y":  func(v ...string) string { return getcolor("\033[0;93m", v) },
+	"Yb": func(v ...string) string { return getcolor("\033[1;93m", v) },
+	// yellow color, underlined (terminal)
+	"y": func(v ...string) string { return getcolor("\033[0;33m", v) },
 	// blue color HI (terminal)
 	"B": func(v ...string) string { return getcolor("\033[0;94m", v) },
 	// cyan color HI (terminal)
 	"C": func(v ...string) string { return getcolor("\033[0;96m", v) },
+	"c": func(v ...string) string { return getcolor("\033[0;36m", v) },
 	// white color HI (terminal)
 	"W":  func(v ...string) string { return getcolor("\033[0;97m", v) },
 	"Wb": func(v ...string) string { return getcolor("\033[1;97m", v) },
 	// no color (terminal)
 	"off": func() string { return "\033[0m" },
+	// quote the given string
+	"q": func(v string) string { return strconv.Quote(v) },
 }).Parse(output_template_string))
 
 func getcolor(c string, v []string) string {

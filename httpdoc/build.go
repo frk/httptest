@@ -203,7 +203,7 @@ func (c *build) newSidebarItemsFromArticles(articles []*Article, parent *Article
 func (c *build) newSidebarItemsFromTestGroups(tgs []*httptest.TestGroup, parent *Article) (items []*page.SidebarItem) {
 	for _, g := range tgs {
 		// include the test group only if a decent description was extracted
-		if desc := getTestGroupDesc(g); len(desc) > 0 {
+		if desc := getTestGroupName(g); len(desc) > 0 {
 			key := c.objkeys[g]
 			item := new(page.SidebarItem)
 			item.Text = desc
@@ -396,7 +396,7 @@ func (c *build) newArticleElementFromTestGroup(tg *httptest.TestGroup, parent *A
 	aElem := new(page.ArticleElement)
 	aElem.Id = c.objkeys[tg].anchor
 	aElem.Href = c.objkeys[tg].path
-	aElem.Title = getTestGroupDesc(tg)
+	aElem.Title = getTestGroupName(tg)
 
 	if tg.DocA != nil {
 		var decl types.TypeDecl
@@ -570,7 +570,7 @@ func (c *build) newExampleEndpoints(tgs []*httptest.TestGroup) *page.ExampleEndp
 		item.Href = key.path
 		item.Method = method
 		item.Pattern = pattern
-		item.Tooltip = getTestGroupDesc(tg)
+		item.Tooltip = tg.GetName()
 		section.Endpoints = append(section.Endpoints, item)
 	}
 
@@ -1140,10 +1140,14 @@ func marshalValue(value interface{}, mediatype string, withMarkup bool) (string,
 
 	switch mediatype {
 	case "application/json":
-		data, err := json.MarshalIndent(value, "", "  ")
-		if err != nil {
+		b := bytes.Buffer{}
+		e := json.NewEncoder(&b)
+		e.SetIndent("", "  ")
+		e.SetEscapeHTML(false)
+		if err := e.Encode(value); err != nil {
 			return "", err
 		}
+		data := bytes.TrimRight(b.Bytes(), "\n")
 
 		if withMarkup {
 			return markup.JSON(data), nil
@@ -1185,21 +1189,39 @@ func marshalBody(body httptest.Body, withMarkup bool) (text string, mediatype st
 		return "", "", 0, errNotSupportedMediaType
 	}
 
-	r, err := body.Reader()
-	if err != nil {
-		return "", "", 0, err
-	}
-
 	switch mediatype {
 	case "application/json":
-		raw, err := ioutil.ReadAll(r)
-		if err != nil {
-			return "", "", 0, err
+		var data []byte
+
+		if bv, ok := body.(Valuer); ok {
+			v, err := bv.Value()
+			if err != nil {
+				return "", "", 0, err
+			}
+
+			b := bytes.Buffer{}
+			e := json.NewEncoder(&b)
+			e.SetIndent("", "  ")
+			e.SetEscapeHTML(false)
+			if err := e.Encode(v); err != nil {
+				return "", "", 0, err
+			}
+			data = bytes.TrimRight(b.Bytes(), "\n")
+		} else {
+			br, err := body.Reader()
+			if err != nil {
+				return "", "", 0, err
+			}
+			raw, err := ioutil.ReadAll(br)
+			if err != nil {
+				return "", "", 0, err
+			}
+
+			if data, err = json.MarshalIndent(json.RawMessage(raw), "", "  "); err != nil {
+				return "", "", 0, err
+			}
 		}
-		data, err := json.MarshalIndent(json.RawMessage(raw), "", "  ")
-		if err != nil {
-			return "", "", 0, err
-		}
+
 		numlines = 1 + bytes.Count(data, []byte{'\n'})
 
 		if withMarkup {
@@ -1208,7 +1230,11 @@ func marshalBody(body httptest.Body, withMarkup bool) (text string, mediatype st
 			text = string(data)
 		}
 	case "application/xml":
-		raw, err := ioutil.ReadAll(r)
+		br, err := body.Reader()
+		if err != nil {
+			return "", "", 0, err
+		}
+		raw, err := ioutil.ReadAll(br)
 		if err != nil {
 			return "", "", 0, err
 		}
@@ -1224,7 +1250,11 @@ func marshalBody(body httptest.Body, withMarkup bool) (text string, mediatype st
 			text = string(raw)
 		}
 	case "text/csv":
-		raw, err := ioutil.ReadAll(r)
+		br, err := body.Reader()
+		if err != nil {
+			return "", "", 0, err
+		}
+		raw, err := ioutil.ReadAll(br)
 		if err != nil {
 			return "", "", 0, err
 		}
@@ -1290,9 +1320,9 @@ func getNearestNamedType(t *types.Type) *types.Type {
 	return nil
 }
 
-func getTestGroupDesc(tg *httptest.TestGroup) string {
-	if len(tg.Desc) > 0 {
-		return tg.Desc
+func getTestGroupName(tg *httptest.TestGroup) string {
+	if name := tg.GetName(); len(name) > 0 {
+		return name
 	}
 	if len(tg.E) > 0 {
 		return tg.E.String()

@@ -62,7 +62,10 @@ var page_root = `
 	<head>
 		<meta charset="UTF-8">
 		<title>{{ .Title }}</title>
-		<link rel="stylesheet" href="/assets/css/main.css">
+		<link rel="stylesheet" href="/assets/css/main.css?{{ url .RandomHash }}">
+		{{- if .AddCustomCSS }}
+		<link rel="stylesheet" href="/assets/css/custom.css?{{ url .RandomHash }}">
+		{{- end }}
 	</head>
 	<body>
 		{{ template "svg_code_icon" }}
@@ -76,7 +79,7 @@ var page_root = `
 		</script>
 		{{ END }}
 
-		<script type="text/javascript" src="/assets/js/main.js"></script>
+		<script type="text/javascript" src="/assets/js/main.js?{{ url .RandomHash }}"></script>
 		<script type="text/javascript">
 			httpdoc.init({
 				lang: '{{ GET_LANG }}',
@@ -338,7 +341,7 @@ var example_endpoints = `{{ define "example_endpoints" -}}
 		</div>
 		<div class="xs-endpoint-list">
 		{{- range .Endpoints }}
-			<div class="xs-endpoint-item">
+			<div class="xs-endpoint-item" data-tooltip="{{ .Tooltip }}">
 				<a href="{{ .Href }}">
 					<span class="xs-endpoint-method method-{{ lower .Method }}"><code>{{ .Method }}</code></span>
 					<span class="xs-endpoint-pattern"><code>{{ .Pattern }}</code></span>

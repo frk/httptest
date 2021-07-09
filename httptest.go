@@ -2,9 +2,12 @@ package httptest
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
+	"net/http/httputil"
 	"os"
+	"strconv"
 	"sync"
 	"testing"
 )
@@ -60,37 +63,45 @@ func (c *Config) run(t testing_T, tgs []*TestGroup) {
 
 		method, pattern := tg.E.Split()
 
-		t.Run(tg.Desc, func(t testing_T) {
-			for i, tt := range tg.Tests {
-				if tt.Skip {
-					skipped += 1
-					continue
+		gName := tg.GetName()
+		for i, tt := range tg.Tests {
+			if tt.Skip {
+				skipped += 1
+				continue
+			}
+
+			name := tt.GetName()
+			if len(name) == 0 {
+				name = fmt.Sprintf("%02d", i)
+			}
+			if len(tg.N) > 0 {
+				name = gName + "/" + name
+			}
+
+			t.Run(name, func(t testing_T) {
+				sat := tt.SetupAndTeardown
+				if sat == nil {
+					sat = c.SetupAndTeardown
 				}
 
-				t.Run(tt.Desc, func(t testing_T) {
-					sat := tt.SetupAndTeardown
-					if sat == nil {
-						sat = c.SetupAndTeardown
-					}
-
-					ts := &tstate{
-						host:    c.HostURL,
-						method:  method,
-						pattern: pattern,
-						e:       tg.E,
-						sat:     sat,
-						i:       i,
-						tt:      tt,
-					}
-					if err := runtest(ts, c.client()); err != nil {
-						t.Error(err)
-						failed += 1
-					} else {
-						passed += 1
-					}
-				})
-			}
-		})
+				ts := &tstate{
+					host:    c.HostURL,
+					method:  method,
+					pattern: pattern,
+					name:    name,
+					e:       tg.E,
+					sat:     sat,
+					i:       i,
+					tt:      tt,
+				}
+				if err := runtest(ts, c.client()); err != nil {
+					t.Error(err)
+					failed += 1
+				} else {
+					passed += 1
+				}
+			})
+		}
 	}
 
 	c.mu.Lock()
@@ -113,12 +124,19 @@ func (c *Config) LogReport() {
 	defer c.mu.RUnlock()
 
 	var report = struct {
-		Passed, Failed, Skipped int
-	}{
-		Passed:  c.passed,
-		Failed:  c.failed,
-		Skipped: c.skipped,
+		Passed, Failed, Skipped string
+	}{}
+
+	if c.passed > 0 {
+		report.Passed = strconv.Itoa(c.passed)
 	}
+	if c.failed > 0 {
+		report.Failed = strconv.Itoa(c.failed)
+	}
+	if c.skipped > 0 {
+		report.Skipped = strconv.Itoa(c.skipped)
+	}
+
 	if err := output_templates.ExecuteTemplate(os.Stderr, "test_report", report); err != nil {
 		panic(err)
 	}
@@ -129,12 +147,16 @@ type tstate struct {
 	host    string
 	method  string
 	pattern string
+	name    string
 	e       E
 	sat     func(e E, t *Test) (teardown func() error, err error) `cmp:"-"`
 	i       int
 	tt      *Test          `cmp:"+"`
 	req     *http.Request  `cmp:"+"`
 	res     *http.Response `cmp:"+"`
+
+	reqdump []byte
+	resdump []byte
 }
 
 func runtest(s *tstate, c *http.Client) (e error) {
@@ -160,7 +182,15 @@ func runtest(s *tstate, c *http.Client) (e error) {
 	res, err := c.Do(s.req)
 	if err != nil && !errors.Is(err, redirect) {
 		return &testError{code: errRequestSend, s: s, err: err}
-	} else if res.Body != nil {
+	}
+	if s.tt.Response.DumpOnError {
+		dump, err := httputil.DumpResponse(res, true)
+		if err != nil {
+			return err
+		}
+		s.resdump = dump
+	}
+	if res.Body != nil {
 		defer res.Body.Close()
 	}
 	s.res = res
@@ -196,6 +226,13 @@ func initrequest(s *tstate) error {
 	req, err := http.NewRequest(method, url, body)
 	if err != nil {
 		return &testError{code: errRequestNew, s: s, err: err}
+	}
+	if s.tt.Request.DumpOnError {
+		dump, err := httputil.DumpRequestOut(req, true)
+		if err != nil {
+			return err
+		}
+		s.reqdump = dump
 	}
 
 	// set the necessary headers
@@ -274,4 +311,11 @@ func (tt testing_t) Error(args ...interface{}) {
 
 func (tt testing_t) Run(name string, f func(testing_T)) bool {
 	return tt.t.Run(name, func(t *testing.T) { f(testing_t{t}) })
+}
+
+func aorb(a, b string) string {
+	if len(a) > 0 {
+		return a
+	}
+	return b
 }

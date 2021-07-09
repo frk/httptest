@@ -14,6 +14,7 @@ func Test_Params_SetParams(t *testing.T) {
 		{"/foo/bar", Params{}, "/foo/bar"},
 		{"/foo/{id}", Params{"id": 123}, "/foo/123"},
 		{"/users/{user_id}/posts/{post_id}", Params{"user_id": 123, "post_id": 345}, "/users/123/posts/345"},
+		{"/users/{user_id}/posts/{post_id}", Params{"user_id": 123}, "/users/123"},
 		{"{a}{b}{c}", Params{"a": "foo", "b": "bar", "c": "baz"}, "foobarbaz"},
 
 		{"{a}{b}c}", Params{"a": "foo", "b": "bar", "c": "baz"}, "foobarc}"},

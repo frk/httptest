@@ -72,6 +72,8 @@ func (w *write) run() error {
 }
 
 func (w *write) init() error {
+	w.page.AddCustomCSS = (w.Config.CustomCSSFile != "")
+	w.page.RandomHash = hexString(12)
 	w.outdir = filepath.Join(w.Config.OutputDir, w.Config.OutputName)
 
 	// use the destination dir's file mode for the rest of the files
@@ -157,6 +159,15 @@ func (w *write) writeProgram() error {
 		stderr := strings.Builder{}
 
 		cmd := exec.Command("go", "build", "-o", outfile)
+		if v := w.Config.GOOS; len(v) > 0 {
+			cmd.Env = append(cmd.Env, "GOOS="+v)
+		}
+		if v := w.Config.GOARCH; len(v) > 0 {
+			cmd.Env = append(cmd.Env, "GOARCH="+v)
+		}
+		if len(cmd.Env) > 0 {
+			cmd.Env = append(os.Environ(), cmd.Env...)
+		}
 		cmd.Dir = w.tempdir
 		cmd.Stderr = &stderr
 		if err := cmd.Run(); err != nil {
@@ -178,6 +189,13 @@ func (w *write) copyAssets() error {
 		to:   filepath.Join(w.jsdir, "main.js"),
 		from: filepath.Join(w.assetsdir, "main.js"),
 	}}
+
+	if len(w.Config.CustomCSSFile) > 0 {
+		files = append(files, filecopy{
+			to:   filepath.Join(w.cssdir, "custom.css"),
+			from: w.Config.CustomCSSFile,
+		})
+	}
 
 	if len(w.prog.Users) > 0 {
 		files = append(files, filecopy{

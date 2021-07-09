@@ -131,28 +131,29 @@ func Test_Config_Run(t *testing.T) {
 			}
 		}),
 	}, {
-		onlyme: true,
 		// make sure the error from Request.Body.Reader is returned
 		name: "request_body_reader", tgs: []*TestGroup{{E: "POST /v1/foo", Tests: []*Test{{
 			Request: Request{Body: fakebody{}},
 		}}}},
-		handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}),
+		handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// ...
+		}),
 		want: []interface{}{&testError{code: errRequestBodyReader, s: &tstate{
-			host: host, method: "POST", pattern: "/v1/foo", e: "POST /v1/foo", tt: &Test{}},
+			host: host, method: "POST", pattern: "/v1/foo", name: "00", e: "POST /v1/foo", tt: &Test{}},
 			err: errors.New("dummy")}},
 	}, {
 		// make sure the error from http.NewRequest is returned
 		name: "http_new_request", tgs: []*TestGroup{{E: "世界 /v1/foo", Tests: []*Test{{}}}},
 		handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}),
 		want: []interface{}{&testError{code: errRequestNew, s: &tstate{
-			host: host, method: "世界", pattern: "/v1/foo", e: "世界 /v1/foo", tt: &Test{}},
+			host: host, method: "世界", pattern: "/v1/foo", name: "00", e: "世界 /v1/foo", tt: &Test{}},
 			err: errors.New("dummy")}},
 	}, {
 		// make sure the error from http.Client.Do is returned
 		name: "http_client_do", tgs: []*TestGroup{{E: "POST /v1/foo", Tests: []*Test{{}}}},
 		handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}),
 		want: []interface{}{&testError{code: errRequestSend, s: &tstate{
-			host: host, method: "POST", pattern: "/v1/foo", e: "POST /v1/foo", tt: &Test{}, req: &http.Request{}},
+			host: host, method: "POST", pattern: "/v1/foo", name: "00", e: "POST /v1/foo", tt: &Test{}, req: &http.Request{}},
 			err: errors.New("dummy")}},
 		rt: errorTransport{},
 	}, {
@@ -164,7 +165,7 @@ func Test_Config_Run(t *testing.T) {
 			w.WriteHeader(500)
 		}),
 		want: []interface{}{&testError{code: errResponseStatus,
-			s: &tstate{host: host, method: "POST", pattern: "/v1/foo", e: "POST /v1/foo",
+			s: &tstate{host: host, method: "POST", pattern: "/v1/foo", name: "00", e: "POST /v1/foo",
 				tt: &Test{}, req: &http.Request{}, res: &http.Response{}}}},
 	}, {
 		// make sure the test fails if response header is not as expected
@@ -177,10 +178,10 @@ func Test_Config_Run(t *testing.T) {
 		}),
 		want: []interface{}{errorList{
 			&testError{code: errResponseHeader, s: &tstate{host: host,
-				method: "POST", pattern: "/v1/foo", e: "POST /v1/foo",
+				method: "POST", pattern: "/v1/foo", name: "00", e: "POST /v1/foo",
 				tt: &Test{}, req: &http.Request{}, res: &http.Response{}}, hkey: "A"},
 			&testError{code: errResponseHeader, s: &tstate{host: host,
-				method: "POST", pattern: "/v1/foo", e: "POST /v1/foo",
+				method: "POST", pattern: "/v1/foo", name: "00", e: "POST /v1/foo",
 				tt: &Test{}, req: &http.Request{}, res: &http.Response{}}, hkey: "C"},
 		}},
 	}, {
@@ -193,7 +194,7 @@ func Test_Config_Run(t *testing.T) {
 		}),
 		want: []interface{}{errorList{
 			&testError{code: errResponseBody, s: &tstate{host: host,
-				method: "POST", pattern: "/v1/foo", e: "POST /v1/foo",
+				method: "POST", pattern: "/v1/foo", name: "00", e: "POST /v1/foo",
 				tt: &Test{}, req: &http.Request{}, res: &http.Response{}}, err: errors.New("dummy")},
 		}},
 	}, {
@@ -206,7 +207,7 @@ func Test_Config_Run(t *testing.T) {
 		handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}),
 		want: []interface{}{
 			&testError{code: errTestSetup, s: &tstate{host: host,
-				method: "POST", pattern: "/v1/foo", e: "POST /v1/foo",
+				method: "POST", pattern: "/v1/foo", name: "00", e: "POST /v1/foo",
 				tt: &Test{}}, err: errors.New("setup fail")},
 		},
 	}, {
@@ -220,7 +221,7 @@ func Test_Config_Run(t *testing.T) {
 		handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}),
 		want: []interface{}{
 			&testError{code: errTestTeardown, s: &tstate{host: host,
-				method: "POST", pattern: "/v1/foo", e: "POST /v1/foo", tt: &Test{},
+				method: "POST", pattern: "/v1/foo", name: "00", e: "POST /v1/foo", tt: &Test{},
 				req: &http.Request{}, res: &http.Response{}}, err: errors.New("teardown fail")},
 		},
 	}, {
@@ -234,16 +235,13 @@ func Test_Config_Run(t *testing.T) {
 		handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}),
 		want: []interface{}{
 			&testError{code: errResponseStatus, s: &tstate{host: host,
-				method: "POST", pattern: "/v1/foo", e: "POST /v1/foo", tt: &Test{},
+				method: "POST", pattern: "/v1/foo", name: "00", e: "POST /v1/foo", tt: &Test{},
 				req: &http.Request{}, res: &http.Response{}}},
 		},
 	}}
 
 	cmp := compare.Config{ObserveFieldTag: "cmp", IgnoreArrayOrder: true}
 	for _, tt := range tests {
-		if !tt.onlyme {
-			continue
-		}
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.rt != nil {
 				conf.Client = &http.Client{Transport: tt.rt}
@@ -294,10 +292,12 @@ type fake_t struct {
 }
 
 func (ft *fake_t) Error(args ...interface{}) {
+	//fmt.Println(">>>> t.Error", args)
 	ft.errs = append(ft.errs, args...)
 }
 
 func (ft *fake_t) Run(name string, f func(testing_T)) bool {
+	//fmt.Println(">> t.Run", name)
 	f(ft)
 	return true
 }

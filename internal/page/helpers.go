@@ -7,6 +7,9 @@ import (
 
 var helpers = template.FuncMap{
 	"lower": strings.ToLower,
+	"url": func(s string) template.URL {
+		return template.URL(s)
+	},
 	"sh_line_break": func(numlines int) (f func() string) {
 		return func() string {
 			if numlines > 0 {

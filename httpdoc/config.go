@@ -63,6 +63,9 @@ type Config struct {
 	// sidebar's banner as a heading.
 	SidebarBannerHTML template.HTML
 
+	// The *absolute* path to a custom CSS file.
+	CustomCSSFile string
+
 	////////////////////////////////////////////////////////////////////////
 	// Server specific configuration
 	////////////////////////////////////////////////////////////////////////
@@ -130,6 +133,9 @@ type Config struct {
 	// A list of basic SnippetTypes for which request-specific code examples
 	// should be generated. If left empty it will default to DefaultSnippetTypes.
 	SnippetTypes []SnippetType
+
+	GOOS   string
+	GOARCH string
 
 	// The directory of the httpdoc package.
 	pkgdir string

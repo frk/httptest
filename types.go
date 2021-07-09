@@ -47,16 +47,18 @@ func (e E) Split() (method, pattern string) {
 
 // A TestGroup is a set of tests to be executed against a specific endpoint.
 type TestGroup struct {
-	// The endpoint to be tested.
+	// E, short for "endpoint, holds the endpoint to be tested.
 	E E
+	// N or Name hold the TestGroup's name. Name takes precedence over N.
+	//
+	// The httptest package uses the name to identify the TestGroup's subtests.
+	// The httpdoc package uses the name to generate the link text of the corresponding
+	// sidebar item and the heading text for the associated documentation.
+	N, Name string
 	// The list of tests that will be executed against the endpoint.
 	Tests []*Test
 	// Indicates that the TestGroup should be skipped by the test runner.
 	Skip bool
-	// A short description of what the endpoint-under-test is for. The httpdoc
-	// package uses the description to generate the link text of the corresponding
-	// sidebar item and the heading text for the associated documentation.
-	Desc string
 	// DocA and DocB are optional, they are ignored by the httptest package
 	// and are used only by the httpdoc package. The httpdoc package uses
 	// the first Test's Request and Response to generate input/output docs
@@ -95,6 +97,13 @@ type TestGroup struct {
 	DocA, DocB interface{}
 }
 
+func (tg TestGroup) GetName() string {
+	if len(tg.Name) > 0 {
+		return tg.Name
+	}
+	return tg.N
+}
+
 // The Test type describes the HTTP request to be sent to an endpoint and the
 // corresponding HTTP response that is expected to be received for that request.
 type Test struct {
@@ -102,6 +111,10 @@ type Test struct {
 	Request Request
 	// The expected response to the request.
 	Response Response
+	// N or Name hold the Test's name. Name takes precedence over N.
+	//
+	// The httptest package uses the name to identify the Test's subtest.
+	N, Name string
 	// SetupAndTeardown is a two-func chain that can be used to setup and
 	// teardown the API's internal state needed for an endpoint's test.
 	//
@@ -111,8 +124,6 @@ type Test struct {
 	SetupAndTeardown func(e E, t *Test) (teardown func() error, err error)
 	// Indicates that the Test should be skipped by the test runner.
 	Skip bool
-	// A short description of the test.
-	Desc string
 	// DocA and DocB are optional, they are ignored by the httptest package
 	// and are used only by the httpdoc package. The httpdoc package uses the
 	// Test's Request and Response to generate example docs for the resulting
@@ -151,6 +162,13 @@ type Test struct {
 	DocA, DocB interface{}
 }
 
+func (t Test) GetName() string {
+	if len(t.Name) > 0 {
+		return t.Name
+	}
+	return t.N
+}
+
 // The Request type describes the data to be sent in a single HTTP request.
 type Request struct {
 	// The auth information to be sent with the request.
@@ -179,6 +197,9 @@ type Request struct {
 	// [httpdoc]: If the Body's type implements the httpdoc.Valuer interface,
 	// then it will be used by httpdoc to produce input-specific documentation.
 	Body Body
+
+	////////////////////
+	DumpOnError bool
 }
 
 // Response is used to describe the expected HTTP response to a request.
@@ -195,6 +216,9 @@ type Response struct {
 	// [httpdoc]: If the Body's type also implements the httpdoc.Valuer interface,
 	// then it will be used by httpdoc to produce output-specific documentation.
 	Body Body
+
+	////////////////////
+	DumpOnError bool
 }
 
 ////////////////////////////////////////////////////////////////////////////////

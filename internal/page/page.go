@@ -19,6 +19,9 @@ type Page struct {
 	Content Content
 	// The id of the element which should act as the anchor for the initial page load.
 	AnchorId string
+
+	AddCustomCSS bool
+	RandomHash   string
 }
 
 ////////////////////////////////////////////////////////////////////////////////

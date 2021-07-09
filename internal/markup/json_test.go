@@ -18,7 +18,7 @@ func TestJSON(t *testing.T) {
 	}, {
 		name: "empty string",
 		data: `""`,
-		want: `<span class="token json-str">""</span>`,
+		want: `<span class="token json-str">&#34;&#34;</span>`,
 	}, {
 		name: "an array",
 		data: `[
@@ -37,11 +37,11 @@ func TestJSON(t *testing.T) {
 			<span class="token json-num">1</span><span class="token json-com">,</span>
 			<span class="token json-num">12</span><span class="token json-com">,</span>
 			<span class="token json-num">123</span><span class="token json-com">,</span>
-			<span class="token json-str">"foo bar"</span><span class="token json-com">,</span>
+			<span class="token json-str">&#34;foo bar&#34;</span><span class="token json-com">,</span>
 			<span class="token json-nul">null</span><span class="token json-com">,</span>
 			<span class="token json-lcb">{</span>
 				<span class="token json-key-q">"</span><span class="token json-key-t">key1</span><span class="token json-key-q">"</span><span class="token json-cln">:</span> <span class="token json-num">-0.009876</span><span class="token json-com">,</span>
-				<span class="token json-key-q">"</span><span class="token json-key-t">key2</span><span class="token json-key-q">"</span><span class="token json-cln">:</span> <span class="token json-str">"abcdefg"</span>
+				<span class="token json-key-q">"</span><span class="token json-key-t">key2</span><span class="token json-key-q">"</span><span class="token json-cln">:</span> <span class="token json-str">&#34;abcdefg&#34;</span>
 			<span class="token json-rcb">}</span><span class="token json-com">,</span>
 			<span class="token json-fal">false</span>
 		<span class="token json-rsb">]</span>`,

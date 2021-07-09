@@ -1,6 +1,7 @@
 package markup
 
 import (
+	"html"
 	"strings"
 
 	"github.com/frk/httptest/internal/markup/lexer"
@@ -26,7 +27,7 @@ loop:
 			b.Write([]byte(`<span class="token json-com">,</span>`))
 		case lexer.JSON_STR:
 			b.Write([]byte(`<span class="token json-str">`))
-			b.Write(t.Value)
+			b.Write([]byte(html.EscapeString(string(t.Value))))
 			b.Write([]byte(`</span>`))
 		case lexer.JSON_NUM:
 			b.Write([]byte(`<span class="token json-num">`))
@@ -42,7 +43,7 @@ loop:
 			b.Write([]byte(`<span class="token json-key-q">"</span>`)) // key quote
 
 			b.Write([]byte(`<span class="token json-key-t">`)) // key text
-			b.Write(t.Value[1 : len(t.Value)-1])
+			b.Write([]byte(html.EscapeString(string(t.Value[1 : len(t.Value)-1]))))
 			b.Write([]byte(`</span>`))
 
 			b.Write([]byte(`<span class="token json-key-q">"</span>`)) // key quote

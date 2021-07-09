@@ -1,6 +1,8 @@
 package httpdoc
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"regexp"
 	"strings"
 	"unicode"
@@ -8,6 +10,15 @@ import (
 	"github.com/frk/httptest"
 	"github.com/frk/httptest/internal/page"
 )
+
+// hexString returns a random hex string of length = size.
+func hexString(size uint) string {
+	b := make([]byte, size/2)
+	if _, err := rand.Read(b); err != nil {
+		panic("failed to read from rand: " + err.Error())
+	}
+	return hex.EncodeToString(b)
+}
 
 // removeStutter attempts to remove the word, or part of the word, from the
 // given text and returns the result.
@@ -74,7 +85,7 @@ func pathFromTestGroup(tg *httptest.TestGroup, stripPrefix func(string) string) 
 	pattern = rxSlashes.ReplaceAllString(pattern, "/")
 	pattern = strings.Trim(pattern, "/")
 
-	verb := strings.ToLower(strings.TrimSpace(tg.Desc))
+	verb := strings.ToLower(strings.TrimSpace(tg.GetName()))
 	if i := strings.IndexByte(verb, ' '); i > -1 {
 		verb = verb[:i]
 	}

@@ -154,7 +154,7 @@ func Compile(c Config, toc TOC) error {
 	_, f, _, _ := runtime.Caller(0)
 	c.pkgdir = filepath.Dir(f)
 
-	// get the caller's dir & then normalize
+	// get the caller's dir
 	_, f, _, _ = runtime.Caller(1)
 	c.srcdir = filepath.Dir(f)
 
@@ -173,9 +173,6 @@ func Compile(c Config, toc TOC) error {
 func (c *Config) normalize() {
 	if len(c.OutputName) == 0 {
 		c.OutputName = DefaultOutputName
-	}
-	if len(c.OutputDir) == 0 {
-		c.OutputDir = c.srcdir
 	}
 
 	if len(c.PageTitle) == 0 {

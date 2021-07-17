@@ -3,7 +3,7 @@
 	<head>
 		<meta charset="UTF-8">
 		<title>Example API v1</title>
-		<link rel="stylesheet" href="/assets/css/main.css">
+		<link rel="stylesheet" href="/assets/css/main.css?">
 	</head>
 	<body>
 		<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
@@ -97,7 +97,7 @@
 document.getElementById('{{ . }}').scrollIntoView();
 		</script>
 		{{ end }}
-		<script type="text/javascript" src="/assets/js/main.js"></script>
+		<script type="text/javascript" src="/assets/js/main.js?"></script>
 		<script type="text/javascript">
 httpdoc.init({
 	lang: '{{ .Lang }}',

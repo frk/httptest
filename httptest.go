@@ -248,7 +248,7 @@ func initrequest(s *tstate) error {
 		}
 	}
 	if s.tt.Request.Auth != nil {
-		s.tt.Request.Auth.SetAuth(req)
+		s.tt.Request.Auth.SetAuth(req, s.tt.Request)
 	}
 
 	s.req = req

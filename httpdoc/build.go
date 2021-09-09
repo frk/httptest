@@ -115,6 +115,10 @@ func (c *build) prepArticles(articles []*Article, group *ArticleGroup, parent *A
 
 func (c *build) prepTestGroups(tgs []*httptest.TestGroup, group *ArticleGroup, parent *Article) {
 	for _, g := range tgs {
+		if g.SkipDoc {
+			continue
+		}
+
 		c.groups[g] = group
 		c.parents[g] = parent
 		c.objkeys[g] = c.newObjKeysForTestGroup(g, group, parent)

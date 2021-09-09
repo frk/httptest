@@ -95,6 +95,8 @@ type TestGroup struct {
 	// and any relevant documentation that's found will be used to generate
 	// the HTML text. If the type is unnamed an error will be returned.
 	DocA, DocB interface{}
+	// If set, httpdoc will not generate documentation from this TestGroup.
+	SkipDoc bool
 }
 
 func (tg TestGroup) GetName() string {
@@ -241,7 +243,7 @@ type QueryGetter interface {
 
 // AuthSetter updates an HTTP request with auth information.
 type AuthSetter interface {
-	SetAuth(r *http.Request)
+	SetAuth(r *http.Request, t Request)
 }
 
 // HeaderGetter returns an HTTP header.

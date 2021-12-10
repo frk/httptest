@@ -156,7 +156,7 @@ http.NewRequest call returned an error.
  - {{R .Err}}
 
 {{ with .RequestDump -}}
-- Request Dump: {{Y .}}
+REQUEST: {{Y .}}
 {{- end }}
 {{ end }}
 

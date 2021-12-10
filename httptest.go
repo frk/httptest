@@ -177,6 +177,13 @@ func runtest(s *tstate, c *http.Client) (e error) {
 	if err := initrequest(s); err != nil {
 		return err
 	}
+	if s.tt.Request.DumpOnError {
+		dump, err := httputil.DumpRequestOut(s.req, true)
+		if err != nil {
+			return err
+		}
+		s.reqdump = dump
+	}
 
 	// send request
 	res, err := c.Do(s.req)
@@ -226,13 +233,6 @@ func initrequest(s *tstate) error {
 	req, err := http.NewRequest(method, url, body)
 	if err != nil {
 		return &testError{code: errRequestNew, s: s, err: err}
-	}
-	if s.tt.Request.DumpOnError {
-		dump, err := httputil.DumpRequestOut(req, true)
-		if err != nil {
-			return err
-		}
-		s.reqdump = dump
 	}
 
 	// set the necessary headers

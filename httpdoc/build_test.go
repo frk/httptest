@@ -932,15 +932,15 @@ type testhtmler struct{}
 func (testhtmler) HTML() (HTML, error) {
 	return `<p>this text is from an httpdoc.HTMLer</p>`, nil
 }
-func (v testhtmler) SetAuth(r *http.Request) {}
+func (v testhtmler) SetAuth(*http.Request, httptest.Request) {}
 
 type testvaluer struct{ v interface{} }
 
-func (v testvaluer) Value() (Value, error)           { return v.v, nil }
-func (v testvaluer) GetHeader() http.Header          { return nil }
-func (v testvaluer) SetParams(pattern string) string { return "" }
-func (v testvaluer) GetQuery() string                { return "" }
-func (v testvaluer) SetAuth(r *http.Request)         {}
+func (v testvaluer) Value() (Value, error)                   { return v.v, nil }
+func (v testvaluer) GetHeader() http.Header                  { return nil }
+func (v testvaluer) SetParams(pattern string) string         { return "" }
+func (v testvaluer) GetQuery() string                        { return "" }
+func (v testvaluer) SetAuth(*http.Request, httptest.Request) {}
 
 type jsonbody struct{ v interface{} }
 

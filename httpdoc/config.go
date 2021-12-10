@@ -158,7 +158,9 @@ func Compile(c Config, toc TOC) error {
 	_, f, _, _ = runtime.Caller(1)
 	c.srcdir = filepath.Dir(f)
 
-	c.normalize()
+	if err := c.normalize(); err != nil {
+		return err
+	}
 	b := &build{Config: c, toc: toc}
 	if err := b.run(); err != nil {
 		return err
@@ -170,7 +172,7 @@ func Compile(c Config, toc TOC) error {
 	return nil
 }
 
-func (c *Config) normalize() {
+func (c *Config) normalize() (err error) {
 	if len(c.OutputName) == 0 {
 		c.OutputName = DefaultOutputName
 	}
@@ -206,6 +208,13 @@ func (c *Config) normalize() {
 	if len(c.SnippetTypes) == 0 {
 		c.SnippetTypes = DefaultSnippetTypes
 	}
+
+	if !filepath.IsAbs(c.OutputDir) {
+		if c.OutputDir, err = filepath.Abs(c.OutputDir); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // SourceURLFunc returns a function that can be used in the Config's SourceURL

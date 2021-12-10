@@ -82,7 +82,7 @@ func (w *write) init() error {
 		if err != nil {
 			return err
 		}
-		if err := os.Mkdir(w.outdir, fi.Mode().Perm()); err != nil {
+		if err := os.MkdirAll(w.outdir, fi.Mode().Perm()); err != nil {
 			return err
 		}
 	}
@@ -152,24 +152,43 @@ func (w *write) writeProgram() error {
 		return err
 	}
 
+	// create go.mod file
+	stderr := new(strings.Builder)
+	modInitCmd := exec.Command("go", "mod", "init", w.Config.OutputName)
+	modInitCmd.Dir = w.outdir
+	modInitCmd.Stderr = stderr
+	if err := modInitCmd.Run(); err != nil {
+		return fmt.Errorf("failed to initialize module %q: %v\n%s\n", w.Config.OutputName, err, stderr.String())
+	}
+
+	// tidy up go.mod file
+	stderr = new(strings.Builder)
+	modTidyCmd := exec.Command("go", "mod", "tidy")
+	modTidyCmd.Dir = w.outdir
+	modTidyCmd.Stderr = stderr
+	if err := modTidyCmd.Run(); err != nil {
+		return fmt.Errorf("failed to tidy up go.mod: %v\n%s\n", err, stderr.String())
+	}
+
 	// if the program's an executable then compile it and remove the intermediary source
 	if w.prog.IsExecutable {
+		stderr := new(strings.Builder)
 		outfile := filepath.Join(w.outdir, w.Config.OutputName)
-		stderr := strings.Builder{}
 
-		cmd := exec.Command("go", "build", "-o", outfile)
+		buildCmd := exec.Command("go", "build", "-o", outfile)
+		buildCmd.Dir = w.outdir
+		buildCmd.Stderr = stderr
 		if v := w.Config.GOOS; len(v) > 0 {
-			cmd.Env = append(cmd.Env, "GOOS="+v)
+			buildCmd.Env = append(buildCmd.Env, "GOOS="+v)
 		}
 		if v := w.Config.GOARCH; len(v) > 0 {
-			cmd.Env = append(cmd.Env, "GOARCH="+v)
+			buildCmd.Env = append(buildCmd.Env, "GOARCH="+v)
 		}
-		if len(cmd.Env) > 0 {
-			cmd.Env = append(os.Environ(), cmd.Env...)
+		if len(buildCmd.Env) > 0 {
+			buildCmd.Env = append(os.Environ(), buildCmd.Env...)
 		}
-		cmd.Dir = w.outdir
-		cmd.Stderr = &stderr
-		if err := cmd.Run(); err != nil {
+
+		if err := buildCmd.Run(); err != nil {
 			return fmt.Errorf("failed to compile %q: %v\n%s\n", srcfile, err, stderr.String())
 		}
 		if err := os.Remove(srcfile); err != nil {

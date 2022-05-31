@@ -14,9 +14,13 @@ func Query(v interface{}) httptest.QueryGetter {
 	if rv.Kind() == reflect.Ptr {
 		rv = rv.Elem()
 	}
+
 	if rv.Kind() != reflect.Struct {
-		panic("httptest/httptype.Query: invalid argument type")
+		panic("httptest/httptype.Query: argument type invalid")
+	} else if rv.Type().Name() == "" {
+		panic("httptest/httptype.Query: argument type unnamed")
 	}
+
 	return queryGetter{v: v, rv: rv}
 }
 
@@ -25,11 +29,11 @@ type queryGetter struct {
 	rv reflect.Value
 }
 
-func (qg queryGetter) Value() (httpdoc.Value, error) { return qg.v, nil }
+func (q queryGetter) Value() (httpdoc.Value, error) { return q.v, nil }
 
-func (qg queryGetter) GetQuery() string {
+func (q queryGetter) GetQuery() string {
 	var b strings.Builder
-	if err := form.NewEncoder(&b).WithTagKey("query").Encode(qg.v); err != nil {
+	if err := form.NewEncoder(&b).WithTagKey("query").Encode(q.v); err != nil {
 		panic("httptest/httptype.GetQuery: " + err.Error())
 	}
 	return b.String()

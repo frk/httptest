@@ -35,6 +35,7 @@ func (e E) Split() (method, pattern string) {
 		// is either empty, or it contains only a pattern and no method.
 		// Default to GET either way.
 		method = "GET"
+		pattern = s
 	}
 
 	// If the pattern is empty or doesn't start with a slash, prefix it with one.
@@ -72,7 +73,7 @@ type TestGroup struct {
 	//	- *os.File
 	//	- httpdoc.HTMLer
 	//	- httpdoc.Valuer
-	//	- interface{} (named types only)
+	//	- interface{} (where the dynamic type MUST be declared)
 	// Anything else will result in an error.
 	//
 	// If the type is string, it is expected to contain raw HTML and it is
@@ -199,9 +200,9 @@ type Request struct {
 	// [httpdoc]: If the Body's type implements the httpdoc.Valuer interface,
 	// then it will be used by httpdoc to produce input-specific documentation.
 	Body Body
-
-	////////////////////
-	DumpOnError bool
+	// If set to true and the test fails, a dump of the HTTP request
+	// will be included in the test's output.
+	DumpOnFail bool
 }
 
 // Response is used to describe the expected HTTP response to a request.
@@ -218,9 +219,9 @@ type Response struct {
 	// [httpdoc]: If the Body's type also implements the httpdoc.Valuer interface,
 	// then it will be used by httpdoc to produce output-specific documentation.
 	Body Body
-
-	////////////////////
-	DumpOnError bool
+	// If set to true and the test fails, a dump of the HTTP response
+	// will be included in the test's output.
+	DumpOnFail bool
 }
 
 ////////////////////////////////////////////////////////////////////////////////

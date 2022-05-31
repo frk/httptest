@@ -177,7 +177,7 @@ func runtest(s *tstate, c *http.Client) (e error) {
 	if err := initrequest(s); err != nil {
 		return err
 	}
-	if s.tt.Request.DumpOnError {
+	if s.tt.Request.DumpOnFail {
 		dump, err := httputil.DumpRequestOut(s.req, true)
 		if err != nil {
 			return err
@@ -190,7 +190,7 @@ func runtest(s *tstate, c *http.Client) (e error) {
 	if err != nil && !errors.Is(err, redirect) {
 		return &testError{code: errRequestSend, s: s, err: err}
 	}
-	if s.tt.Response.DumpOnError {
+	if s.tt.Response.DumpOnFail {
 		dump, err := httputil.DumpResponse(res, true)
 		if err != nil {
 			return err

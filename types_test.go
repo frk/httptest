@@ -1,8 +1,42 @@
 package httptest
 
 import (
+	"reflect"
 	"testing"
 )
+
+func Test_E_Split(t *testing.T) {
+	tests := []struct {
+		E    E
+		want []string
+	}{{
+		E:    "POST /foo/{bar}",
+		want: []string{"POST", "/foo/{bar}"},
+	}, {
+		E:    "DELETE foos",
+		want: []string{"DELETE", "/foos"},
+	}, {
+		E:    "GET /",
+		want: []string{"GET", "/"},
+	}, {
+		E:    "/foo/{bar}",
+		want: []string{"GET", "/foo/{bar}"},
+	}, {
+		E:    "/",
+		want: []string{"GET", "/"},
+	}, {
+		E:    "",
+		want: []string{"GET", "/"},
+	}}
+
+	for _, tt := range tests {
+		method, pattern := tt.E.Split()
+		got := []string{method, pattern}
+		if !reflect.DeepEqual(got, tt.want) {
+			t.Errorf("%q: got %q, want %q", string(tt.E), got, tt.want)
+		}
+	}
+}
 
 func Test_Params_SetParams(t *testing.T) {
 	tests := []struct {

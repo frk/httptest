@@ -270,10 +270,10 @@ func TestTypeOf(t *testing.T) {
 			},
 		},
 	}, 27: {
-		v: types.DataList[types.S8]{},
+		v: types.DataList[*types.S8]{},
 		want: &Type{
 			Pos:     pos,
-			Name:    "DataList[github.com/frk/httptest/internal/testdata/types.S8]",
+			Name:    "DataList[*github.com/frk/httptest/internal/testdata/types.S8]",
 			Kind:    KindStruct,
 			PkgPath: pkg,
 			Fields: []*StructField{{
@@ -289,35 +289,38 @@ func TestTypeOf(t *testing.T) {
 				Type: &Type{
 					Kind: KindSlice,
 					Elem: &Type{
-						Pos:     pos,
-						Kind:    KindStruct,
-						Doc:     []string{"// S8 decl doc"},
-						Name:    "S8",
-						PkgPath: pkg,
-						Fields: []*StructField{
-							{Name: "F1", Pos: pos, Type: &Type{Name: "string", Kind: KindString},
-								Doc: []string{
-									"// S8.F1 doc line 1",
-									"// S8.F1 doc line 2",
-								}, IsExported: true,
+						Kind: KindPtr,
+						Elem: &Type{
+							Pos:     pos,
+							Kind:    KindStruct,
+							Doc:     []string{"// S8 decl doc"},
+							Name:    "S8",
+							PkgPath: pkg,
+							Fields: []*StructField{
+								{Name: "F1", Pos: pos, Type: &Type{Name: "string", Kind: KindString},
+									Doc: []string{
+										"// S8.F1 doc line 1",
+										"// S8.F1 doc line 2",
+									}, IsExported: true,
+								},
+								{Name: "F2", Pos: pos, Type: &Type{Name: "string", Kind: KindString},
+									Doc: []string{
+										"// S8.F2 comment",
+									}, IsExported: true,
+								},
+								{Name: "F3", Pos: pos, Type: &Type{Name: "string", Kind: KindString},
+									Doc: []string{
+										"/* S8.F3 comment line 1\n\tS8.F3 comment line 2\n\tS8.F3 comment line 3\n\t*/",
+									}, IsExported: true,
+								},
 							},
-							{Name: "F2", Pos: pos, Type: &Type{Name: "string", Kind: KindString},
-								Doc: []string{
-									"// S8.F2 comment",
-								}, IsExported: true,
-							},
-							{Name: "F3", Pos: pos, Type: &Type{Name: "string", Kind: KindString},
-								Doc: []string{
-									"/* S8.F3 comment line 1\n\tS8.F3 comment line 2\n\tS8.F3 comment line 3\n\t*/",
-								}, IsExported: true,
-							},
+							ReflectType: reflect.TypeOf(types.S8{}),
 						},
-						ReflectType: reflect.TypeOf(types.S8{}),
 					},
 				},
 				IsExported: true,
 			}},
-			ReflectType: reflect.TypeOf(types.DataList[types.S8]{}),
+			ReflectType: reflect.TypeOf(types.DataList[*types.S8]{}),
 		},
 	}}
 

@@ -190,7 +190,6 @@ func (s *Source) analyzeTypeSource(t *Type, src *typeSource, visited map[*Type]b
 	if t == nil || visited[t] || t.isBuiltin() { // nothing to do?
 		return
 	} else if src == nil && t.PkgPath != "" && t.Name != "" {
-		// TODO remove
 		src = s.getTypeSourceByName(t.Name, t.PkgPath)
 	}
 	visited[t] = true
@@ -258,11 +257,7 @@ func (s *Source) analyzeTypeSource(t *Type, src *typeSource, visited map[*Type]b
 			s.analyzeTypeSource(t.Elem, nil, visited)
 		}
 	case *ast.ArrayType:
-		if t.Elem.isDefined() {
-			s.analyzeTypeSource(t.Elem, nil, visited)
-		} else {
-			s.analyzeTypeSource(t.Elem, &typeSource{Expr: x.Elt, pkg: src.pkg}, visited)
-		}
+		s.analyzeTypeSource(t.Elem, nil, visited)
 	case *ast.MapType:
 		if t.Key.isDefined() {
 			s.analyzeTypeSource(t.Key, nil, visited)

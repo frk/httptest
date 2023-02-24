@@ -396,8 +396,8 @@ func mustGetFilesDir() string {
 		panic(err)
 	}
 	_ = x
-	//return filepath.Join(filepath.Dir(x), "files")
-	return "/app/files"
+	return filepath.Join(filepath.Dir(x), "files")
+	//return "/app/files"
 }
 {{ else -}}
 func mustGetFilesDir() string {

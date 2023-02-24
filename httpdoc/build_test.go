@@ -457,6 +457,24 @@ func Test_build(t *testing.T) {
 			}},
 		}},
 	}, {
+		file: "field_list_from_test_response_generic",
+		wt:   wt_article_field_list,
+		toc: []*ArticleGroup{{
+			Name: "Article",
+			Articles: []*Article{{
+				Title: "Test Article",
+				TestGroups: []*httptest.TestGroup{{
+					E: "GET /api/foos",
+					Tests: []*httptest.Test{{
+						Response: httptest.Response{
+							Header: testvaluer{httpdoc.H1RES{}},
+							Body:   jsonbody{httpdoc.G1[httpdoc.T1]{}},
+						},
+					}},
+				}},
+			}},
+		}},
+	}, {
 		////////////////////////////////////////////////////////////////
 		// field_list_from_test_request
 		////////////////////////////////////////////////////////////////

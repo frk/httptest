@@ -6,6 +6,7 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
+	"strings"
 	"sync"
 
 	"golang.org/x/tools/go/packages"
@@ -132,6 +133,11 @@ func (s *Source) getTypeSourceByName(name, path string) *typeSource {
 	if err != nil {
 		fmt.Printf("findpkg: %v\n", err)
 		return nil
+	}
+
+	// remove type-args from generic-type name
+	if i := strings.IndexByte(name, '['); i > -1 {
+		name = name[:i]
 	}
 
 	for _, syn := range pkg.Syntax {

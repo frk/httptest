@@ -1,9 +1,23 @@
 package httpdoc
 
+type G1[T any] struct {
+	// Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod
+	// tempor incididunt ut labore et dolore magna aliqua.
+	F1 string
+	// Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi
+	// ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit
+	// in voluptate velit esse cillum dolore eu fugiat nulla pariatur.
+	F2 []T
+	F3 float64 // lorem ipsum
+}
+
 type T1 struct {
-	F1 string  `doc:"required"`
+	F1 string `doc:"required"`
+	// Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi
+	// ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit
+	// in voluptate velit esse cillum dolore eu fugiat nulla pariatur.
 	F2 string  `doc:"optional"`
-	F3 float64 `doc:",required"`
+	F3 float64 `doc:",required"` // hello world
 	F4 float64
 }
 

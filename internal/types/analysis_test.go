@@ -269,6 +269,56 @@ func TestTypeOf(t *testing.T) {
 				{Name: "c2d", Pos: pos, Value: `"baz"`, Doc: []string{"// c2d comment line"}},
 			},
 		},
+	}, 27: {
+		v: types.DataList[types.S8]{},
+		want: &Type{
+			Pos:     pos,
+			Name:    "DataList[github.com/frk/httptest/internal/testdata/types.S8]",
+			Kind:    KindStruct,
+			PkgPath: pkg,
+			Fields: []*StructField{{
+				Doc:        []string{"// The total number of available data."},
+				Pos:        pos,
+				Name:       "Total",
+				Type:       &Type{Name: "int", Kind: 3},
+				IsExported: true,
+			}, {
+				Doc:  []string{"// The list of retrieved data."},
+				Pos:  pos,
+				Name: "Data",
+				Type: &Type{
+					Kind: KindSlice,
+					Elem: &Type{
+						Pos:     pos,
+						Kind:    KindStruct,
+						Doc:     []string{"// S8 decl doc"},
+						Name:    "S8",
+						PkgPath: pkg,
+						Fields: []*StructField{
+							{Name: "F1", Pos: pos, Type: &Type{Name: "string", Kind: KindString},
+								Doc: []string{
+									"// S8.F1 doc line 1",
+									"// S8.F1 doc line 2",
+								}, IsExported: true,
+							},
+							{Name: "F2", Pos: pos, Type: &Type{Name: "string", Kind: KindString},
+								Doc: []string{
+									"// S8.F2 comment",
+								}, IsExported: true,
+							},
+							{Name: "F3", Pos: pos, Type: &Type{Name: "string", Kind: KindString},
+								Doc: []string{
+									"/* S8.F3 comment line 1\n\tS8.F3 comment line 2\n\tS8.F3 comment line 3\n\t*/",
+								}, IsExported: true,
+							},
+						},
+						ReflectType: reflect.TypeOf(types.S8{}),
+					},
+				},
+				IsExported: true,
+			}},
+			ReflectType: reflect.TypeOf(types.DataList[types.S8]{}),
+		},
 	}}
 
 	_, f, _, _ := runtime.Caller(0)
@@ -283,6 +333,7 @@ func TestTypeOf(t *testing.T) {
 		if tt.flag {
 			continue
 		}
+
 		got := src.TypeOf(tt.v)
 		if err := cmp.Compare(got, tt.want); err != nil {
 			t.Errorf("[%d] %T: %v", i, tt.v, err)

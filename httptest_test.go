@@ -296,7 +296,7 @@ func (ft *fake_t) Error(args ...interface{}) {
 	ft.errs = append(ft.errs, args...)
 }
 
-func (ft *fake_t) Run(name string, f func(testing_T)) bool {
+func (ft *fake_t) Run(name string, f func(T)) bool {
 	//fmt.Println(">> t.Run", name)
 	f(ft)
 	return true

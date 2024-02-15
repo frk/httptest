@@ -57,25 +57,25 @@ func (b jsonbody) Reader() (io.Reader, error) {
 // underlying value can be recreated from the given reader, it does not care
 // about any additional data that the reader might contain.
 func (b jsonbody) Compare(r io.Reader) error {
-	rt := reflect.TypeOf(b.v)
+	v := halfInit(b.v)
 
-	var isptr bool
-	if rt.Kind() == reflect.Ptr {
-		rt = rt.Elem()
-		isptr = true
+	deref := false
+	if rv := reflect.ValueOf(v); rv.Kind() != reflect.Ptr {
+		v = newPtrFor(v)
+		deref = true
+
+	} else if rv.Kind() == reflect.Ptr && rv.IsNil() {
+		rv = reflect.New(rv.Type().Elem())
+		v = rv.Interface()
 	}
 
-	v := reflect.New(rt).Interface()
 	if err := json.NewDecoder(r).Decode(v); err != nil {
 		return err
 	}
 
-	if !isptr {
-		// if the underlying value is not a pointer get the
-		// indirect of the reflect.Value of the decoded v.
+	if deref {
 		v = reflect.Indirect(reflect.ValueOf(v)).Interface()
 	}
-
 	cmp := compare.Config{ObserveFieldTag: "cmp"}
 	if err := cmp.Compare(v, b.v); err != nil {
 		return err

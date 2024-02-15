@@ -53,7 +53,7 @@ func (c *Config) Run(t *testing.T, tgs []*TestGroup) {
 	c.run(testing_t{t}, tgs)
 }
 
-func (c *Config) run(t testing_T, tgs []*TestGroup) {
+func (c *Config) run(t T, tgs []*TestGroup) {
 	var passed, failed, skipped int
 	for _, tg := range tgs {
 		if tg.Skip {
@@ -78,19 +78,20 @@ func (c *Config) run(t testing_T, tgs []*TestGroup) {
 				name = gName + "/" + name
 			}
 
-			t.Run(name, func(t testing_T) {
-				sat := tt.SetupAndTeardown
-				if sat == nil {
-					sat = c.SetupAndTeardown
+			t.Run(name, func(t T) {
+				sandt := tt.SetupAndTeardown
+				if sandt == nil {
+					sandt = c.SetupAndTeardown
 				}
 
+				tt.t = t
 				ts := &tstate{
 					host:    c.HostURL,
 					method:  method,
 					pattern: pattern,
 					name:    name,
 					e:       tg.E,
-					sat:     sat,
+					sandt:   sandt,
 					i:       i,
 					tt:      tt,
 				}
@@ -149,7 +150,7 @@ type tstate struct {
 	pattern string
 	name    string
 	e       E
-	sat     func(e E, t *Test) (teardown func() error, err error) `cmp:"-"`
+	sandt   func(e E, t *Test) (teardown func() error, err error) `cmp:"-"`
 	i       int
 	tt      *Test          `cmp:"+"`
 	req     *http.Request  `cmp:"+"`
@@ -160,8 +161,8 @@ type tstate struct {
 }
 
 func runtest(s *tstate, c *http.Client) (e error) {
-	if s.sat != nil {
-		teardown, err := s.sat(s.e, s.tt)
+	if s.sandt != nil {
+		teardown, err := s.sandt(s.e, s.tt)
 		if err != nil {
 			return &testError{code: errTestSetup, s: s, err: err}
 		}
@@ -293,14 +294,16 @@ func checkresponse(s *tstate) error {
 	return nil
 }
 
-// The testing_T interface represents a tiny portion of the *testing.T functionality which
-// is being used by the Config.run method. It's raison d'etre is to make Config.run testable.
-type testing_T interface {
+// The T interface represents a tiny portion of the *testing.T functionality
+// which is being used by the Config.run method.
+//
+// It's primary raison d'etre is to make Config.run testable.
+type T interface {
 	Error(args ...interface{})
-	Run(name string, f func(testing_T)) bool
+	Run(name string, f func(T)) bool
 }
 
-// testing_t is a wrapper around *testing.T that satisfies the testing_T interface.
+// testing_t is a wrapper around *testing.T that satisfies the T interface.
 type testing_t struct {
 	t *testing.T
 }
@@ -309,7 +312,7 @@ func (tt testing_t) Error(args ...interface{}) {
 	tt.t.Error(args...)
 }
 
-func (tt testing_t) Run(name string, f func(testing_T)) bool {
+func (tt testing_t) Run(name string, f func(T)) bool {
 	return tt.t.Run(name, func(t *testing.T) { f(testing_t{t}) })
 }
 

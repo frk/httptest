@@ -163,6 +163,9 @@ type Test struct {
 	// and any relevant documentation that's found will be used to generate
 	// the HTML text. If the type is unnamed an error will be returned.
 	DocA, DocB interface{}
+
+	// the T instance used when executing the Test
+	t T
 }
 
 func (t Test) GetName() string {
@@ -170,6 +173,10 @@ func (t Test) GetName() string {
 		return t.Name
 	}
 	return t.N
+}
+
+func (t Test) GetT() T {
+	return t.t
 }
 
 // The Request type describes the data to be sent in a single HTTP request.
@@ -314,7 +321,6 @@ type Params map[string]interface{}
 //	path := params.SetParams(pattern)
 //	fmt.Println(path)
 //	// outputs "/users/123"
-//
 func (pp Params) SetParams(pattern string) (path string) {
 	var i, j int
 

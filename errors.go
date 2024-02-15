@@ -201,15 +201,18 @@ RESPONSE: {{Y .}}
 {{ end }}
 
 {{ define "test_report" }}
-{{ with .Failed -}}
+{{ .Title }}:
+{{/* empty line */}}
+{{- with .Failed }}
 > {{R "FAILED"}}: {{W .}} test(s).
-{{ end -}}
-{{ with .Skipped -}}
+{{- end }}
+{{- with .Skipped }}
 > {{Y "SKIPPED"}}: {{W .}} test(s).
-{{ end -}}
-{{ with .Passed -}}
+{{- end -}}
+{{- with .Passed }}
 > {{G "PASSED"}}: {{W .}} test(s).
-{{ end }}
+{{- end }}
+{{/* empty line */}}
 {{ end }}
 ` // `
 

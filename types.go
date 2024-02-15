@@ -166,6 +166,8 @@ type Test struct {
 
 	// the T instance used when executing the Test
 	t T
+	// the list of errors collected by the Error() method
+	errs []error
 }
 
 func (t Test) GetName() string {
@@ -177,6 +179,10 @@ func (t Test) GetName() string {
 
 func (t Test) GetT() T {
 	return t.t
+}
+
+func (t *Test) Error(err error) {
+	t.errs = append(t.errs, err)
 }
 
 // The Request type describes the data to be sent in a single HTTP request.

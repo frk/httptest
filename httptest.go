@@ -98,6 +98,11 @@ func (c *Config) run(t T, tgs []*TestGroup) {
 				if err := runtest(ts, c.client()); err != nil {
 					t.Error(err)
 					failed += 1
+				} else if len(tt.errs) > 0 {
+					failed += 1
+					for i := range tt.errs {
+						t.Error(tt.errs[i])
+					}
 				} else {
 					passed += 1
 				}
@@ -120,13 +125,14 @@ func (c *Config) client() *http.Client {
 }
 
 // LogReport logs a summary of the test to stderr. It is intended to be called at "teardown".
-func (c *Config) LogReport() {
+func (c *Config) LogReport(title string) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
 	var report = struct {
+		Title                   string
 		Passed, Failed, Skipped string
-	}{}
+	}{Title: title}
 
 	if c.passed > 0 {
 		report.Passed = strconv.Itoa(c.passed)

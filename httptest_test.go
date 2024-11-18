@@ -1,12 +1,12 @@
 package httptest
 
 import (
-	//"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -14,23 +14,18 @@ import (
 )
 
 func Test_Config_Run(t *testing.T) {
-	server := &http.Server{Addr: "localhost:3456"}
+	var handler http.Handler
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handler.ServeHTTP(w, r)
+	}))
 	defer server.Close()
 
-	var handler http.Handler
-	server.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		handler.ServeHTTP(w, r)
-	})
-	go func() {
-		_ = server.ListenAndServe()
-	}()
-
-	conf := Config{HostURL: "http://" + server.Addr}
-
-	host := "http://localhost:3456"
+	url := server.URL
+	conf := Config{url: url}
 	tests := []struct {
 		onlyme bool
 
+		state    StateHandler
 		name     string
 		tgs      []*TestGroup
 		handler  http.Handler
@@ -138,22 +133,22 @@ func Test_Config_Run(t *testing.T) {
 		handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// ...
 		}),
-		want: []interface{}{&testError{code: errRequestBodyReader, s: &tstate{
-			host: host, method: "POST", pattern: "/v1/foo", name: "00", e: "POST /v1/foo", tt: &Test{}},
+		want: []interface{}{&testError{code: errRequestBodyReader, test: &test{
+			url: url, method: "POST", pattern: "/v1/foo", name: "00", endpoint: "POST /v1/foo", tt: &Test{}},
 			err: errors.New("dummy")}},
 	}, {
 		// make sure the error from http.NewRequest is returned
 		name: "http_new_request", tgs: []*TestGroup{{E: "世界 /v1/foo", Tests: []*Test{{}}}},
 		handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}),
-		want: []interface{}{&testError{code: errRequestNew, s: &tstate{
-			host: host, method: "世界", pattern: "/v1/foo", name: "00", e: "世界 /v1/foo", tt: &Test{}},
+		want: []interface{}{&testError{code: errRequestNew, test: &test{
+			url: url, method: "世界", pattern: "/v1/foo", name: "00", endpoint: "世界 /v1/foo", tt: &Test{}},
 			err: errors.New("dummy")}},
 	}, {
 		// make sure the error from http.Client.Do is returned
 		name: "http_client_do", tgs: []*TestGroup{{E: "POST /v1/foo", Tests: []*Test{{}}}},
 		handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}),
-		want: []interface{}{&testError{code: errRequestSend, s: &tstate{
-			host: host, method: "POST", pattern: "/v1/foo", name: "00", e: "POST /v1/foo", tt: &Test{}, req: &http.Request{}},
+		want: []interface{}{&testError{code: errRequestSend, test: &test{
+			url: url, method: "POST", pattern: "/v1/foo", name: "00", endpoint: "POST /v1/foo", tt: &Test{}, req: &http.Request{}},
 			err: errors.New("dummy")}},
 		rt: errorTransport{},
 	}, {
@@ -165,7 +160,7 @@ func Test_Config_Run(t *testing.T) {
 			w.WriteHeader(500)
 		}),
 		want: []interface{}{&testError{code: errResponseStatus,
-			s: &tstate{host: host, method: "POST", pattern: "/v1/foo", name: "00", e: "POST /v1/foo",
+			test: &test{url: url, method: "POST", pattern: "/v1/foo", name: "00", endpoint: "POST /v1/foo",
 				tt: &Test{}, req: &http.Request{}, res: &http.Response{}}}},
 	}, {
 		// make sure the test fails if response header is not as expected
@@ -177,11 +172,11 @@ func Test_Config_Run(t *testing.T) {
 			w.Header().Set("B", "bar")
 		}),
 		want: []interface{}{errorList{
-			&testError{code: errResponseHeader, s: &tstate{host: host,
-				method: "POST", pattern: "/v1/foo", name: "00", e: "POST /v1/foo",
+			&testError{code: errResponseHeader, test: &test{url: url,
+				method: "POST", pattern: "/v1/foo", name: "00", endpoint: "POST /v1/foo",
 				tt: &Test{}, req: &http.Request{}, res: &http.Response{}}, hkey: "A"},
-			&testError{code: errResponseHeader, s: &tstate{host: host,
-				method: "POST", pattern: "/v1/foo", name: "00", e: "POST /v1/foo",
+			&testError{code: errResponseHeader, test: &test{url: url,
+				method: "POST", pattern: "/v1/foo", name: "00", endpoint: "POST /v1/foo",
 				tt: &Test{}, req: &http.Request{}, res: &http.Response{}}, hkey: "C"},
 		}},
 	}, {
@@ -193,49 +188,44 @@ func Test_Config_Run(t *testing.T) {
 			// ...
 		}),
 		want: []interface{}{errorList{
-			&testError{code: errResponseBody, s: &tstate{host: host,
-				method: "POST", pattern: "/v1/foo", name: "00", e: "POST /v1/foo",
+			&testError{code: errResponseBody, test: &test{url: url,
+				method: "POST", pattern: "/v1/foo", name: "00", endpoint: "POST /v1/foo",
 				tt: &Test{}, req: &http.Request{}, res: &http.Response{}}, err: errors.New("dummy")},
 		}},
 	}, {
 		// make sure the error from the setup function is returned
-		name: "setup_error", tgs: []*TestGroup{{E: "POST /v1/foo", Tests: []*Test{{
-			SetupAndTeardown: func(e E, t *Test) (teardown func() error, err error) {
-				return nil, errors.New("setup fail")
-			},
-		}}}},
+		name: "setup_error", tgs: []*TestGroup{{E: "POST /v1/foo", Tests: []*Test{
+			{State: "dummy"},
+		}}},
+		state:   dummyStateHandler{init: errors.New("setup fail")},
 		handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}),
 		want: []interface{}{
-			&testError{code: errTestSetup, s: &tstate{host: host,
-				method: "POST", pattern: "/v1/foo", name: "00", e: "POST /v1/foo",
+			&testError{code: errTestStateInit, test: &test{url: url,
+				method: "POST", pattern: "/v1/foo", name: "00", endpoint: "POST /v1/foo",
 				tt: &Test{}}, err: errors.New("setup fail")},
 		},
 	}, {
 		// make sure the error from the teardown function is returned
-		name: "teardown_error", tgs: []*TestGroup{{E: "POST /v1/foo", Tests: []*Test{{
-			SetupAndTeardown: func(e E, t *Test) (teardown func() error, err error) {
-				return func() error { return errors.New("teardown fail") }, nil
-			},
-			Response: Response{StatusCode: 200},
-		}}}},
+		name: "teardown_error", tgs: []*TestGroup{{E: "POST /v1/foo", Tests: []*Test{
+			{State: "dummy", Response: Response{StatusCode: 200}},
+		}}},
+		state:   dummyStateHandler{cleanup: errors.New("teardown fail")},
 		handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}),
 		want: []interface{}{
-			&testError{code: errTestTeardown, s: &tstate{host: host,
-				method: "POST", pattern: "/v1/foo", name: "00", e: "POST /v1/foo", tt: &Test{},
+			&testError{code: errTestStateCleanup, test: &test{url: url,
+				method: "POST", pattern: "/v1/foo", name: "00", endpoint: "POST /v1/foo", tt: &Test{},
 				req: &http.Request{}, res: &http.Response{}}, err: errors.New("teardown fail")},
 		},
 	}, {
 		// make sure the error from the test takes precedence over the error from teardown
-		name: "test_error_over_teardown_error", tgs: []*TestGroup{{E: "POST /v1/foo", Tests: []*Test{{
-			SetupAndTeardown: func(e E, t *Test) (teardown func() error, err error) {
-				return func() error { return errors.New("teardown fail") }, nil
-			},
-			Response: Response{StatusCode: 234},
-		}}}},
+		name: "test_error_over_teardown_error", tgs: []*TestGroup{{E: "POST /v1/foo", Tests: []*Test{
+			{State: "dummy", Response: Response{StatusCode: 234}},
+		}}},
+		state:   dummyStateHandler{cleanup: errors.New("teardown fail")},
 		handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}),
 		want: []interface{}{
-			&testError{code: errResponseStatus, s: &tstate{host: host,
-				method: "POST", pattern: "/v1/foo", name: "00", e: "POST /v1/foo", tt: &Test{},
+			&testError{code: errResponseStatus, test: &test{url: url,
+				method: "POST", pattern: "/v1/foo", name: "00", endpoint: "POST /v1/foo", tt: &Test{},
 				req: &http.Request{}, res: &http.Response{}}},
 		},
 	}}
@@ -243,6 +233,7 @@ func Test_Config_Run(t *testing.T) {
 	cmp := compare.Config{ObserveFieldTag: "cmp", IgnoreArrayOrder: true}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			conf.StateHandler = tt.state
 			if tt.rt != nil {
 				conf.Client = &http.Client{Transport: tt.rt}
 				defer func() { conf.Client = nil }()
@@ -257,12 +248,25 @@ func Test_Config_Run(t *testing.T) {
 			}
 			if tt.printerr {
 				for _, v := range ft.errs {
-					fmt.Println(v)
+					fmt.Println("GOT:", v)
+				}
+				for _, v := range tt.want {
+					fmt.Println("WANT:", v)
 				}
 			}
 		})
 	}
 }
+
+type dummyStateHandler struct {
+	init    error
+	check   error
+	cleanup error
+}
+
+func (h dummyStateHandler) Init(State) error    { return h.init }
+func (h dummyStateHandler) Check(State) error   { return h.check }
+func (h dummyStateHandler) Cleanup(State) error { return h.cleanup }
 
 type errorTransport struct{}
 

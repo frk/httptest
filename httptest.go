@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"net/http/httputil"
 	"os"
 	"strconv"
@@ -23,23 +24,26 @@ var defaultClient = &http.Client{
 	},
 }
 
+// A Config specifies the configuration for test running. The zero value
+// of Config is a ready-to-use default configuration.
 type Config struct {
-	// The host URL from which the target API is being served.
-	HostURL string
+	// The URL of the host from which the target API is being served.
+	//
+	// If Host is left empty then Run will automatically start a test
+	// server using its mux argument as the test server's handler.
+	Host string
+	// Label is the descriptive name of the set of tests ran by this config.
+	// The label is primarily used in the logged report of the test results.
+	Label string
 	// The HTTP client to be used for sending test requests to the API.
 	// If nil, a default client will be used.
 	Client *http.Client
-	// SetupAndTeardown is a two-func chain that can be used to setup and
-	// teardown the API's internal state needed for an endpoint's test.
-	//
-	// The setup function is the first one in the chain and it is invoked
-	// before a test is executed, the teardown, returned by the setup, is
-	// the second one in the chain and it is invoked after the test is executed.
-	//
-	// If a Test instance has its own SetupAndTeardown, then that will be
-	// used instead of this one.
-	SetupAndTeardown func(e E, t *Test) (teardown func() error, err error)
+	// StateHandler, if set, will be used for managing the state of each test.
+	StateHandler StateHandler
 
+	// The base URL of the target API.
+	url string
+	// mu is used to synchronize access to the test results.
 	mu sync.RWMutex
 	// The number of passed tests.
 	passed int
@@ -49,11 +53,22 @@ type Config struct {
 	skipped int
 }
 
-func (c *Config) Run(t *testing.T, tgs []*TestGroup) {
+// Run executes the set of provided test groups. If the Config's Host is left
+// empty then Run will automatically start a new test server using the mux argument
+// as the test server's handler.
+func (c *Config) Run(t *testing.T, tgs []*TestGroup, mux http.Handler) {
+	if c.url = c.Host; c.url == "" {
+		s := httptest.NewServer(mux)
+		defer s.Close()
+
+		c.url = s.URL
+	}
+
 	c.run(testing_t{t}, tgs)
 }
 
 func (c *Config) run(t T, tgs []*TestGroup) {
+	var client = c.getClient()
 	var passed, failed, skipped int
 	for _, tg := range tgs {
 		if tg.Skip {
@@ -62,48 +77,30 @@ func (c *Config) run(t T, tgs []*TestGroup) {
 		}
 
 		method, pattern := tg.E.Split()
-
-		gName := tg.GetName()
 		for i, tt := range tg.Tests {
 			if tt.Skip {
 				skipped += 1
 				continue
 			}
 
-			name := tt.GetName()
-			if len(name) == 0 {
-				name = fmt.Sprintf("%02d", i)
-			}
-			if len(tg.N) > 0 {
-				name = gName + "/" + name
-			}
-
+			name := c.testName(tt, tg, i)
 			t.Run(name, func(t T) {
-				sandt := tt.SetupAndTeardown
-				if sandt == nil {
-					sandt = c.SetupAndTeardown
+				x := &test{
+					url:      c.url,
+					client:   client,
+					method:   method,
+					pattern:  pattern,
+					name:     name,
+					index:    i,
+					endpoint: tg.E,
+					sh:       c.StateHandler,
+					tt:       tt,
 				}
-
-				tt.t = t
-				ts := &tstate{
-					host:    c.HostURL,
-					method:  method,
-					pattern: pattern,
-					name:    name,
-					e:       tg.E,
-					sandt:   sandt,
-					i:       i,
-					tt:      tt,
-				}
-				if err := runtest(ts, c.client()); err != nil {
+				if err := x.exec(); err != nil {
 					t.Error(err)
 					failed += 1
-				} else if len(tt.errs) > 0 {
-					failed += 1
-					for i := range tt.errs {
-						t.Error(tt.errs[i])
-					}
 				} else {
+					x.print_dumps()
 					passed += 1
 				}
 			})
@@ -117,22 +114,15 @@ func (c *Config) run(t T, tgs []*TestGroup) {
 	c.mu.Unlock()
 }
 
-func (c *Config) client() *http.Client {
-	if c.Client != nil {
-		return c.Client
-	}
-	return defaultClient
-}
-
-// LogReport logs a summary of the test to stderr. It is intended to be called at "teardown".
-func (c *Config) LogReport(title string) {
+// LogReport logs a summary of the test results to stderr.
+func (c *Config) LogReport() {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
 	var report = struct {
 		Title                   string
 		Passed, Failed, Skipped string
-	}{Title: title}
+	}{Title: c.Label}
 
 	if c.passed > 0 {
 		report.Passed = strconv.Itoa(c.passed)
@@ -149,130 +139,181 @@ func (c *Config) LogReport(title string) {
 	}
 }
 
-// The tstate type holds the state of a test.
-type tstate struct {
-	host    string
+// getClient returns the http client that will be used for executing test requests.
+func (c *Config) getClient() *http.Client {
+	if c.Client != nil {
+		return c.Client
+	}
+	return defaultClient
+}
+
+// testName constructs a name for the test t.
+func (c *Config) testName(t *Test, g *TestGroup, i int) string {
+	name := t.N
+	if len(t.Name) > 0 {
+		name = t.Name
+	}
+	if len(name) == 0 {
+		// default to test index
+		name = fmt.Sprintf("%02d", i)
+	}
+
+	// prefix test's name with test group's name
+	group := g.N
+	if len(g.Name) > 0 {
+		group = g.Name
+	}
+	if len(group) > 0 {
+		name = group + "/" + name
+	}
+	return name
+}
+
+// The test type manages the execution of an individual Test.
+type test struct {
+	client  *http.Client `cmp:"-"`
+	url     string
 	method  string
 	pattern string
-	name    string
-	e       E
-	sandt   func(e E, t *Test) (teardown func() error, err error) `cmp:"-"`
-	i       int
+	sh      StateHandler   `cmp:"-"`
 	tt      *Test          `cmp:"+"`
 	req     *http.Request  `cmp:"+"`
 	res     *http.Response `cmp:"+"`
 
-	reqdump []byte
-	resdump []byte
+	// the following are used for test result reporting
+	name     string
+	index    int
+	endpoint E
+	reqdump  []byte
+	resdump  []byte
 }
 
-func runtest(s *tstate, c *http.Client) (e error) {
-	if s.sandt != nil {
-		teardown, err := s.sandt(s.e, s.tt)
-		if err != nil {
-			return &testError{code: errTestSetup, s: s, err: err}
+func (t *test) exec() (err error) {
+	// initialize state & defer its cleanup
+	if t.sh != nil && t.tt.State != nil {
+		if err := t.sh.Init(t.tt.State); err != nil {
+			return &testError{code: errTestStateInit, test: t, err: err}
 		}
-		if teardown != nil {
-			defer func() {
-				if err := teardown(); err != nil && e == nil {
-					e = &testError{code: errTestTeardown, s: s, err: err}
-				}
-			}()
-		}
+		defer func() {
+			if e := t.sh.Cleanup(t.tt.State); e != nil && err == nil {
+				err = &testError{code: errTestStateCleanup, test: t, err: e}
+			}
+		}()
 	}
 
-	if err := initrequest(s); err != nil {
+	if err := t.prepare_request(); err != nil {
 		return err
 	}
-	if s.tt.Request.DumpOnFail {
-		dump, err := httputil.DumpRequestOut(s.req, true)
-		if err != nil {
-			return err
-		}
-		s.reqdump = dump
-	}
-
-	// send request
-	res, err := c.Do(s.req)
-	if err != nil && !errors.Is(err, redirect) {
-		return &testError{code: errRequestSend, s: s, err: err}
-	}
-	if s.tt.Response.DumpOnFail {
-		dump, err := httputil.DumpResponse(res, true)
-		if err != nil {
-			return err
-		}
-		s.resdump = dump
-	}
-	if res.Body != nil {
-		defer res.Body.Close()
-	}
-	s.res = res
-
-	if err := checkresponse(s); err != nil {
+	if err := t.send_request(); err != nil {
 		return err
+	}
+	defer t.close_response()
+
+	if err := t.check_response(); err != nil {
+		return err
+	}
+
+	// check state
+	if t.sh != nil && t.tt.State != nil {
+		if err := t.sh.Check(t.tt.State); err != nil {
+			return &testError{code: errTestStateCheck, test: t, err: err}
+		}
 	}
 	return nil
 }
 
-// initrequest initializes an http request from the test's Request value.
-func initrequest(s *tstate) error {
-	method, path := s.method, s.pattern
-
-	if s.tt.Request.Params != nil {
-		path = s.tt.Request.Params.SetParams(path)
+// prepare_request initializes an http request from the Test.Request value.
+func (t *test) prepare_request() error {
+	method, path := t.method, t.pattern
+	if t.tt.Request.Params != nil {
+		path = t.tt.Request.Params.SetParams(path)
 	}
-	if s.tt.Request.Query != nil {
-		path += "?" + s.tt.Request.Query.GetQuery()
+	if t.tt.Request.Query != nil {
+		path += "?" + t.tt.Request.Query.GetQuery()
 	}
-	url := s.host + path
+	url := t.url + path
 
 	// prepare the body
 	body, err := io.Reader(nil), error(nil)
-	if s.tt.Request.Body != nil {
-		body, err = s.tt.Request.Body.Reader()
+	if t.tt.Request.Body != nil {
+		body, err = t.tt.Request.Body.Reader()
 		if err != nil {
-			return &testError{code: errRequestBodyReader, s: s, err: err}
+			return &testError{code: errRequestBodyReader, test: t, err: err}
 		}
 	}
 
 	// initialize the request
 	req, err := http.NewRequest(method, url, body)
 	if err != nil {
-		return &testError{code: errRequestNew, s: s, err: err}
+		return &testError{code: errRequestNew, test: t, err: err}
 	}
+	t.req = req
 
 	// set the necessary headers
-	if s.tt.Request.Body != nil {
-		req.Header.Set("Content-Type", s.tt.Request.Body.Type())
+	if t.tt.Request.Body != nil {
+		t.req.Header.Set("Content-Type", t.tt.Request.Body.Type())
 	}
-	if s.tt.Request.Header != nil {
-		h := s.tt.Request.Header.GetHeader()
+	if t.tt.Request.Header != nil {
+		h := t.tt.Request.Header.GetHeader()
 		for k, vv := range h {
 			for _, v := range vv {
-				req.Header.Add(k, v)
+				t.req.Header.Add(k, v)
 			}
 		}
 	}
-	if s.tt.Request.Auth != nil {
-		s.tt.Request.Auth.SetAuth(req, s.tt.Request)
+	if t.tt.Request.Auth != nil {
+		t.tt.Request.Auth.SetAuth(t.req, t.tt.Request)
 	}
 
-	s.req = req
+	// retain a dump of the request for debugging
+	if t.tt.Request.DumpOnFail || t.tt.Request.Dump {
+		dump, err := httputil.DumpRequestOut(t.req, true)
+		if err != nil {
+			return err
+		}
+		t.reqdump = dump
+	}
 	return nil
 }
 
-// checkresponse checks the http response against the test's Response value.
-func checkresponse(s *tstate) error {
+// send_request sends the request and records the response.
+func (t *test) send_request() (err error) {
+	res, err := t.client.Do(t.req)
+	if err != nil && !errors.Is(err, redirect) {
+		return &testError{code: errRequestSend, test: t, err: err}
+	}
+	t.res = res
+
+	defer func() {
+		if err != nil {
+			t.close_response()
+		}
+	}()
+
+	if t.tt.Response.DumpOnFail || t.tt.Response.Dump {
+		dump, err := httputil.DumpResponse(t.res, true)
+		if err != nil {
+			return err
+		}
+		t.resdump = dump
+	}
+	return nil
+}
+
+// checkresponse checks the http response against the Test.Response value.
+func (t *test) check_response() error {
 	var errs errorList
 
-	if s.tt.Response.StatusCode != s.res.StatusCode {
-		return &testError{code: errResponseStatus, s: s}
+	// check the response status
+	if t.tt.Response.StatusCode != t.res.StatusCode {
+		return &testError{code: errResponseStatus, test: t}
 	}
-	if s.tt.Response.Header != nil {
-		wantHeader := s.tt.Response.Header.GetHeader()
+
+	// check the response headers
+	if t.tt.Response.Header != nil {
+		wantHeader := t.tt.Response.Header.GetHeader()
 		for key, _ := range wantHeader {
-			wantVals, gotVals := wantHeader[key], s.res.Header[key]
+			wantVals, gotVals := wantHeader[key], t.res.Header[key]
 
 		wantloop:
 			for _, want := range wantVals {
@@ -282,20 +323,39 @@ func checkresponse(s *tstate) error {
 					}
 				}
 
-				errs = append(errs, &testError{code: errResponseHeader, s: s, hkey: key})
+				errs = append(errs, &testError{code: errResponseHeader, test: t, hkey: key})
 				break wantloop
 			}
 		}
 	}
-	if s.tt.Response.Body != nil {
-		if err := s.tt.Response.Body.Compare(s.res.Body); err != nil {
-			err = &testError{code: errResponseBody, s: s, err: err}
+
+	// check the response body
+	if t.tt.Response.Body != nil {
+		if err := t.tt.Response.Body.Compare(t.res.Body); err != nil {
+			err = &testError{code: errResponseBody, test: t, err: err}
 			errs = append(errs, err)
 		}
 	}
 
 	if len(errs) > 0 {
 		return errs
+	}
+	return nil
+}
+
+func (t *test) print_dumps() {
+	if t.tt.Request.Dump && len(t.reqdump) > 0 {
+		fmt.Printf("REQUEST: \033[0;93m%s\033[0m\n", string(t.reqdump))
+	}
+	if t.tt.Response.Dump && len(t.resdump) > 0 {
+		fmt.Printf("RESPONSE: \033[0;93m%s\033[0m\n", string(t.resdump))
+	}
+}
+
+// close_response closes the test response's body.
+func (t *test) close_response() error {
+	if t.res != nil && t.res.Body != nil {
+		return t.res.Body.Close()
 	}
 	return nil
 }

@@ -100,13 +100,6 @@ type TestGroup struct {
 	SkipDoc bool
 }
 
-func (tg TestGroup) GetName() string {
-	if len(tg.Name) > 0 {
-		return tg.Name
-	}
-	return tg.N
-}
-
 // The Test type describes the HTTP request to be sent to an endpoint and the
 // corresponding HTTP response that is expected to be received for that request.
 type Test struct {
@@ -118,13 +111,9 @@ type Test struct {
 	//
 	// The httptest package uses the name to identify the Test's subtest.
 	N, Name string
-	// SetupAndTeardown is a two-func chain that can be used to setup and
-	// teardown the API's internal state needed for an endpoint's test.
-	//
-	// The setup function is the first one in the chain and it is invoked
-	// before a test is executed. The teardown, returned by the setup, is
-	// the second one in the chain and it is invoked after the test is executed.
-	SetupAndTeardown func(e E, t *Test) (teardown func() error, err error)
+	// State can optionally be set to a value that represents the test's state.
+	// If set, it will be passed to the Config.StateHandler to manage the test's state.
+	State State
 	// Indicates that the Test should be skipped by the test runner.
 	Skip bool
 	// DocA and DocB are optional, they are ignored by the httptest package
@@ -163,26 +152,6 @@ type Test struct {
 	// and any relevant documentation that's found will be used to generate
 	// the HTML text. If the type is unnamed an error will be returned.
 	DocA, DocB interface{}
-
-	// the T instance used when executing the Test
-	t T
-	// the list of errors collected by the Error() method
-	errs []error
-}
-
-func (t Test) GetName() string {
-	if len(t.Name) > 0 {
-		return t.Name
-	}
-	return t.N
-}
-
-func (t Test) GetT() T {
-	return t.t
-}
-
-func (t *Test) Error(err error) {
-	t.errs = append(t.errs, err)
 }
 
 // The Request type describes the data to be sent in a single HTTP request.
@@ -216,6 +185,8 @@ type Request struct {
 	// If set to true and the test fails, a dump of the HTTP request
 	// will be included in the test's output.
 	DumpOnFail bool
+	// If set to true, a dump of the HTTP request will be included in the test's output.
+	Dump bool
 }
 
 // Response is used to describe the expected HTTP response to a request.
@@ -235,6 +206,8 @@ type Response struct {
 	// If set to true and the test fails, a dump of the HTTP response
 	// will be included in the test's output.
 	DumpOnFail bool
+	// If set to true, a dump of the HTTP response will be included in the test's output.
+	Dump bool
 }
 
 ////////////////////////////////////////////////////////////////////////////////

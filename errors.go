@@ -18,8 +18,8 @@ func (list errorList) Error() (s string) {
 
 type testError struct {
 	code errorCode
-	// The state of the failed test.
-	s *tstate
+	// The failed test.
+	test *test
 	// The original error, or nil.
 	err error `cmp:"+"`
 	// The header key in case of errResponseHeader, or empty.
@@ -35,60 +35,60 @@ func (e *testError) Error() string {
 }
 
 func (e *testError) RequestDump() string {
-	if len(e.s.reqdump) > 0 {
-		return string(e.s.reqdump)
+	if len(e.test.reqdump) > 0 {
+		return string(e.test.reqdump)
 	}
 	return ""
 }
 
 func (e *testError) ResponseDump() string {
-	if len(e.s.resdump) > 0 {
-		return string(e.s.resdump)
+	if len(e.test.resdump) > 0 {
+		return string(e.test.resdump)
 	}
 	return ""
 }
 
 func (e *testError) TestName() string {
-	return e.s.name
+	return e.test.name
 }
 
 func (e *testError) TestIndex() string {
-	return strconv.Itoa(e.s.i)
+	return strconv.Itoa(e.test.index)
 }
 
 func (e *testError) EndpointString() string {
-	return `"` + e.s.e.String() + `"`
+	return `"` + e.test.endpoint.String() + `"`
 }
 
 func (e *testError) RequestHeader() string {
-	if e.s.tt.Request.Header != nil {
-		return fmt.Sprintf("%v", e.s.tt.Request.Header)
+	if e.test.tt.Request.Header != nil {
+		return fmt.Sprintf("%v", e.test.tt.Request.Header)
 	}
 	return ""
 }
 
 func (e *testError) RequestMethod() string {
-	return e.s.req.Method
+	return e.test.req.Method
 }
 
 func (e *testError) RequestPath() string {
-	return e.s.req.URL.Path
+	return e.test.req.URL.Path
 }
 
 func (e *testError) RequestURL() string {
-	return e.s.req.URL.String()
+	return e.test.req.URL.String()
 }
 
 func (e *testError) RequestBodyType() string {
-	return fmt.Sprintf("%T", e.s.tt.Request.Body)
+	return fmt.Sprintf("%T", e.test.tt.Request.Body)
 }
 
 func (e *testError) GotStatus() string {
-	return strconv.Itoa(e.s.res.StatusCode)
+	return strconv.Itoa(e.test.res.StatusCode)
 }
 
 func (e *testError) WantStatus() string {
-	return strconv.Itoa(e.s.tt.Response.StatusCode)
+	return strconv.Itoa(e.test.tt.Response.StatusCode)
 }
 
 func (e *testError) HeaderKey() string {
@@ -96,11 +96,11 @@ func (e *testError) HeaderKey() string {
 }
 
 func (e *testError) GotHeader() string {
-	return fmt.Sprintf("%+v", e.s.res.Header[e.hkey])
+	return fmt.Sprintf("%+v", e.test.res.Header[e.hkey])
 }
 
 func (e *testError) WantHeader() string {
-	header := e.s.tt.Response.Header.GetHeader()
+	header := e.test.tt.Response.Header.GetHeader()
 	return fmt.Sprintf("%+v", header[e.hkey])
 }
 
@@ -114,8 +114,9 @@ func (e errorCode) name() string { return fmt.Sprintf("error_template_%d", e) }
 
 const (
 	_ errorCode = iota
-	errTestSetup
-	errTestTeardown
+	errTestStateInit
+	errTestStateCheck
+	errTestStateCleanup
 	errRequestBodyReader
 	errRequestNew
 	errRequestSend
@@ -125,13 +126,18 @@ const (
 )
 
 var output_template_string = `
-{{ define "` + errTestSetup.name() + `" -}}
-{{Wb "frk/httptest"}}: Test setup returned an error.
+{{ define "` + errTestStateInit.name() + `" -}}
+{{Wb "frk/httptest"}}: Test state initialization returned an error.
  - {{R .Err}}
 {{ end }}
 
-{{ define "` + errTestTeardown.name() + `" -}}
-{{Wb "frk/httptest"}}: Test teardown returned an error.
+{{ define "` + errTestStateCheck.name() + `" -}}
+{{Wb "frk/httptest"}}: Test state check returned an error.
+ - {{R .Err}}
+{{ end }}
+
+{{ define "` + errTestStateCleanup.name() + `" -}}
+{{Wb "frk/httptest"}}: Test state cleanup returned an error.
  - {{R .Err}}
 {{ end }}
 

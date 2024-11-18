@@ -1,6 +1,6 @@
 module github.com/frk/httptest
 
-go 1.20
+go 1.21
 
 require (
 	github.com/frk/compare v0.0.6

@@ -190,7 +190,7 @@ type test struct {
 
 func (t *test) exec() (err error) {
 	// initialize state & defer its cleanup
-	if t.sh != nil && t.tt.State != nil {
+	if t.sh != nil {
 		if err := t.sh.Init(t.tt.State); err != nil {
 			return &testError{code: errTestStateInit, test: t, err: err}
 		}
@@ -214,7 +214,7 @@ func (t *test) exec() (err error) {
 	}
 
 	// check state
-	if t.sh != nil && t.tt.State != nil {
+	if t.sh != nil {
 		if err := t.sh.Check(t.tt.State); err != nil {
 			return &testError{code: errTestStateCheck, test: t, err: err}
 		}

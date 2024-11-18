@@ -11,6 +11,14 @@ import (
 	"github.com/frk/httptest/internal/page"
 )
 
+// getTGName returns the test group's name.
+func getTGName(tg *httptest.TestGroup) string {
+	if len(tg.Name) > 0 {
+		return tg.Name
+	}
+	return tg.N
+}
+
 // hexString returns a random hex string of length = size.
 func hexString(size uint) string {
 	b := make([]byte, size/2)
@@ -85,7 +93,7 @@ func pathFromTestGroup(tg *httptest.TestGroup, stripPrefix func(string) string) 
 	pattern = rxSlashes.ReplaceAllString(pattern, "/")
 	pattern = strings.Trim(pattern, "/")
 
-	verb := strings.ToLower(strings.TrimSpace(tg.GetName()))
+	verb := strings.ToLower(strings.TrimSpace(getTGName(tg)))
 	if i := strings.IndexByte(verb, ' '); i > -1 {
 		verb = verb[:i]
 	}

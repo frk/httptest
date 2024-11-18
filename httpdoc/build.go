@@ -574,7 +574,7 @@ func (c *build) newExampleEndpoints(tgs []*httptest.TestGroup) *page.ExampleEndp
 		item.Href = key.path
 		item.Method = method
 		item.Pattern = pattern
-		item.Tooltip = tg.GetName()
+		item.Tooltip = getTGName(tg)
 		section.Endpoints = append(section.Endpoints, item)
 	}
 
@@ -1325,7 +1325,7 @@ func getNearestNamedType(t *types.Type) *types.Type {
 }
 
 func getTestGroupName(tg *httptest.TestGroup) string {
-	if name := tg.GetName(); len(name) > 0 {
+	if name := getTGName(tg); len(name) > 0 {
 		return name
 	}
 	if len(tg.E) > 0 {

@@ -207,8 +207,7 @@ RESPONSE: {{Y .}}
 {{ end }}
 
 {{ define "test_report" }}
-{{ .Title }}:
-{{/* empty line */}}
+{{ .Label }}:
 {{- with .Failed }}
 > {{R "FAILED"}}: {{W .}} test(s).
 {{- end }}

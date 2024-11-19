@@ -120,9 +120,9 @@ func (c *Config) LogReport() {
 	defer c.mu.RUnlock()
 
 	var report = struct {
-		Title                   string
+		Label                   string
 		Passed, Failed, Skipped string
-	}{Title: c.Label}
+	}{Label: c.Label}
 
 	if c.passed > 0 {
 		report.Passed = strconv.Itoa(c.passed)

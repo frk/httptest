@@ -1,6 +1,8 @@
 package httptest
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -9,6 +11,7 @@ import (
 	"net/http/httputil"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 )
@@ -291,11 +294,31 @@ func (t *test) send_request() (err error) {
 	}()
 
 	if t.tt.Response.DumpOnFail || t.tt.Response.Dump {
-		dump, err := httputil.DumpResponse(t.res, true)
-		if err != nil {
-			return err
+		typ := t.res.Header.Get("Content-Type")
+		if strings.Contains(typ, "application/json") {
+			dump, err := httputil.DumpResponse(t.res, false)
+			if err != nil {
+				return err
+			}
+			body, err := io.ReadAll(t.res.Body)
+			if err != nil {
+				return err
+			}
+			t.res.Body.Close()
+			t.res.Body = io.NopCloser(strings.NewReader(string(body)))
+
+			buf := bytes.NewBuffer(dump)
+			if err := json.Indent(buf, body, "", "    "); err != nil {
+				return err
+			}
+			t.resdump = buf.Bytes()
+		} else {
+			dump, err := httputil.DumpResponse(t.res, true)
+			if err != nil {
+				return err
+			}
+			t.resdump = dump
 		}
-		t.resdump = dump
 	}
 	return nil
 }

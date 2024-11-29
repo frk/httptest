@@ -174,7 +174,7 @@ http.Response.StatusCode got={{R .GotStatus}}, want={{G .WantStatus}}
 {{ with .RequestDump -}}
 REQUEST: {{Y .}}
 {{- end }}
-{{- with .ResponseDump -}}
+{{ with .ResponseDump -}}
 RESPONSE: {{Y .}}
 {{ end }}
 {{ end }}
@@ -187,7 +187,7 @@ http.Response.Header["{{.HeaderKey}}"] got={{R .GotHeader}}, want={{G .WantHeade
 {{ with .RequestDump -}}
 REQUEST: {{Y .}}
 {{- end }}
-{{- with .ResponseDump -}}
+{{ with .ResponseDump -}}
 RESPONSE: {{Y .}}
 {{ end }}
 {{ end }}
@@ -201,7 +201,7 @@ http.Response.Body mismatch:
 {{ with .RequestDump -}}
 REQUEST: {{Y .}}
 {{- end }}
-{{- with .ResponseDump -}}
+{{ with .ResponseDump -}}
 RESPONSE: {{Y .}}
 {{ end }}
 {{ end }}

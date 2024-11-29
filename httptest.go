@@ -391,7 +391,11 @@ func (t *test) print_dumps() {
 		fmt.Printf("REQUEST: \033[0;93m%s\033[0m\n", string(t.reqdump))
 	}
 	if t.tt.Response.Dump && len(t.resdump) > 0 {
-		fmt.Printf("RESPONSE: \033[0;93m%s\033[0m\n", string(t.resdump))
+		var nl string
+		if t.tt.Request.Dump && len(t.reqdump) > 0 {
+			nl = "\n"
+		}
+		fmt.Printf(nl+"RESPONSE: \033[0;93m%s\033[0m\n", string(t.resdump))
 	}
 }
 

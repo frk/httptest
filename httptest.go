@@ -270,11 +270,31 @@ func (t *test) prepare_request() error {
 
 	// retain a dump of the request for debugging
 	if t.tt.Request.DumpOnFail || t.tt.Request.Dump {
-		dump, err := httputil.DumpRequestOut(t.req, true)
-		if err != nil {
-			return err
+		typ := t.req.Header.Get("Content-Type")
+		if strings.Contains(typ, "application/json") {
+			dump, err := httputil.DumpRequestOut(t.req, false)
+			if err != nil {
+				return err
+			}
+			body, err := io.ReadAll(t.req.Body)
+			if err != nil {
+				return err
+			}
+			t.req.Body.Close() // close the original
+			t.req.Body = io.NopCloser(strings.NewReader(string(body)))
+
+			buf := bytes.NewBuffer(dump)
+			if err := json.Indent(buf, body, "", "    "); err != nil {
+				return err
+			}
+			t.reqdump = buf.Bytes()
+		} else {
+			dump, err := httputil.DumpRequestOut(t.req, true)
+			if err != nil {
+				return err
+			}
+			t.reqdump = dump
 		}
-		t.reqdump = dump
 	}
 	return nil
 }
@@ -304,7 +324,7 @@ func (t *test) send_request() (err error) {
 			if err != nil {
 				return err
 			}
-			t.res.Body.Close()
+			t.res.Body.Close() // close the original
 			t.res.Body = io.NopCloser(strings.NewReader(string(body)))
 
 			buf := bytes.NewBuffer(dump)

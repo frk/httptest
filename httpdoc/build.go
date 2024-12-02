@@ -874,7 +874,8 @@ func (c *build) newFieldList(value interface{}, aElem *page.ArticleElement, clas
 		idpfx = "obj."
 	}
 
-	list, err = c._newFieldList(typ, aElem, class, isInput, idpfx, nil)
+	hierarchy := ""
+	list, err = c._newFieldList(typ, aElem, class, isInput, idpfx, nil, hierarchy)
 	if err != nil {
 		return nil, err
 	}
@@ -883,10 +884,39 @@ func (c *build) newFieldList(value interface{}, aElem *page.ArticleElement, clas
 	return list, nil
 }
 
-func (c *build) _newFieldList(typ *types.Type, aElem *page.ArticleElement, class page.FieldListClass, isInput bool, idpfx string, path []string) (*page.FieldList, error) {
+func (c *build) _newFieldList(typ *types.Type, aElem *page.ArticleElement, class page.FieldListClass, isInput bool, idpfx string, path []string, hierarchy string) (*page.FieldList, error) {
 	list := new(page.FieldList)
 
+	// exit recursive hierarchy?
+	ident := getTypeIdent(typ)
+	if len(ident) > 0 && strings.Contains(hierarchy, ident) {
+		return list, nil
+	} else {
+		hierarchy += "." + ident
+	}
+
 	tagKey := c.FieldNameTag
+
+	// Collect field names at root; this will be used to drop
+	// any identically named fields from embedded types.
+	rootNames := map[string]bool{}
+	for _, f := range typ.Fields {
+		tag := tagutil.New(f.Tag)
+		if tag.Contains(tagKey, "-") || tag.Contains("doc", "-") { // skip field?
+			continue
+		} else if !f.IsExported || (f.IsEmbedded && f.Type.CanSelectFields()) {
+			// skip if not exported of if an embedded struct type
+			continue
+		}
+
+		name := f.Name
+		if nm := tag.First(tagKey); nm != "" {
+			name = nm
+		}
+		rootNames[name] = true
+	}
+
+	// Collect the fields.
 	for _, f := range typ.Fields {
 		tag := tagutil.New(f.Tag)
 		if tag.Contains(tagKey, "-") || tag.Contains("doc", "-") { // skip field?
@@ -901,11 +931,15 @@ func (c *build) _newFieldList(typ *types.Type, aElem *page.ArticleElement, class
 		// then unpack those fields directly, rather than as sub-fields.
 		if f.IsEmbedded && f.Type.CanSelectFields() {
 			if stype := getNearestStructType(f.Type); stype != nil && len(stype.Fields) > 0 {
-				subList, err := c._newFieldList(stype, aElem, class, isInput, idpfx, path)
+				subList, err := c._newFieldList(stype, aElem, class, isInput, idpfx, path, hierarchy)
 				if err != nil {
 					return nil, err
 				}
-				list.Items = append(list.Items, subList.Items...)
+				for _, item := range subList.Items {
+					if !rootNames[item.Name] {
+						list.Items = append(list.Items, item)
+					}
+				}
 			}
 			continue
 		}
@@ -973,7 +1007,7 @@ func (c *build) _newFieldList(typ *types.Type, aElem *page.ArticleElement, class
 				itemName += "[]"
 			}
 
-			subList, err := c._newFieldList(stype, aElem, class, isInput, idpfx, append(path, itemName))
+			subList, err := c._newFieldList(stype, aElem, class, isInput, idpfx, append(path, itemName), hierarchy)
 			if err != nil {
 				return nil, err
 			}
@@ -988,8 +1022,9 @@ func (c *build) _newFieldList(typ *types.Type, aElem *page.ArticleElement, class
 
 		// for output fields, generate expandability info, etc.
 		if !isInput {
-			// the field's expandability
-			if label, text, ok := c.FieldExpandability(sf, typ.ReflectType); ok {
+			// the field's expandability?
+			label, text, ok := c.FieldExpandability(sf, typ.ReflectType)
+			if ok && len(item.SubFields) > 0 {
 				item.ExpandableLabel = label
 				item.ExpandableText = text
 			}
@@ -1355,4 +1390,20 @@ func getRequestPath(req httptest.Request, pattern string) (path string) {
 		path = "/" + path
 	}
 	return path
+}
+
+func getTypeIdent(t *types.Type) string {
+	for t.Kind == types.KindPtr {
+		t = t.Elem
+	}
+
+	ident := t.PkgPath
+	if len(ident) > 0 && len(t.Name) > 0 {
+		ident += "."
+	}
+	ident += t.Name
+	if ident != "" {
+		return "<" + ident + ">"
+	}
+	return ""
 }

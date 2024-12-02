@@ -283,6 +283,11 @@ type FieldItem struct {
 	Text template.HTML
 	// A link to the source of the field.
 	SourceLink *SourceLink
+	// ExpandableLabel and ExpandableText are used to indicate whether the field
+	// is expandable or not. The ExpandableLabel is used as part of the associated
+	// CSS class name. The ExpandableText is used as the text to be rendered
+	// in the documentation.
+	ExpandableLabel, ExpandableText string
 	// SettingLabel and SettingText are used to indicates whether the field
 	// is required, optional, or something else. The SettingLabel is used as
 	// part of the associated CSS class name. The SettingText is used as the
@@ -345,9 +350,9 @@ type SelectOption struct {
 	Value string
 }
 
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 // cURL specific types
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 type CURLDataType interface {
 	isCURLDataType()
 }

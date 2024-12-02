@@ -380,6 +380,23 @@ h3.article-section-lead-title {
 	border-color: var(--cp-grey100);
 }
 
+.field-expandability {
+	font-size: 11px;
+	font-family: var(--ff-mono);
+	font-weight: normal;
+	padding: 0px 3px;
+	border-radius: 4px;
+	border-style: solid;
+	border-width: 1px;
+	margin-right: 8px;
+}
+
+.field-expandability.expandable {
+	color: var(--cp-grey700);
+	background-color: var(--cp-grey10);
+	border-color: var(--cp-grey100);
+}
+
 .field-text {
 	font-size: 13px;
 	color: var(--cp-grey800);

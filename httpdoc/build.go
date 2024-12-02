@@ -986,6 +986,15 @@ func (c *build) _newFieldList(typ *types.Type, aElem *page.ArticleElement, class
 			item.SourceLink.Href = c.SourceURL(f.Pos.Filename, f.Pos.Line)
 		}
 
+		// for output fields, generate expandability info, etc.
+		if !isInput {
+			// the field's expandability
+			if label, text, ok := c.FieldExpandability(sf, typ.ReflectType); ok {
+				item.ExpandableLabel = label
+				item.ExpandableText = text
+			}
+		}
+
 		// for input fields additionally generate validation info
 		if isInput {
 			// the field's setting

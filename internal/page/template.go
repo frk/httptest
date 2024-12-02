@@ -535,6 +535,9 @@ var field_item = `{{ define "field_item" -}}
 		{{- if .SettingText }}
 		<span class="field-setting {{ .SettingLabel }}">{{ .SettingText }}</span>
 		{{- end }}
+		{{- if .ExpandableText }}
+		<span class="field-expandability {{ .ExpandableLabel }}">{{ .ExpandableText }}</span>
+		{{- end }}
 		{{- with .SourceLink }}
 		<a class="field-source-link" href="{{ .Href }}">{{ template "svg_code_icon_use" }}</a>
 		{{- end }}

@@ -102,6 +102,18 @@ type Config struct {
 	// If FieldType is nil or it returns false as the second return
 	// value (ok) it will fall back to the default behaviour.
 	FieldType func(field reflect.StructField) (typeName string, ok bool)
+	// FieldExpandability returns values that are used to document whether
+	// the given field is expandable or not. The structType argument represents
+	// the type of struct to which the field belongs.
+	//
+	// The returned label is used in the CSS class of the expandability indicator's element.
+	// The returned text is used as the content of the expandability indicator's element.
+	// The returned ok indicates whether the expandability indicator should be displayed.
+	//
+	// If FieldExpandability is nil then the attempt to determine the field's
+	// expandability by inspecting the "doc" tag, and if the field is determined
+	// not to be expandable then no indicator will be shown..
+	FieldExpandability func(field reflect.StructField, structType reflect.Type) (label, text string, ok bool)
 	// FieldSetting returns values that are used to document whether the given
 	// field is required, optional, or something else. The structType argument
 	// represents the type of struct to which the field belongs.
@@ -202,6 +214,9 @@ func (c *Config) normalize() (err error) {
 	if len(c.FieldNameTag) == 0 {
 		c.FieldNameTag = DefaultFieldNameTag
 	}
+	if c.FieldExpandability == nil {
+		c.FieldExpandability = DefaultFieldExpandability
+	}
 	if c.FieldSetting == nil {
 		c.FieldSetting = DefaultFieldSetting
 	}
@@ -227,6 +242,7 @@ func (c *Config) normalize() (err error) {
 // The argument remote should be the remote, web-accessible, root location
 // of the project for which the documentation is being generated.
 // For example:
+//
 //	// for a github repo the remote should have the following format.
 //	remote = "https://github.com/<user>/<project>/tree/<branch>/"
 //	// for a bitbucket repo the remote should have the following format.
@@ -264,4 +280,13 @@ func DefaultFieldSetting(s reflect.StructField, t reflect.Type) (label, text str
 		return required, required, true
 	}
 	return optional, optional, true
+}
+
+func DefaultFieldExpandability(s reflect.StructField, t reflect.Type) (label, text string, ok bool) {
+	const expandable = "expandable"
+	tag := tagutil.New(string(s.Tag))
+	if tag.Contains("doc", expandable) {
+		return expandable, expandable, true
+	}
+	return "", "", false
 }

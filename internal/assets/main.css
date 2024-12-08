@@ -520,7 +520,7 @@ h3.article-section-lead-title {
 }
 
 .enum-item {
-	padding: 0px 11px;
+	padding: 10px 11px;
 	border-top: 1px solid var(--cp-grey50);
 }
 
@@ -538,6 +538,7 @@ h3.article-section-lead-title {
 
 .enum-value {
 	display: inline-flex;
+	margin: 0px 0px 3px 0px;
 }
 
 .enum-value > code {
@@ -576,7 +577,10 @@ h3.article-section-lead-title {
 }
 
 .enum-text {
+	display: flex;
 	font-size: 13px;
+	align-items: center;
+	flex-direction: row;
 }
 
 /*******************************************************************************

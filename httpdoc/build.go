@@ -874,8 +874,8 @@ func (c *build) newFieldList(value interface{}, aElem *page.ArticleElement, clas
 		idpfx = "obj."
 	}
 
-	hierarchy := ""
-	list, err = c._newFieldList(typ, aElem, class, isInput, idpfx, nil, hierarchy)
+	opts := fieldListOptions{class: class, isInput: isInput, idpfx: idpfx}
+	list, err = c._newFieldList(typ, aElem, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -884,15 +884,25 @@ func (c *build) newFieldList(value interface{}, aElem *page.ArticleElement, clas
 	return list, nil
 }
 
-func (c *build) _newFieldList(typ *types.Type, aElem *page.ArticleElement, class page.FieldListClass, isInput bool, idpfx string, path []string, hierarchy string) (*page.FieldList, error) {
+type fieldListOptions struct {
+	class       page.FieldListClass
+	isInput     bool
+	idpfx       string
+	path        []string
+	hierarchy   string
+	dontExpand  bool
+	dontDescend bool
+}
+
+func (c *build) _newFieldList(typ *types.Type, aElem *page.ArticleElement, opts fieldListOptions) (*page.FieldList, error) {
 	list := new(page.FieldList)
 
 	// exit recursive hierarchy?
 	ident := getTypeIdent(typ)
-	if len(ident) > 0 && strings.Contains(hierarchy, ident) {
+	if len(ident) > 0 && strings.Contains(opts.hierarchy, ident) {
 		return list, nil
 	} else {
-		hierarchy += "." + ident
+		opts.hierarchy += "." + ident
 	}
 
 	tagKey := c.FieldNameTag
@@ -927,11 +937,16 @@ func (c *build) _newFieldList(typ *types.Type, aElem *page.ArticleElement, class
 			continue
 		}
 
+		opts := opts // copy
+		if tag.Contains("doc", "-expandable") {
+			opts.dontExpand = true
+		}
+
 		// If this is an embedded field that promotes fields to the parent
 		// then unpack those fields directly, rather than as sub-fields.
 		if f.IsEmbedded && f.Type.CanSelectFields() {
 			if stype := getNearestStructType(f.Type); stype != nil && len(stype.Fields) > 0 {
-				subList, err := c._newFieldList(stype, aElem, class, isInput, idpfx, path, hierarchy)
+				subList, err := c._newFieldList(stype, aElem, opts)
 				if err != nil {
 					return nil, err
 				}
@@ -959,12 +974,12 @@ func (c *build) _newFieldList(typ *types.Type, aElem *page.ArticleElement, class
 		}
 
 		// the field's path
-		if len(path) > 0 {
-			item.Path = strings.Join(path, ".") + "."
+		if len(opts.path) > 0 {
+			item.Path = strings.Join(opts.path, ".") + "."
 		}
 
 		// the field's id
-		item.Id = aElem.Id + "." + idpfx + item.Path + item.Name
+		item.Id = aElem.Id + "." + opts.idpfx + item.Path + item.Name
 		// the field's anchor
 		item.Href = "#" + item.Id
 
@@ -1001,13 +1016,15 @@ func (c *build) _newFieldList(typ *types.Type, aElem *page.ArticleElement, class
 		}
 
 		// the field's sub fields
-		if stype := getNearestStructType(ftype); stype != nil && len(stype.Fields) > 0 {
+		if stype := getNearestStructType(ftype); stype != nil && len(stype.Fields) > 0 && !opts.dontDescend {
 			itemName := item.Name
 			if ftype.Kind == types.KindSlice || ftype.Kind == types.KindArray {
 				itemName += "[]"
 			}
 
-			subList, err := c._newFieldList(stype, aElem, class, isInput, idpfx, append(path, itemName), hierarchy)
+			opts := opts
+			opts.path = append(opts.path, itemName)
+			subList, err := c._newFieldList(stype, aElem, opts)
 			if err != nil {
 				return nil, err
 			}
@@ -1021,17 +1038,21 @@ func (c *build) _newFieldList(typ *types.Type, aElem *page.ArticleElement, class
 		}
 
 		// for output fields, generate expandability info, etc.
-		if !isInput {
+		if !opts.isInput {
 			// the field's expandability?
 			label, text, ok := c.FieldExpandability(sf, typ.ReflectType)
-			if ok && len(item.SubFields) > 0 {
+			switch {
+			case ok && opts.dontExpand:
+				item.SubFields = nil
+
+			case ok && len(item.SubFields) > 0:
 				item.ExpandableLabel = label
 				item.ExpandableText = text
 			}
 		}
 
 		// for input fields additionally generate validation info
-		if isInput {
+		if opts.isInput {
 			// the field's setting
 			if label, text, ok := c.FieldSetting(sf, typ.ReflectType); ok {
 				item.SettingLabel = label
@@ -1074,6 +1095,11 @@ func (c *build) newEnumList(typ *types.Type) (*page.EnumList, error) {
 			if err != nil {
 				return nil, err
 			}
+
+			// remove surrounding paragraph tags
+			text = strings.TrimSpace(text)
+			text = strings.TrimLeft(text, "<p>")
+			text = strings.TrimRight(text, "</p>")
 			item.Text = template.HTML(text)
 		}
 

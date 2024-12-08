@@ -542,11 +542,6 @@ var field_item = `{{ define "field_item" -}}
 		<a class="field-source-link" href="{{ .Href }}">{{ template "svg_code_icon_use" }}</a>
 		{{- end }}
 	</h3>
-	{{- with .Validation }}
-	<div class="field-validation text-box">
-		{{ . }}
-	</div>
-	{{- end }}
 	<div class="field-text-container">
 		{{- with .Text }}
 		<div class="field-text text-box">
@@ -554,6 +549,11 @@ var field_item = `{{ define "field_item" -}}
 		</div>
 		{{- end }}
 	</div>
+	{{- with .Validation }}
+	<div class="field-validation text-box">
+		{{ . }}
+	</div>
+	{{- end }}
 
 	{{- with .EnumList }}
 	{{ template "enum_list" . }}
@@ -587,17 +587,17 @@ var enum_list = `{{ define "enum_list" -}}
 	<ul class="enum-list">
 		{{ range .Items -}}
 		<li class="enum-item">
-			<div class="enum-heading">
-				<div class="enum-value">
+			<div class="enum-text text-box">
+				<span class="enum-value">
 					<code>{{ .Value }}</code>
-				</div>
+				</span>
+				<span class="enum-doc">
+					{{- with .Text }}
+					{{ . }}
+					{{- end }}
+				</span>
 				{{- with .SourceLink }}
 				<a href="{{ .Href }}" class="enum-source-link">{{ template "svg_code_icon_use" }}</a>
-				{{- end }}
-			</div>
-			<div class="enum-text text-box">
-				{{- with .Text }}
-				{{ . }}
 				{{- end }}
 			</div>
 		</li>

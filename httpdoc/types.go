@@ -52,6 +52,7 @@ type ArticleGroup struct {
 // by httpdoc to generate <article> elements that contain documentation extracted
 // from the Article's data.
 type Article struct {
+	OmitFromSidebar bool
 	// The title of the article.
 	Title string
 	// A list of test groups used to generate child <article> elements

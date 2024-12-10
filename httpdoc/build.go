@@ -174,11 +174,14 @@ func (c *build) newSidebarBanner() (page.SidebarBanner, error) {
 var errNoArticleTitle = fmt.Errorf("httpdoc: Article.Title is required.")
 
 func (c *build) newSidebarItemsFromArticles(articles []*Article, parent *Article) ([]*page.SidebarItem, error) {
-	items := make([]*page.SidebarItem, len(articles))
-	for i, a := range articles {
+	items := make([]*page.SidebarItem, 0, len(articles))
+	for _, a := range articles {
 		if a.Title == "" {
 			// title is required, fail if none was provided
 			return nil, errNoArticleTitle
+		}
+		if a.OmitFromSidebar {
+			continue
 		}
 
 		key := c.objkeys[a]
@@ -199,7 +202,7 @@ func (c *build) newSidebarItemsFromArticles(articles []*Article, parent *Article
 			item.SubItems = append(item.SubItems, items...)
 		}
 
-		items[i] = item
+		items = append(items, item)
 	}
 	return items, nil
 }

@@ -55,6 +55,8 @@ type Article struct {
 	OmitFromSidebar bool
 	// The title of the article.
 	Title string
+	// An optional subtitle for the article.
+	SubTitle string
 	// A list of test groups used to generate child <article> elements
 	// that contain endpoint-specific documentation.
 	TestGroups []*httptest.TestGroup

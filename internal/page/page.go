@@ -107,6 +107,8 @@ type ArticleElement struct {
 	Href string
 	// The article's title.
 	Title string
+	// The article's subtitle.
+	SubTitle string
 	// A link to the source code associated with the article.
 	SourceLink *SourceLink
 	// The article's HTML text.

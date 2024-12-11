@@ -261,6 +261,9 @@ var article_lead = `{{ define "article_lead" -}}
 	<h3 class="article-section-lead-title">
 		<a class="article-anchor" href="{{ .Href }}">{{ .Title }}</a>
 	</h3>
+	{{- if .SubTitle }}
+	<h5 class="article-section-lead-subtitle">{{ .SubTitle }}</h5>
+	{{- end }}
 	{{- end }}
 
 	{{- with .SourceLink }}

@@ -273,6 +273,12 @@ article {
 	text-decoration: none;
 }
 
+.article-section-lead-subtitle {
+	margin: 0;
+    color: #333333;
+    font-size: 16px;
+}
+
 h2.article-section-lead-title {
 	font-size: 33px;
 }

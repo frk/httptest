@@ -355,6 +355,7 @@ func (c *build) newArticleElementFromArticle(a *Article, parent *Article) (*page
 	aElem.Id = c.objkeys[a].anchor
 	aElem.Href = c.objkeys[a].path
 	aElem.Title = a.Title
+	aElem.SubTitle = a.SubTitle
 	aElem.IsRoot = (parent == nil)
 
 	if a.Text != nil {
@@ -404,6 +405,7 @@ func (c *build) newArticleElementFromTestGroup(tg *httptest.TestGroup, parent *A
 	aElem.Id = c.objkeys[tg].anchor
 	aElem.Href = c.objkeys[tg].path
 	aElem.Title = getTestGroupName(tg)
+	aElem.SubTitle = "" // NOTE: not supported currently
 
 	if tg.DocA != nil {
 		var decl types.TypeDecl

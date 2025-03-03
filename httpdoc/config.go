@@ -45,6 +45,8 @@ type Config struct {
 	// When false, httpdoc will generate and compile the program to
 	// produce an executable.
 	OutputPackage bool
+	// If set to true, httpdoc will NOT generate a go.mod file for the docs.
+	IsNotModule bool
 
 	////////////////////////////////////////////////////////////////////////
 	// Page specific configuration

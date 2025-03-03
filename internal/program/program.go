@@ -10,6 +10,7 @@ type Program struct {
 	RootPath     string
 	ListenAddr   string
 	IsExecutable bool
+	NeedsModFile bool
 	ValidPaths   map[string]string
 	SnippetTypes []string
 	Users        map[string]string
@@ -26,6 +27,8 @@ func (p Program) Imports() []string {
 	}
 	if p.IsExecutable {
 		imports = append(imports, "os")
+	} else {
+		imports = append(imports, "runtime")
 	}
 	if len(p.Users) > 0 {
 		imports = append(imports, []string{

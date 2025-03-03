@@ -152,22 +152,24 @@ func (w *write) writeProgram() error {
 		return err
 	}
 
-	// create go.mod file
-	stderr := new(strings.Builder)
-	modInitCmd := exec.Command("go", "mod", "init", w.Config.OutputName)
-	modInitCmd.Dir = w.outdir
-	modInitCmd.Stderr = stderr
-	if err := modInitCmd.Run(); err != nil {
-		return fmt.Errorf("failed to initialize module %q: %v\n%s\n", w.Config.OutputName, err, stderr.String())
-	}
+	if w.prog.NeedsModFile {
+		// create go.mod file
+		stderr := new(strings.Builder)
+		modInitCmd := exec.Command("go", "mod", "init", w.Config.OutputName)
+		modInitCmd.Dir = w.outdir
+		modInitCmd.Stderr = stderr
+		if err := modInitCmd.Run(); err != nil {
+			return fmt.Errorf("failed to initialize module %q: %v\n%s\n", w.Config.OutputName, err, stderr.String())
+		}
 
-	// tidy up go.mod file
-	stderr = new(strings.Builder)
-	modTidyCmd := exec.Command("go", "mod", "tidy")
-	modTidyCmd.Dir = w.outdir
-	modTidyCmd.Stderr = stderr
-	if err := modTidyCmd.Run(); err != nil {
-		return fmt.Errorf("failed to tidy up go.mod: %v\n%s\n", err, stderr.String())
+		// tidy up go.mod file
+		stderr = new(strings.Builder)
+		modTidyCmd := exec.Command("go", "mod", "tidy")
+		modTidyCmd.Dir = w.outdir
+		modTidyCmd.Stderr = stderr
+		if err := modTidyCmd.Run(); err != nil {
+			return fmt.Errorf("failed to tidy up go.mod: %v\n%s\n", err, stderr.String())
+		}
 	}
 
 	// if the program's an executable then compile it and remove the intermediary source

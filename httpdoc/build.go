@@ -255,6 +255,7 @@ func (c *build) buildContent() error {
 func (b *build) buildProgram() error {
 	// package name
 	b.prog.IsExecutable = !b.Config.OutputPackage
+	b.prog.NeedsModFile = !b.Config.IsNotModule
 	if b.prog.IsExecutable {
 		b.prog.PkgName = "main"
 	} else {
@@ -268,6 +269,9 @@ func (b *build) buildProgram() error {
 
 	b.prog.ValidPaths = make(map[string]string, 3+len(b.objkeys))
 	b.prog.ValidPaths[b.RootPath] = ""
+	if l := len(b.RootPath); l > 1 && b.RootPath[l-1] != '/' {
+		b.prog.ValidPaths[b.RootPath+"/"] = ""
+	}
 	for _, k := range b.objkeys {
 		b.prog.ValidPaths[k.path] = k.anchor
 	}

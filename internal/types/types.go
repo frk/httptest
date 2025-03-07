@@ -124,6 +124,16 @@ func (t *Type) CanSelectFields() bool {
 	return false
 }
 
+// HasConstValues reports whether the t has associated const values.
+func (t *Type) HasConstValues() bool {
+	return t.Kind.IsBasic() && len(t.Values) > 0
+}
+
+// ElemHasConstValues reports whether the t's Elem type has associated const values.
+func (t *Type) ElemHasConstValues() bool {
+	return t.Elem != nil && t.Elem.Kind.IsBasic() && len(t.Elem.Values) > 0
+}
+
 // StructField describes a single struct field.
 type StructField struct {
 	// Name of the field.
@@ -212,6 +222,9 @@ const (
 
 // Reports whether or not k is of a basic kind.
 func (k Kind) IsBasic() bool { return _basic_kind_start < k && k < _basic_kind_end }
+
+// IsArrayOrSlice indicates whether or not k is an Array kind or a Slice kind.
+func (k Kind) IsArrayOrSlice() bool { return k == KindArray || k == KindSlice }
 
 func (k Kind) String() string {
 	if int(k) < len(kindString) {

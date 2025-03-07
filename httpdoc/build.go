@@ -1016,13 +1016,14 @@ func (c *build) _newFieldList(typ *types.Type, aElem *page.ArticleElement, opts 
 		}
 
 		// the field type's enum values
-		if ftype.HasConstValues() {
+		switch {
+		case ftype.HasConstValues():
 			enumList, err := c.newEnumList(ftype)
 			if err != nil {
 				return nil, err
 			}
 			item.EnumList = enumList
-		} else if ftype.ElemHasConstValues() {
+		case ftype.ElemHasConstValues():
 			enumList, err := c.newEnumList(ftype.Elem)
 			if err != nil {
 				return nil, err

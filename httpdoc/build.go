@@ -1061,7 +1061,7 @@ func (c *build) _newFieldList(typ *types.Type, aElem *page.ArticleElement, opts 
 			case ok && opts.dontExpand:
 				item.SubFields = nil
 
-			case ok && len(item.SubFields) > 0:
+			case ok:
 				item.ExpandableLabel = label
 				item.ExpandableText = text
 			}
